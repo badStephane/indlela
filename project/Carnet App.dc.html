@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Public+Sans:wght@400;500;600;700;800&family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Archivo:wdth,wght@62..125,400..900&family=Sora:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>.dc-phone *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}.dc-phone button{font-family:inherit}</style>
+</helmet>
+<div class="dc-phone" style="width:376px;height:776px;border:8px solid #17191A;border-radius:42px;overflow:hidden;background:{{ t.bg }};position:relative;font-family:{{ t.font }};color:{{ t.ink }};display:flex;flex-direction:column;font-size:15px;line-height:1.4;">
+  <div style="height:30px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font-size:12px;font-weight:600;background:{{ t.hdrBg }};color:{{ t.hdrInk }};">
+    <span>9:41</span><span>{{ net }}</span>
+  </div>
+
+  <sc-if value="{{ isLogin }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;min-height:0;overflow-y:auto;padding:36px 24px 24px;display:flex;flex-direction:column;gap:28px;">
+      <img src="assets/logo.svg" alt="Indlela" style="height:38px;width:auto;align-self:flex-start;filter:{{ t.logoFilter }};">
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <h1 style="margin:0;font-family:{{ t.headFont }};font-size:26px;font-weight:{{ t.titleW }};line-height:1.15;letter-spacing:-0.01em;">Carnet de progression</h1>
+        <p style="margin:0;font-size:15px;color:{{ t.muted }};text-wrap:pretty;">Connectez-vous avec le compte remis par votre groupe.</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;">Identifiant
+          <input value="{{ login.id }}" onChange="{{ login.onId }}" placeholder="prenom.nom" style="height:48px;padding:0 14px;border:1px solid {{ t.lineStrong }};border-radius:{{ t.r }};background:{{ t.surface }};font:400 16px {{ t.font }};color:{{ t.ink }};outline:none;">
+        </label>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;">Mot de passe
+          <input type="password" value="{{ login.pw }}" onChange="{{ login.onPw }}" placeholder="••••••" style="height:48px;padding:0 14px;border:1px solid {{ t.lineStrong }};border-radius:{{ t.r }};background:{{ t.surface }};font:400 16px {{ t.font }};color:{{ t.ink }};outline:none;">
+        </label>
+        <sc-if value="{{ login.hasError }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:10px 12px;border-radius:{{ t.r }};background:#FBE3E0;color:#A1231B;font-size:14px;text-wrap:pretty;">{{ login.error }}</div>
+        </sc-if>
+        <button onClick="{{ login.submit }}" style="height:52px;border:none;border-radius:{{ t.r }};background:#0B6E3C;color:#FFFFFF;font-size:16px;font-weight:700;cursor:pointer;">Se connecter</button>
+      </div>
+      <div style="margin-top:auto;display:flex;flex-direction:column;gap:10px;border-top:1px solid {{ t.line }};padding-top:16px;">
+        <span style="font-size:11px;color:{{ t.muted }};font-family:{{ t.mono }};text-transform:uppercase;letter-spacing:0.08em;">Démo · entrer comme</span>
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
+          <sc-for list="{{ login.roles }}" as="r" hint-placeholder-count="3">
+            <button onClick="{{ r.onTap }}" style="height:44px;border:1px solid {{ t.line }};background:{{ t.surface }};border-radius:{{ t.r }};font-size:14px;font-weight:600;color:{{ t.ink }};cursor:pointer;">{{ r.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ inApp }}" hint-placeholder-val="{{ true }}">
+    <div style="flex:none;background:{{ t.hdrBg }};color:{{ t.hdrInk }};padding:4px 12px 10px 12px;border-bottom:{{ t.hdrBorder }};display:flex;align-items:center;gap:6px;min-height:62px;">
+      <sc-if value="{{ hdr.back }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ goBack }}" aria-label="Retour" style="width:44px;height:44px;flex:none;border:none;background:transparent;color:inherit;font-size:28px;line-height:1;cursor:pointer;margin-left:-6px;">‹</button>
+      </sc-if>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;padding-left:4px;">
+        <span style="font-size:12px;color:{{ t.hdrMuted }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ hdr.kicker }}</span>
+        <span style="font-family:{{ t.headFont }};text-transform:{{ t.titleTransform }};font-size:19px;font-weight:{{ t.titleW }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-0.01em;">{{ hdr.title }}</span>
+      </div>
+      <button onClick="{{ sync.onTap }}" style="height:40px;padding:0 12px;flex:none;border-radius:999px;border:none;background:{{ sync.bg }};color:{{ sync.ink }};font-size:12px;font-weight:700;display:flex;align-items:center;gap:7px;cursor:pointer;">
+        <span style="width:8px;height:8px;border-radius:50%;background:{{ sync.dot }};"></span>{{ sync.label }}
+      </button>
+    </div>
+    <sc-if value="{{ showBanner }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:none;padding:9px 16px;background:#FDEFD6;color:#6B4100;font-size:13px;text-wrap:pretty;">{{ bannerText }}</div>
+    </sc-if>
+
+    <div style="flex:1;min-height:0;overflow-y:auto;">
+
+      <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+        <div style="padding:16px;display:flex;flex-direction:column;gap:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
+            <span style="font-size:13px;color:{{ t.muted }};">Réunion du lundi 26 octobre</span>
+            <span style="font-size:13px;color:{{ t.muted }};font-family:{{ t.mono }};">{{ homeCount }}</span>
+          </div>
+          <sc-if value="{{ heroOn }}" hint-placeholder-val="{{ false }}">
+            <div style="background:{{ t.heroBg }};color:{{ t.heroInk }};border:{{ t.card }};box-shadow:{{ t.shadow }};border-radius:{{ t.rLg }};padding:18px 16px 16px;display:flex;flex-direction:column;gap:16px;">
+              <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;">
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                  <span style="font-family:{{ t.headFont }};font-size:60px;font-weight:{{ t.heroW }};line-height:0.85;letter-spacing:-0.04em;">{{ hero.count }}</span>
+                  <span style="font-size:13px;color:{{ t.heroMuted }};">jeunes sur le chemin</span>
+                </div>
+                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;text-align:right;">
+                  <span style="font-family:{{ t.headFont }};font-size:30px;font-weight:{{ t.heroW }};line-height:0.9;">{{ hero.award }}</span>
+                  <span style="font-size:12px;color:{{ t.heroMuted }};">étapes à remettre le 7 nov.</span>
+                </div>
+              </div>
+              <div style="display:flex;gap:4px;">
+                <sc-for list="{{ hero.segs }}" as="g" hint-placeholder-count="4">
+                  <div style="flex:{{ g.flex }};min-width:0;display:flex;flex-direction:column;gap:6px;">
+                    <span style="height:12px;border-radius:{{ t.barR }};background:{{ g.color }};"></span>
+                    <span style="font-family:{{ t.mono }};font-size:13px;font-weight:700;line-height:1;">{{ g.count }}</span>
+                    <span style="font-size:11px;color:{{ t.heroMuted }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.1;">{{ g.label }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:28px 20px;border:1px dashed {{ t.lineStrong }};border-radius:{{ t.rLg }};display:flex;flex-direction:column;gap:8px;align-items:flex-start;">
+              <span style="font-size:17px;font-weight:700;">Aucun jeune dans cette unité</span>
+              <span style="font-size:14px;color:{{ t.muted }};text-wrap:pretty;">L'administrateur peut importer la liste des jeunes (fichier CSV) ou créer les fiches une par une. Elles apparaîtront ici.</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ hasJeunes }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:{{ t.listGap }};background:{{ t.listBg }};border-radius:{{ t.rLg }};border:{{ t.listBorder }};overflow:hidden;">
+              <sc-for list="{{ jeunes }}" as="j" hint-placeholder-count="8">
+                <button onClick="{{ j.onOpen }}" style="display:flex;align-items:center;gap:12px;min-height:66px;padding:10px 14px;border:{{ t.rowBorder }};border-bottom:{{ t.rowRule }};background:{{ t.rowBg }};border-radius:{{ t.rowR }};box-shadow:{{ t.shadow }};text-align:left;cursor:pointer;color:inherit;width:100%;">
+                  <span style="width:40px;height:40px;flex:none;border-radius:{{ t.avR }};background:{{ a.soft }};color:{{ a.accText }};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">{{ j.initials }}</span>
+                  <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;">
+                    <span style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
+                      <span style="font-weight:600;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ j.name }}</span>
+                      <span style="font-family:{{ t.mono }};font-size:12px;color:{{ t.muted }};flex:none;">{{ j.frac }}</span>
+                    </span>
+                    <span style="display:flex;align-items:center;gap:10px;">
+                      <span style="font-size:13px;color:{{ t.muted }};width:76px;flex:none;">{{ j.step }}</span>
+                      <span style="flex:1;height:6px;border-radius:3px;background:{{ t.track }};overflow:hidden;"><span style="display:block;height:100%;width:{{ j.pct }};background:{{ a.acc }};border-radius:3px;"></span></span>
+                    </span>
+                  </span>
+                  <sc-if value="{{ j.pending }}" hint-placeholder-val="{{ false }}">
+                    <span title="En attente de synchronisation" style="width:10px;height:10px;flex:none;border-radius:50%;background:#D98A00;"></span>
+                  </sc-if>
+                </button>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isFiche }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:18px 16px 24px;display:flex;flex-direction:column;gap:22px;">
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <span style="font-size:14px;color:{{ t.muted }};">{{ f.meta }}</span>
+            <sc-if value="{{ f.readOnly }}" hint-placeholder-val="{{ false }}">
+              <span style="align-self:flex-start;margin-top:6px;padding:4px 10px;border-radius:999px;background:{{ t.surface }};border:1px solid {{ t.line }};font-size:12px;font-weight:600;color:{{ t.muted }};">Lecture seule</span>
+            </sc-if>
+          </div>
+          <sc-if value="{{ f.trailOn }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;">
+              <sc-for list="{{ f.trail }}" as="s" hint-placeholder-count="4">
+                <div style="display:flex;gap:14px;">
+                  <div style="width:22px;flex:none;display:flex;flex-direction:column;align-items:center;">
+                    <span style="width:{{ s.dotSize }};height:{{ s.dotSize }};border-radius:50%;background:{{ s.dotBg }};border:3px solid {{ s.dotBorder }};flex:none;margin-top:3px;"></span>
+                    <span style="flex:1;width:0;border-left:3px {{ s.lineStyle }} {{ s.lineColor }};min-height:16px;"></span>
+                  </div>
+                  <div style="padding-bottom:14px;display:flex;flex-direction:column;gap:1px;min-width:0;">
+                    <span style="font-family:{{ t.headFont }};font-size:{{ s.size }};font-weight:{{ s.weight }};color:{{ s.color }};">{{ s.name }}</span>
+                    <span style="font-size:12px;color:{{ t.muted }};font-family:{{ t.mono }};">{{ s.date }}</span>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{ f.gridOn }}" hint-placeholder-val="{{ true }}">
+          <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;">
+            <sc-for list="{{ f.steps }}" as="s" hint-placeholder-count="4">
+              <div style="display:flex;flex-direction:column;gap:6px;min-width:0;">
+                <span style="height:6px;border-radius:3px;background:{{ s.bar }};"></span>
+                <span style="font-size:12px;font-weight:{{ s.weight }};color:{{ s.color }};line-height:1.2;">{{ s.name }}</span>
+                <span style="font-size:11px;color:{{ t.muted }};font-family:{{ t.mono }};line-height:1.2;">{{ s.date }}</span>
+              </div>
+            </sc-for>
+          </div>
+          </sc-if>
+          <div style="background:{{ t.cardBg }};border:{{ t.card }};border-radius:{{ t.rLg }};box-shadow:{{ t.shadow }};padding:16px;display:flex;flex-direction:column;gap:10px;">
+            <span style="font-family:{{ t.secFont }};font-size:{{ t.secSize }};font-weight:{{ t.secWeight }};text-transform:{{ t.secTransform }};letter-spacing:{{ t.secSpacing }};color:{{ t.muted }};">Étape en cours</span>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
+              <span style="font-family:{{ t.headFont }};text-transform:{{ t.titleTransform }};font-size:22px;font-weight:{{ t.titleW }};letter-spacing:-0.01em;">{{ f.stepName }}</span>
+              <span style="font-family:{{ t.mono }};font-size:14px;color:{{ a.accText }};font-weight:600;">{{ f.frac }}</span>
+            </div>
+            <span style="height:8px;border-radius:4px;background:{{ t.track }};overflow:hidden;"><span style="display:block;height:100%;width:{{ f.pct }};background:{{ a.acc }};border-radius:4px;"></span></span>
+            <sc-if value="{{ f.hasRule }}" hint-placeholder-val="{{ false }}">
+              <span style="font-size:13px;color:{{ t.ink }};">Règle : {{ f.rule }}</span>
+            </sc-if>
+            <span style="font-size:13px;color:{{ t.muted }};text-wrap:pretty;">Validation de l'étape : {{ f.valBy }}</span>
+            <sc-if value="{{ f.ready }}" hint-placeholder-val="{{ false }}">
+              <span style="font-size:13px;padding:8px 10px;border-radius:{{ t.r }};background:{{ a.soft }};color:{{ a.accText }};font-weight:600;">Critères remplis · à présenter à la cour d'honneur du 7 nov.</span>
+            </sc-if>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <span style="font-family:{{ t.secFont }};font-size:{{ t.secSize }};font-weight:{{ t.secWeight }};text-transform:{{ t.secTransform }};letter-spacing:{{ t.secSpacing }};color:{{ t.muted }};">Critères · {{ f.stepName }}</span>
+            <div style="display:flex;flex-direction:column;gap:{{ t.listGap }};background:{{ t.listBg }};border-radius:{{ t.rLg }};border:{{ t.listBorder }};overflow:hidden;">
+              <sc-for list="{{ f.crits }}" as="c" hint-placeholder-count="6">
+                <button onClick="{{ c.onTap }}" style="display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 14px;border:{{ t.rowBorder }};border-bottom:{{ t.rowRule }};background:{{ t.rowBg }};border-radius:{{ t.rowR }};box-shadow:{{ t.shadow }};text-align:left;cursor:{{ c.cursor }};color:inherit;width:100%;">
+                  <span style="width:24px;height:24px;flex:none;border-radius:{{ t.boxR }};border:2px solid {{ c.boxBorder }};background:{{ c.boxBg }};color:{{ c.boxInk }};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;">{{ c.mark }}</span>
+                  <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+                    <span style="font-size:15px;font-weight:500;color:{{ c.labelColor }};">{{ c.label }}</span>
+                    <span style="font-size:12px;color:{{ c.metaColor }};font-family:{{ t.mono }};">{{ c.meta }}</span>
+                  </span>
+                  <sc-if value="{{ c.tappable }}" hint-placeholder-val="{{ false }}">
+                    <span style="color:{{ t.muted }};font-size:18px;">⋯</span>
+                  </sc-if>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <span style="font-family:{{ t.secFont }};font-size:{{ t.secSize }};font-weight:{{ t.secWeight }};text-transform:{{ t.secTransform }};letter-spacing:{{ t.secSpacing }};color:{{ t.muted }};">Spécialités et badges</span>
+            <sc-if value="{{ f.hasSpecs }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                <sc-for list="{{ f.specs }}" as="sp" hint-placeholder-count="2">
+                  <div style="padding:8px 12px;border-radius:{{ t.chipR }};background:{{ t.cardBg }};border:1px solid {{ t.line }};display:flex;flex-direction:column;gap:2px;">
+                    <span style="font-size:14px;font-weight:600;">{{ sp.name }}</span>
+                    <span style="font-size:12px;color:{{ t.muted }};font-family:{{ t.mono }};">{{ sp.meta }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{ f.noSpecs }}" hint-placeholder-val="{{ false }}">
+              <span style="font-size:14px;color:{{ t.muted }};">Aucune spécialité ni badge pour l'instant.</span>
+            </sc-if>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <span style="font-family:{{ t.secFont }};font-size:{{ t.secSize }};font-weight:{{ t.secWeight }};text-transform:{{ t.secTransform }};letter-spacing:{{ t.secSpacing }};color:{{ t.muted }};">Historique des unités</span>
+            <sc-for list="{{ f.hist }}" as="h" hint-placeholder-count="2">
+              <div style="display:flex;justify-content:space-between;gap:12px;font-size:14px;padding:6px 0;border-bottom:1px solid {{ t.line }};">
+                <span>{{ h.unit }}</span><span style="color:{{ t.muted }};font-family:{{ t.mono }};font-size:12px;">{{ h.period }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <button onClick="{{ f.openCarnet }}" style="height:48px;border:1px solid {{ t.lineStrong }};background:{{ t.cardBg }};border-radius:{{ t.r }};font-size:15px;font-weight:600;color:{{ t.ink }};cursor:pointer;">Voir le carnet PDF</button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isValider }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:16px;display:flex;flex-direction:column;gap:16px;">
+          <span style="font-size:14px;color:{{ t.muted }};">{{ v.already }}</span>
+          <sc-if value="{{ v.allDone }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:20px;border:1px dashed {{ t.lineStrong }};border-radius:{{ t.rLg }};font-size:15px;color:{{ t.muted }};">Tous les critères de cette étape sont déjà validés.</div>
+          </sc-if>
+          <div style="display:flex;flex-direction:column;gap:{{ t.listGap }};background:{{ t.listBg }};border-radius:{{ t.rLg }};border:{{ t.listBorder }};overflow:hidden;">
+            <sc-for list="{{ v.items }}" as="c" hint-placeholder-count="4">
+              <button onClick="{{ c.onTap }}" style="display:flex;align-items:center;gap:14px;min-height:60px;padding:8px 14px;border:{{ t.rowBorder }};border-bottom:{{ t.rowRule }};background:{{ c.rowBg }};border-radius:{{ t.rowR }};box-shadow:{{ t.shadow }};text-align:left;cursor:pointer;color:inherit;width:100%;">
+                <span style="width:28px;height:28px;flex:none;border-radius:{{ t.boxR }};border:2px solid {{ c.boxBorder }};background:{{ c.boxBg }};color:{{ a.accInk }};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;">{{ c.mark }}</span>
+                <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+                  <span style="font-size:16px;font-weight:600;">{{ c.label }}</span>
+                  <sc-if value="{{ c.hasSub }}" hint-placeholder-val="{{ false }}">
+                    <span style="font-size:12px;color:{{ c.subColor }};font-family:{{ t.mono }};">{{ c.sub }}</span>
+                  </sc-if>
+                </span>
+              </button>
+            </sc-for>
+          </div>
+          <sc-if value="{{ v.complete }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:12px 14px;border-radius:{{ t.r }};background:{{ a.soft }};color:{{ a.accText }};font-size:14px;font-weight:600;text-wrap:pretty;">Avec cette validation, tous les critères de l'étape {{ v.stepName }} sont remplis. L'étape sera proposée à la cour d'honneur du 7 novembre.</div>
+          </sc-if>
+          <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;">Commentaire (facultatif)
+            <textarea value="{{ v.comment }}" onChange="{{ v.onComment }}" rows="2" placeholder="Ex. épreuve faite au camp de Toubab Dialaw" style="padding:10px 12px;border:1px solid {{ t.lineStrong }};border-radius:{{ t.r }};background:{{ t.surface }};font:400 15px {{ t.font }};color:{{ t.ink }};resize:none;outline:none;"></textarea>
+          </label>
+          <span style="font-size:13px;color:{{ t.muted }};font-family:{{ t.mono }};">Le 26 oct. 2026 · par Cdt. Ibrahima Seck</span>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isDash }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:16px;display:flex;flex-direction:column;gap:24px;">
+          <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:28px 20px;border:1px dashed {{ t.lineStrong }};border-radius:{{ t.rLg }};font-size:15px;color:{{ t.muted }};text-wrap:pretty;">Le tableau de bord se remplit dès que l'unité compte des jeunes.</div>
+          </sc-if>
+          <sc-if value="{{ hasJeunes }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <span style="font-family:{{ t.secFont }};font-size:{{ t.secSize }};font-weight:{{ t.secWeight }};text-transform:{{ t.secTransform }};letter-spacing:{{ t.secSpacing }};color:{{ t.muted }};">Jeunes par étape</span>
+              <div style="background:{{ t.cardBg }};border:{{ t.card }};border-radius:{{ t.rLg }};box-shadow:{{ t.shadow }};padding:16px;display:flex;flex-direction:column;gap:14px;">
+                <sc-for list="{{ dash.bySteps }}" as="s" hint-placeholder-count="4">
+                  <div style="display:grid;grid-template-columns:88px minmax(0,1fr) 24px;align-items:center;gap:10px;">
+                    <span style="font-size:14px;">{{ s.name }}</span>
+                    <span style="height:12px;border-radius:{{ t.barR }};background:{{ t.track }};overflow:hidden;"><span style="display:block;height:100%;width:{{ s.pct }};background:{{ a.acc }};"></span></span>
+                    <span style="font-family:{{ t.mono }};font-size:14px;font-weight:600;text-align:right;">{{ s.count }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <span style="font-family:{{ t.secFont }};font-size:{{ t.secSize }};font-weight:{{ t.secWeight }};text-transform:{{ t.secTransform }};letter-spacing:{{ t.secSpacing }};color:{{ t.muted }};">Sans validation depuis 30 jours</span>
+              <div style="display:flex;flex-direction:column;gap:{{ t.listGap }};background:{{ t.listBg }};border-radius:{{ t.rLg }};border:{{ t.listBorder }};overflow:hidden;">
+                <sc-for list="{{ dash.stale }}" as="s" hint-placeholder-count="3">
+                  <button onClick="{{ s.onOpen }}" style="display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:52px;padding:8px 14px;border:{{ t.rowBorder }};border-bottom:{{ t.rowRule }};background:{{ t.rowBg }};border-radius:{{ t.rowR }};box-shadow:{{ t.shadow }};text-align:left;cursor:pointer;color:inherit;width:100%;">
+                    <span style="display:flex;flex-direction:column;"><span style="font-size:15px;font-weight:600;">{{ s.name }}</span><span style="font-size:12px;color:{{ t.muted }};">{{ s.step }}</span></span>
+                    <span style="font-family:{{ t.mono }};font-size:13px;color:#9A5B00;font-weight:600;">{{ s.label }}</span>
+                  </button>
+                </sc-for>
+              </div>
+              <sc-if value="{{ dash.noStale }}" hint-placeholder-val="{{ false }}">
+                <span style="font-size:14px;color:{{ t.muted }};">Chaque jeune a eu une validation ce mois-ci.</span>
+              </sc-if>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <span style="font-family:{{ t.secFont }};font-size:{{ t.secSize }};font-weight:{{ t.secWeight }};text-transform:{{ t.secTransform }};letter-spacing:{{ t.secSpacing }};color:{{ t.muted }};">À remettre · cour d'honneur du 7 nov.</span>
+              <div style="display:flex;flex-direction:column;gap:{{ t.listGap }};background:{{ t.listBg }};border-radius:{{ t.rLg }};border:{{ t.listBorder }};overflow:hidden;">
+                <sc-for list="{{ dash.award }}" as="s" hint-placeholder-count="2">
+                  <button onClick="{{ s.onOpen }}" style="display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:52px;padding:8px 14px;border:{{ t.rowBorder }};border-bottom:{{ t.rowRule }};background:{{ t.rowBg }};border-radius:{{ t.rowR }};box-shadow:{{ t.shadow }};text-align:left;cursor:pointer;color:inherit;width:100%;">
+                    <span style="font-size:15px;font-weight:600;">{{ s.name }}</span>
+                    <span style="padding:4px 10px;border-radius:999px;background:{{ a.soft }};color:{{ a.accText }};font-size:12px;font-weight:700;">{{ s.step }}</span>
+                  </button>
+                </sc-for>
+              </div>
+              <sc-if value="{{ dash.noAward }}" hint-placeholder-val="{{ false }}">
+                <span style="font-size:14px;color:{{ t.muted }};">Aucune étape complète pour l'instant.</span>
+              </sc-if>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isFamille }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:18px 16px;display:flex;flex-direction:column;gap:16px;">
+          <p style="margin:0;font-size:14px;color:{{ t.muted }};text-wrap:pretty;">Vous suivez la progression de vos enfants en lecture seule. Les cadres font les validations.</p>
+          <sc-for list="{{ kids }}" as="k" hint-placeholder-count="2">
+            <div style="background:{{ t.cardBg }};border:{{ t.card }};border-radius:{{ t.rLg }};box-shadow:{{ t.shadow }};overflow:hidden;display:flex;flex-direction:column;">
+              <div style="height:4px;background:{{ k.acc }};"></div>
+              <div style="padding:16px;display:flex;flex-direction:column;gap:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
+                  <span style="font-family:{{ t.headFont }};font-size:19px;font-weight:{{ t.titleW }};">{{ k.name }}</span>
+                  <span style="font-size:12px;color:{{ t.muted }};">{{ k.unit }}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:14px;"><span>{{ k.step }}</span><span style="font-family:{{ t.mono }};color:{{ t.muted }};">{{ k.frac }}</span></div>
+                <span style="height:8px;border-radius:4px;background:{{ t.track }};overflow:hidden;"><span style="display:block;height:100%;width:{{ k.pct }};background:{{ k.acc }};border-radius:4px;"></span></span>
+                <span style="font-size:13px;color:{{ t.muted }};">{{ k.last }}</span>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;">
+                  <button onClick="{{ k.onOpen }}" style="height:44px;border:1px solid {{ t.lineStrong }};background:transparent;border-radius:{{ t.r }};font-size:14px;font-weight:600;color:{{ t.ink }};cursor:pointer;">Voir la fiche</button>
+                  <button onClick="{{ k.onCarnet }}" style="height:44px;border:1px solid {{ t.lineStrong }};background:transparent;border-radius:{{ t.r }};font-size:14px;font-weight:600;color:{{ t.ink }};cursor:pointer;">Carnet PDF</button>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isCarnet }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:16px;display:flex;flex-direction:column;gap:14px;background:{{ t.deskBg }};min-height:100%;">
+          <div style="background:#FFFFFF;color:#1F1D19;box-shadow:0 1px 3px rgba(0,0,0,.12),0 8px 24px rgba(0,0,0,.06);padding:22px 20px;display:flex;flex-direction:column;gap:14px;font-family:'IBM Plex Sans',sans-serif;">
+            <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid {{ a.acc }};padding-bottom:10px;">
+              <img src="assets/logo.svg" alt="Indlela" style="height:18px;width:auto;">
+              <span style="font-size:11px;color:#6B665C;font-family:'IBM Plex Mono',monospace;">{{ cn.branch }}</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:2px;">
+              <span style="font-size:11px;color:#6B665C;text-transform:uppercase;letter-spacing:0.08em;">Carnet de progression</span>
+              <span style="font-size:20px;font-weight:700;">{{ cn.name }}</span>
+              <span style="font-size:12px;color:#6B665C;">{{ cn.unit }}</span>
+            </div>
+            <div style="display:flex;flex-direction:column;">
+              <sc-for list="{{ cn.steps }}" as="s" hint-placeholder-count="4">
+                <div style="display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #EEEAE1;font-size:12px;">
+                  <span style="font-weight:600;">{{ s.name }}</span><span style="color:#6B665C;font-family:'IBM Plex Mono',monospace;font-size:11px;">{{ s.state }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              <span style="font-size:11px;color:#6B665C;text-transform:uppercase;letter-spacing:0.08em;">Critères validés · {{ cn.stepName }}</span>
+              <sc-for list="{{ cn.crits }}" as="c" hint-placeholder-count="5">
+                <div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;"><span>✓ {{ c.label }}</span><span style="color:#6B665C;font-family:'IBM Plex Mono',monospace;font-size:11px;">{{ c.meta }}</span></div>
+              </sc-for>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              <span style="font-size:11px;color:#6B665C;text-transform:uppercase;letter-spacing:0.08em;">Spécialités et badges</span>
+              <span style="font-size:12px;">{{ cn.specs }}</span>
+            </div>
+            <span style="font-size:10px;color:#6B665C;font-family:'IBM Plex Mono',monospace;border-top:1px solid #EEEAE1;padding-top:8px;">Généré le 26 oct. 2026 · page 1 / 1</span>
+          </div>
+          <sc-if value="{{ cn.offline }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:10px 12px;border-radius:{{ t.r }};background:#FBE3E0;color:#A1231B;font-size:14px;text-wrap:pretty;">Le carnet est généré par le serveur. Retrouvez du réseau pour le télécharger.</div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isGroupe }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:16px;display:flex;flex-direction:column;gap:22px;">
+          <div style="background:{{ grp.bg }};color:{{ grp.ink }};border:{{ t.card }};box-shadow:{{ t.shadow }};border-radius:{{ t.rLg }};padding:18px 16px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;">
+            <sc-for list="{{ grp.kpis }}" as="k" hint-placeholder-count="3">
+              <div style="display:flex;flex-direction:column;gap:6px;min-width:0;">
+                <span style="font-family:{{ t.headFont }};font-size:34px;font-weight:{{ t.heroW }};line-height:0.9;letter-spacing:-0.03em;">{{ k.v }}</span>
+                <span style="font-size:12px;color:{{ grp.muted }};line-height:1.25;text-wrap:pretty;">{{ k.l }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <span style="font-family:{{ t.secFont }};font-size:{{ t.secSize }};font-weight:{{ t.secWeight }};text-transform:{{ t.secTransform }};letter-spacing:{{ t.secSpacing }};color:{{ t.muted }};">Unités du groupe</span>
+            <sc-for list="{{ grp.units }}" as="u" hint-placeholder-count="3">
+              <div style="background:{{ t.cardBg }};border:{{ t.card }};border-radius:{{ t.rLg }};box-shadow:{{ t.shadow }};overflow:hidden;display:flex;flex-direction:column;">
+                <div style="height:4px;background:{{ u.acc }};"></div>
+                <div style="padding:14px 16px 16px;display:flex;flex-direction:column;gap:12px;">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
+                    <span style="font-family:{{ t.headFont }};text-transform:{{ t.titleTransform }};font-size:18px;font-weight:{{ t.titleW }};">{{ u.name }}</span>
+                    <span style="font-family:{{ t.mono }};font-size:12px;color:{{ t.muted }};">{{ u.eff }}</span>
+                  </div>
+                  <sc-if value="{{ u.active }}" hint-placeholder-val="{{ true }}">
+                    <div style="display:flex;gap:4px;">
+                      <sc-for list="{{ u.segs }}" as="g" hint-placeholder-count="4">
+                        <div style="flex:{{ g.flex }};min-width:0;display:flex;flex-direction:column;gap:5px;">
+                          <span style="height:10px;border-radius:{{ t.barR }};background:{{ g.color }};"></span>
+                          <span style="font-family:{{ t.mono }};font-size:13px;font-weight:700;line-height:1;">{{ g.count }}</span>
+                          <span style="font-size:11px;color:{{ t.muted }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.1;">{{ g.label }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;">
+                      <span style="color:{{ t.muted }};">{{ u.recent }}</span>
+                      <span style="color:{{ u.staleColor }};font-weight:700;">{{ u.stale }}</span>
+                    </div>
+                    <button onClick="{{ u.onOpen }}" style="height:44px;border:1px solid {{ t.lineStrong }};background:transparent;border-radius:{{ t.r }};font-size:14px;font-weight:700;color:{{ t.ink }};cursor:pointer;">{{ u.cta }}</button>
+                  </sc-if>
+                  <sc-if value="{{ u.inactive }}" hint-placeholder-val="{{ false }}">
+                    <span style="font-size:14px;color:{{ t.muted }};text-wrap:pretty;">{{ u.note }}</span>
+                  </sc-if>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <span style="font-family:{{ t.secFont }};font-size:{{ t.secSize }};font-weight:{{ t.secWeight }};text-transform:{{ t.secTransform }};letter-spacing:{{ t.secSpacing }};color:{{ t.muted }};">À remettre · cérémonies de novembre</span>
+            <div style="display:flex;flex-direction:column;gap:{{ t.listGap }};background:{{ t.listBg }};border-radius:{{ t.rLg }};border:{{ t.listBorder }};overflow:hidden;">
+              <sc-for list="{{ grp.award }}" as="w" hint-placeholder-count="4">
+                <button onClick="{{ w.onOpen }}" style="display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:56px;padding:8px 14px;border:{{ t.rowBorder }};border-bottom:{{ t.rowRule }};background:{{ t.rowBg }};border-radius:{{ t.rowR }};box-shadow:{{ t.shadow }};text-align:left;cursor:{{ w.cursor }};color:inherit;width:100%;">
+                  <span style="display:flex;flex-direction:column;min-width:0;"><span style="font-size:15px;font-weight:600;">{{ w.name }}</span><span style="font-size:12px;color:{{ t.muted }};">{{ w.sub }}</span></span>
+                  <span style="padding:4px 10px;border-radius:999px;background:{{ w.soft }};color:{{ w.ink }};font-size:12px;font-weight:700;flex:none;">{{ w.step }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+          <button onClick="{{ grp.onExport }}" style="height:48px;border:1px solid {{ t.lineStrong }};background:{{ t.cardBg }};border-radius:{{ t.r }};font-size:15px;font-weight:700;color:{{ t.ink }};cursor:pointer;">Exporter les listes du groupe (CSV)</button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isRef }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:16px;display:flex;flex-direction:column;gap:16px;">
+          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:4px;background:{{ t.track }};border-radius:{{ t.r }};">
+            <sc-for list="{{ ref.tabs }}" as="b" hint-placeholder-count="3">
+              <button onClick="{{ b.onTap }}" style="height:40px;border:none;border-radius:{{ t.r }};background:{{ b.bg }};color:{{ b.ink }};font-size:14px;font-weight:700;cursor:pointer;box-shadow:{{ b.shadow }};display:flex;align-items:center;justify-content:center;gap:6px;"><span style="width:8px;height:8px;border-radius:50%;background:{{ b.dot }};"></span>{{ b.label }}</button>
+            </sc-for>
+          </div>
+          <sc-if value="{{ ref.empty }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:24px 20px;border:1px dashed {{ t.lineStrong }};border-radius:{{ t.rLg }};display:flex;flex-direction:column;gap:10px;align-items:flex-start;">
+              <span style="font-size:17px;font-weight:700;">Référentiel de la route non reçu</span>
+              <span style="font-size:14px;color:{{ t.muted }};text-wrap:pretty;">La route arrive en V2. Le document officiel est demandé aux cadres de la branche. Vous pouvez préparer un référentiel vide en attendant.</span>
+              <button onClick="{{ ref.onCreate }}" style="height:44px;padding:0 16px;border:1px solid {{ t.lineStrong }};background:transparent;border-radius:{{ t.r }};font-size:14px;font-weight:600;color:{{ t.ink }};cursor:pointer;">Créer un référentiel vide</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{ ref.has }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:2px;">
+              <span style="font-size:17px;font-weight:700;">{{ ref.title }}</span>
+              <span style="font-size:13px;color:{{ t.muted }};font-family:{{ t.mono }};">{{ ref.version }}</span>
+              <sc-if value="{{ ref.hasNote }}" hint-placeholder-val="{{ false }}">
+                <span style="font-size:13px;color:{{ t.muted }};margin-top:4px;text-wrap:pretty;">{{ ref.note }}</span>
+              </sc-if>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:{{ t.listGap }};background:{{ t.listBg }};border-radius:{{ t.rLg }};border:{{ t.listBorder }};overflow:hidden;">
+              <sc-for list="{{ ref.steps }}" as="s" hint-placeholder-count="4">
+                <div style="background:{{ t.rowBg }};border:{{ t.rowBorder }};border-bottom:{{ t.rowRule }};border-radius:{{ t.rowR }};box-shadow:{{ t.shadow }};display:flex;flex-direction:column;">
+                  <button onClick="{{ s.onToggle }}" style="display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 14px;border:none;background:transparent;text-align:left;cursor:pointer;color:inherit;width:100%;">
+                    <span style="width:26px;height:26px;flex:none;border-radius:{{ t.avR }};background:{{ a.soft }};color:{{ a.accText }};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;font-family:{{ t.mono }};">{{ s.n }}</span>
+                    <span style="flex:1;display:flex;flex-direction:column;"><span style="font-size:16px;font-weight:600;">{{ s.name }}</span><span style="font-size:12px;color:{{ t.muted }};">{{ s.count }}</span></span>
+                    <span style="color:{{ t.muted }};font-size:16px;">{{ s.chev }}</span>
+                  </button>
+                  <sc-if value="{{ s.open }}" hint-placeholder-val="{{ false }}">
+                    <div style="padding:0 14px 14px 52px;display:flex;flex-direction:column;gap:2px;">
+                      <sc-if value="{{ s.hasRule }}" hint-placeholder-val="{{ false }}">
+                        <div style="font-size:13px;padding:8px 10px;margin-bottom:6px;border-radius:{{ t.r }};background:{{ t.surface }};border:1px solid {{ t.line }};">Règle chiffrée : {{ s.rule }}</div>
+                      </sc-if>
+                      <sc-for list="{{ s.crits }}" as="c" hint-placeholder-count="4">
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px;border-bottom:1px solid {{ t.line }};">
+                          <span style="font-size:14px;">{{ c.label }}</span>
+                          <button onClick="{{ c.onToggle }}" style="height:32px;padding:0 10px;border-radius:999px;border:1px solid {{ c.tagBorder }};background:{{ c.tagBg }};color:{{ c.tagInk }};font-size:12px;font-weight:700;cursor:pointer;flex:none;">{{ c.tag }}</button>
+                        </div>
+                      </sc-for>
+                      <button onClick="{{ s.onAdd }}" style="height:44px;border:none;background:transparent;text-align:left;padding:0;font-size:14px;font-weight:700;color:{{ a.accText }};cursor:pointer;">+ Ajouter un critère</button>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{ foot.show }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:none;padding:10px 16px 12px;background:{{ t.navBg }};border-top:1px solid {{ t.line }};display:flex;flex-direction:column;gap:6px;">
+        <sc-if value="{{ foot.hasNote }}" hint-placeholder-val="{{ false }}">
+          <span style="font-size:12px;color:{{ t.muted }};text-align:center;text-wrap:pretty;">{{ foot.note }}</span>
+        </sc-if>
+        <button onClick="{{ foot.onTap }}" style="height:52px;border:none;border-radius:{{ t.r }};background:{{ foot.bg }};color:{{ foot.ink }};font-size:16px;font-weight:700;cursor:{{ foot.cursor }};">{{ foot.label }}</button>
+      </div>
+    </sc-if>
+
+    <div style="flex:none;display:flex;border-top:1px solid {{ t.line }};background:{{ t.navBg }};">
+      <sc-for list="{{ nav }}" as="n" hint-placeholder-count="3">
+        <button onClick="{{ n.onTap }}" style="flex:1;height:58px;border:none;border-top:3px solid {{ n.bar }};background:transparent;font-size:13px;font-weight:700;color:{{ n.color }};cursor:pointer;">{{ n.label }}</button>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ sheet.open }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;background:rgba(15,18,16,.45);display:flex;align-items:flex-end;z-index:5;">
+      <div style="width:100%;background:{{ t.surface }};border-radius:{{ t.sheetR }};padding:20px 18px 22px;display:flex;flex-direction:column;gap:12px;">
+        <span style="font-family:{{ t.headFont }};font-size:19px;font-weight:{{ t.titleW }};">Annuler cette validation ?</span>
+        <div style="display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:{{ t.r }};background:{{ t.bg }};">
+          <span style="font-size:15px;font-weight:600;">{{ sheet.label }}</span>
+          <span style="font-size:12px;color:{{ t.muted }};font-family:{{ t.mono }};">{{ sheet.meta }}</span>
+        </div>
+        <span style="font-size:14px;color:{{ t.muted }};text-wrap:pretty;">La validation n'est pas effacée : elle reste dans le journal avec la date d'annulation et votre nom. Le critère redevient à valider.</span>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;">
+          <button onClick="{{ sheet.onKeep }}" style="height:50px;border:1px solid {{ t.lineStrong }};background:transparent;border-radius:{{ t.r }};font-size:15px;font-weight:700;color:{{ t.ink }};cursor:pointer;">Garder</button>
+          <button onClick="{{ sheet.onCancel }}" style="height:50px;border:none;background:#B3261E;border-radius:{{ t.r }};font-size:15px;font-weight:700;color:#FFFFFF;cursor:pointer;">Annuler la validation</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ toast.show }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;left:12px;right:12px;bottom:{{ toast.bottom }};z-index:6;background:{{ t.toastBg }};color:{{ t.toastInk }};border-radius:{{ t.r }};padding:6px 6px 6px 14px;min-height:52px;display:flex;align-items:center;gap:8px;box-shadow:0 8px 24px rgba(0,0,0,.25);">
+      <span style="flex:1;font-size:14px;text-wrap:pretty;">{{ toast.msg }}</span>
+      <sc-if value="{{ toast.hasUndo }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ toast.onUndo }}" style="height:40px;padding:0 12px;border:none;background:transparent;color:{{ t.toastAcc }};font-size:14px;font-weight:800;cursor:pointer;">Annuler</button>
+      </sc-if>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:376,&quot;height&quot;:776},&quot;direction&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;registre&quot;,&quot;doux&quot;,&quot;bandeau&quot;,&quot;sentier&quot;,&quot;ecusson&quot;,&quot;veillee&quot;],&quot;default&quot;:&quot;registre&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;startScreen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;home&quot;,&quot;groupe&quot;,&quot;login&quot;,&quot;famille&quot;,&quot;ref&quot;],&quot;default&quot;:&quot;home&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;offline&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;emptyUnit&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;syncError&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const MO=['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+const fmtD=(days,yr)=>{const x=new Date(2026,9,26);x.setDate(x.getDate()-days);const d=x.getDate();return (d===1?'1er':d)+' '+MO[x.getMonth()]+((yr||x.getFullYear()!==2026)?' '+x.getFullYear():'');};
+const THEMES={
+ registre:{bg:'#F5F3EE',surface:'#FFFFFF',cardBg:'#FFFFFF',deskBg:'#E9E5DC',ink:'#1F1D19',muted:'#68635A',line:'#E2DDD2',lineStrong:'#CFC8BA',track:'#E8E4DA',r:'4px',rLg:'6px',boxR:'3px',chipR:'4px',sheetR:'8px 8px 0 0',font:"'IBM Plex Sans', system-ui, sans-serif",mono:"'IBM Plex Mono', ui-monospace, monospace",hdrBg:'#F5F3EE',hdrInk:'#1F1D19',hdrMuted:'#68635A',hdrBorder:'1px solid #E2DDD2',listGap:'0px',listBg:'#FFFFFF',listBorder:'1px solid #E2DDD2',rowBg:'#FFFFFF',rowR:'0px',rowRule:'1px solid #EEEAE1',shadow:'none',avR:'4px',card:'1px solid #E2DDD2',titleW:600,navBg:'#FFFFFF',secFont:"'IBM Plex Mono', monospace",secSize:'11px',secWeight:500,secTransform:'uppercase',secSpacing:'0.08em',dark:false},
+ doux:{bg:'#EEF2F0',surface:'#FFFFFF',cardBg:'#FFFFFF',deskBg:'#E3E8E5',ink:'#17201B',muted:'#56635D',line:'#DFE5E2',lineStrong:'#C9D2CE',track:'#E2E8E5',r:'14px',rLg:'18px',boxR:'8px',chipR:'14px',sheetR:'24px 24px 0 0',font:"'Manrope', system-ui, sans-serif",mono:"'Manrope', system-ui, sans-serif",hdrBg:'#EEF2F0',hdrInk:'#17201B',hdrMuted:'#56635D',hdrBorder:'none',listGap:'8px',listBg:'transparent',listBorder:'none',rowBg:'#FFFFFF',rowR:'16px',rowRule:'none',shadow:'0 1px 2px rgba(23,32,27,.07)',avR:'50%',card:'1px solid transparent',titleW:800,navBg:'#FFFFFF',secFont:"'Manrope', sans-serif",secSize:'14px',secWeight:800,secTransform:'none',secSpacing:'0',dark:false},
+ bandeau:{bg:'#FFFFFF',surface:'#FFFFFF',cardBg:'#F3F5F3',deskBg:'#E8ECE9',ink:'#101511',muted:'#545C56',line:'#E2E6E3',lineStrong:'#C7CEC9',track:'#E6EAE7',r:'8px',rLg:'10px',boxR:'5px',chipR:'8px',sheetR:'14px 14px 0 0',font:"'Public Sans', system-ui, sans-serif",mono:"'IBM Plex Mono', ui-monospace, monospace",hdrBg:'#0B3D24',hdrInk:'#FFFFFF',hdrMuted:'#A9CDB8',hdrBorder:'none',listGap:'0px',listBg:'#FFFFFF',listBorder:'none',rowBg:'#FFFFFF',rowR:'0px',rowRule:'1px solid #E2E6E3',shadow:'none',avR:'8px',card:'1px solid #E2E6E3',titleW:800,navBg:'#FFFFFF',secFont:"'Public Sans', sans-serif",secSize:'12px',secWeight:800,secTransform:'uppercase',secSpacing:'0.06em',dark:true}
+};
+const DEF={heroBg:null,barR:'3px',rowBorder:'none',titleTransform:'none',logoFilter:'none',toastBg:'#1C1F1D',toastInk:'#FFFFFF',toastAcc:'#F2B400',hero:false,trail:false,night:false,heroW:800};
+THEMES.sentier={bg:'#F4F1E8',surface:'#FFFDF8',cardBg:'#FFFDF8',deskBg:'#E8E3D6',ink:'#1B231E',muted:'#5C645E',line:'#E3DECF',lineStrong:'#C9C2AE',track:'#E7E1D2',r:'10px',rLg:'14px',boxR:'50%',barR:'6px',chipR:'999px',sheetR:'22px 22px 0 0',font:"'Bricolage Grotesque', system-ui, sans-serif",headFont:"'Bricolage Grotesque', system-ui, sans-serif",mono:"'JetBrains Mono', ui-monospace, monospace",hdrBg:'#F4F1E8',hdrInk:'#1B231E',hdrMuted:'#5C645E',hdrBorder:'none',listGap:'0px',listBg:'#FFFDF8',listBorder:'1px solid #E3DECF',rowBg:'#FFFDF8',rowR:'0px',rowRule:'1px solid #EDE8DB',shadow:'none',avR:'50%',card:'1px solid #E3DECF',titleW:800,navBg:'#FFFDF8',secFont:"'JetBrains Mono', monospace",secSize:'11px',secWeight:500,secTransform:'uppercase',secSpacing:'0.1em',hero:true,trail:true,heroBg:'#0B3D24',heroInk:'#FFFFFF',heroMuted:'#B5D3C1',segBase:'#F2B400'};
+THEMES.ecusson={bg:'#F7F5EF',surface:'#FFFFFF',cardBg:'#FFFFFF',deskBg:'#EDEAE1',ink:'#111111',muted:'#4E4B45',line:'#111111',lineStrong:'#111111',track:'#E9E5DA',r:'6px',rLg:'8px',boxR:'4px',chipR:'6px',sheetR:'10px 10px 0 0',font:"'Archivo', system-ui, sans-serif",headFont:"'Archivo', system-ui, sans-serif",mono:"'JetBrains Mono', ui-monospace, monospace",hdrBg:'#F2B400',hdrInk:'#111111',hdrMuted:'#3D3200',hdrBorder:'2px solid #111111',listGap:'10px',listBg:'transparent',listBorder:'none',rowBg:'#FFFFFF',rowR:'8px',rowBorder:'2px solid #111111',rowRule:'2px solid #111111',shadow:'3px 3px 0 #111111',avR:'6px',card:'2px solid #111111',titleW:900,titleTransform:'uppercase',navBg:'#FFFFFF',secFont:"'Archivo', sans-serif",secSize:'13px',secWeight:900,secTransform:'uppercase',secSpacing:'0.04em',hero:true,heroBg:'#FFFFFF',heroInk:'#111111',heroMuted:'#4E4B45',segBase:'#0B6E3C',heroW:900};
+THEMES.veillee={bg:'#0E1411',surface:'#17201B',cardBg:'#17201B',deskBg:'#0A0F0C',ink:'#EEF2EC',muted:'#9AA8A0',line:'#25302A',lineStrong:'#3A4840',track:'#26312B',r:'12px',rLg:'16px',boxR:'6px',chipR:'10px',sheetR:'20px 20px 0 0',font:"'Sora', system-ui, sans-serif",headFont:"'Sora', system-ui, sans-serif",mono:"'JetBrains Mono', ui-monospace, monospace",hdrBg:'#0E1411',hdrInk:'#EEF2EC',hdrMuted:'#93A39A',hdrBorder:'1px solid #25302A',listGap:'0px',listBg:'#17201B',listBorder:'1px solid #25302A',rowBg:'#17201B',rowR:'0px',rowRule:'1px solid #25302A',shadow:'none',avR:'50%',card:'1px solid #25302A',titleW:700,navBg:'#121A16',secFont:"'JetBrains Mono', monospace",secSize:'11px',secWeight:500,secTransform:'uppercase',secSpacing:'0.1em',dark:true,night:true,trail:true,logoFilter:'brightness(0) invert(1)',toastBg:'#EEF2EC',toastInk:'#0E1411',toastAcc:'#0B6E3C'};
+for(const k in THEMES)THEMES[k]={...DEF,headFont:THEMES[k].font,...THEMES[k]};
+const NIGHT={troupe:{acc:'#3DBE76',accText:'#7FDDA6',accInk:'#0E1411',soft:'rgba(61,190,118,.16)'},meute:{acc:'#F2B400',accText:'#F6CB4C',accInk:'#14110A',soft:'rgba(242,180,0,.16)'},route:{acc:'#E5574D',accText:'#F08A82',accInk:'#0E1411',soft:'rgba(229,87,77,.16)'}};
+const BR={
+ troupe:{name:'Troupe',unit:'Troupe Saint-Paul',acc:'#0B6E3C',accText:'#0B6E3C',accInk:'#FFFFFF',soft:'#E1EFE6',dot:'#0B6E3C',steps:[
+  {name:'Volontaire',val:"observations du chef de troupe, avis de la cour d'honneur",crit:['Esprit scout','Sport','Nature','Intervention service','Civisme','Hygiène','Demande de Promesse']},
+  {name:'Engagé',val:"cour d'honneur",crit:['Esprit scout','Vie chrétienne','Sport','Nature','Intervention service','Civisme','Équipement','Informatique','Observation','Hygiène'],opt:[1]},
+  {name:'Technicien',val:"cour d'honneur",rule:'3 degrés de compétence dans 2 services',crit:['Degré 1 · série sport','Degré 1 · série contact','Degré 1 · série pionnier','Degré 2 · série pionnier','Mise en pratique']},
+  {name:'Animateur',val:"vote secret de la cour d'honneur, 3/4 des voix",crit:['Enseigner une technique','Former un successeur','Organiser une activité communautaire']}]},
+ meute:{name:'Meute',unit:'Meute Saint-Paul',acc:'#E0A800',accText:'#6E5200',accInk:'#1F1D19',soft:'#FBF0D2',dot:'#E0A800',steps:[
+  {name:'Patte tendre',val:'Promesse dite à Akéla devant la meute',crit:['Accueil (environ 6 mois)','Promesse dite à Akéla']},
+  {name:'1re étoile',val:"remise de l'insigne d'étoile",crit:['Civisme','Matelotage','Hygiène','Débrouillardise','Autonomie','Religion'],opt:[5]},
+  {name:'2e étoile',val:"remise de l'insigne d'étoile",crit:['Civisme','Matelotage','Hygiène','Débrouillardise','Autonomie','Vie du mouvement']},
+  {name:'Brevets',val:'insigne de brevet',rule:'ouverts à partir de deux étoiles',crit:['Premier brevet','Deuxième brevet','Troisième brevet']}]},
+ route:{name:'Route',unit:'Route Saint-Paul',acc:'#B3261E',accText:'#B3261E',accInk:'#FFFFFF',soft:'#F7E3E1',dot:'#B3261E',steps:[]}
+};
+const J=[
+ {id:'moussa',p:'Moussa',n:'Diop',age:14,b:'troupe',s:1,d:6,last:5,spec:[['Secouriste','Niveau 1 · 2 mai 2026']]},
+ {id:'awa',p:'Awa',n:'Ndiaye',age:13,b:'troupe',s:1,d:7,last:12,spec:[['Cuisinier','Niveau 1 · 14 juin 2026'],['Badge Environnement','3 oct. 2026']]},
+ {id:'cheikh',p:'Cheikh',n:'Fall',age:15,b:'troupe',s:2,d:3,last:19,spec:[['Pionnier','Niveau 2 · 9 août 2026'],['Topographe','Niveau 1 · 21 févr. 2026']]},
+ {id:'fatou',p:'Fatou',n:'Sarr',age:12,b:'troupe',s:0,d:4,last:41,spec:[]},
+ {id:'ibrahima',p:'Ibrahima',n:'Ba',age:16,b:'troupe',s:2,d:5,last:9,spec:[['Secouriste','Niveau 2 · 30 mai 2026'],['Pionnier','Niveau 1 · 12 avr. 2026']]},
+ {id:'aminata',p:'Aminata',n:'Sow',age:13,b:'troupe',s:1,d:10,last:14,spec:[['Musicien','Niveau 1 · 18 juil. 2026']]},
+ {id:'mamadou',p:'Mamadou',n:'Faye',age:12,b:'troupe',s:0,d:2,last:52,spec:[]},
+ {id:'khady',p:'Khady',n:'Gueye',age:14,b:'troupe',s:1,d:3,last:33,spec:[['Informatique','Niveau 1 · 7 mars 2026']]},
+ {id:'ousmane',p:'Ousmane',n:'Diallo',age:17,b:'troupe',s:3,d:1,last:26,spec:[['Pionnier','Niveau 3 · 2 août 2026'],['Secouriste','Niveau 2 · 15 nov. 2025'],['Badge Service','28 sept. 2026']]},
+ {id:'mariama',p:'Mariama',n:'Cissé',age:15,b:'troupe',s:2,d:2,last:7,spec:[['Photographe','Niveau 1 · 5 sept. 2026']]},
+ {id:'pape',p:'Pape',n:'Seck',age:12,b:'troupe',s:0,d:6,last:3,spec:[]},
+ {id:'ndeye',p:'Ndèye',n:'Thiam',age:13,b:'troupe',s:1,d:5,last:21,spec:[]}
+];
+const M=[{id:'ibou',p:'Ibou',n:'Ndiaye',age:9,b:'meute',s:1,d:4,last:16,spec:[]}];
+const ALL=[...J,...M];
+const CAD=['Cdt. I. Seck','Adj. F. Mbaye'];
+function seed(){const v={};ALL.forEach(j=>{v[j.id]=[];for(let i=0;i<j.d;i++)v[j.id].push({k:j.id+i,s:j.s,cid:i,days:j.last+(j.d-1-i)*11,by:CAD[i%3===2?1:0],pending:false,annulee:null});});v.moussa.push({k:'mx',s:1,cid:6,days:30,by:CAD[1],pending:false,annulee:'20 oct.'});return v;}
+const START={groupe:['groupe','groupe'],login:[null,'login'],home:['cadre','home'],famille:['parent','famille'],ref:['admin','ref']};
+const TABS={cadre:[['home','Unité'],['dash','Tableau de bord'],['login','Quitter']],groupe:[['groupe','Vue groupe'],['login','Quitter']],parent:[['famille','Famille'],['login','Quitter']],admin:[['ref','Référentiels'],['login','Quitter']]};
+
+class Component extends DCLogic {
+  state = this.initial();
+  initial(){const [role,screen]=START[(this.props&&this.props.startScreen)||'home']||START.home;return {role,screen,tab:screen,stack:[],jid:null,vals:seed(),sel:[],comment:'',offline:!!(this.props&&this.props.offline),syncErr:false,failed:false,toast:null,sheet:null,loginId:'',loginPw:'',loginErr:null,refB:'troupe',refOpen:1,refEdits:{},refExtra:{},refDirty:{},refVer:{troupe:2,meute:1},routeCreated:false};}
+  componentDidUpdate(prev){
+    if(prev.offline!==this.props.offline)this.setState({offline:!!this.props.offline,syncErr:false,failed:false});
+    if(prev.startScreen!==this.props.startScreen){const [role,screen]=START[this.props.startScreen]||START.home;this.setState({role,screen,tab:screen,stack:[]});}
+  }
+  componentWillUnmount(){clearTimeout(this._t);}
+  jeune(id){return ALL.find(x=>x.id===id);}
+  toast(msg,undo){clearTimeout(this._t);this.setState({toast:{msg,undo}});this._t=setTimeout(()=>this.setState({toast:null}),undo?6000:3500);}
+  pending(){let n=0;Object.values(this.state.vals).forEach(l=>l.forEach(e=>{if(e.pending&&!e.annulee)n++;}));return n;}
+  status(j,cid){const l=(this.state.vals[j.id]||[]).filter(e=>e.s===j.s&&e.cid===cid);const live=l.filter(e=>!e.annulee);if(live.length){const e=live[live.length-1];return {st:e.pending?'pending':'done',e};}if(l.length)return {st:'cancelled',e:l[l.length-1]};return {st:'todo'};}
+  doneCount(j){const step=BR[j.b].steps[j.s];let n=0;step.crit.forEach((_,i)=>{const s=this.status(j,i).st;if(s==='done'||s==='pending')n++;});return n;}
+  lastDays(j){const l=(this.state.vals[j.id]||[]).filter(e=>!e.annulee);return l.length?Math.min(...l.map(e=>e.days)):999;}
+  hasPending(j){return (this.state.vals[j.id]||[]).some(e=>e.pending&&!e.annulee);}
+  go=(screen,extra)=>this.setState(s=>({screen,stack:[...s.stack,s.screen],toast:null,...(extra||{})}));
+  back=()=>this.setState(s=>{const st=[...s.stack];const p=st.pop()||s.tab;return {screen:p,stack:st,sel:[],toast:null};});
+  tab=(sc)=>{if(sc==='login'){this.setState({screen:'login',role:null,stack:[],loginErr:null,toast:null});return;}this.setState({screen:sc,tab:sc,stack:[],toast:null});};
+  enter=(role)=>{const sc={cadre:'home',parent:'famille',admin:'ref',groupe:'groupe'}[role];this.setState({role,screen:sc,tab:sc,stack:[],loginErr:null});};
+  submit=()=>{const {loginId,loginPw,offline}=this.state;if(offline)return this.setState({loginErr:"Pas de réseau. La première connexion demande Internet ; ensuite, le carnet fonctionne sans réseau."});if(!loginId||!loginPw)return this.setState({loginErr:'Saisissez votre identifiant et votre mot de passe.'});if(loginPw.length<4)return this.setState({loginErr:'Identifiant ou mot de passe incorrect.'});this.enter('cadre');};
+  tapSync=()=>{const st=this.state,p=this.pending();
+    if(!st.offline&&!st.syncErr){this.setState({offline:true});this.toast('Hors connexion : les validations restent sur le téléphone.');return;}
+    if(st.offline&&p&&this.props.syncError&&!st.failed){this.setState({offline:false,syncErr:true,failed:true});this.toast(`La synchronisation a échoué. ${p} validation${p>1?'s restent':' reste'} sur le téléphone.`);return;}
+    const vals={};Object.keys(st.vals).forEach(k=>vals[k]=st.vals[k].map(e=>e.pending?{...e,pending:false}:e));this.setState({vals,offline:false,syncErr:false});this.toast(p?`${p} validation${p>1?'s synchronisées':' synchronisée'}`:'De nouveau en ligne');};
+  confirm=()=>{const st=this.state,j=this.jeune(st.jid);if(!st.sel.length)return;const batch='b'+Date.now();const add=st.sel.map(cid=>({k:batch+cid,batch,s:j.s,cid,days:0,by:CAD[0],pending:st.offline,annulee:null,comment:st.comment}));const n=add.length;
+    this.setState({vals:{...st.vals,[j.id]:[...(st.vals[j.id]||[]),...add]},screen:'fiche',stack:st.stack.slice(0,-1),sel:[],comment:''});
+    this.toast(`${n} critère${n>1?'s validés':' validé'} pour ${j.p}${st.offline?' · en attente de réseau':''}`,()=>{this.setState(s=>({vals:{...s.vals,[j.id]:s.vals[j.id].filter(e=>e.batch!==batch)}}));this.toast('Validation retirée');});};
+  cancelVal=()=>{const {jid,k}=this.state.sheet;this.setState(s=>({sheet:null,vals:{...s.vals,[jid]:s.vals[jid].map(e=>e.k===k?{...e,annulee:fmtD(0)}:e)}}));this.toast('Validation annulée · gardée dans le journal');};
+
+  renderVals(){
+    const st=this.state,t=THEMES[this.props.direction]||THEMES.registre;
+    const scr=st.screen,role=st.role,j=st.jid?this.jeune(st.jid):null;
+    const ctx=(['fiche','valider','carnet'].includes(scr)&&j)?j.b:(scr==='ref'?st.refB:'troupe');
+    const a=t.night?{...BR[ctx],...NIGHT[ctx]}:BR[ctx],p=this.pending(),empty=!!this.props.emptyUnit,cadre=role==='cadre'||role==='groupe';
+    const mix=(c,n)=>`color-mix(in srgb, ${c} ${n}%, transparent)`;
+    let sync;
+    if(st.offline)sync={label:p?`Hors ligne · ${p}`:'Hors ligne',bg:'#FDEFD6',ink:'#6B4100',dot:'#D98A00'};
+    else if(st.syncErr)sync={label:'Échec · Réessayer',bg:'#FBE3E0',ink:'#A1231B',dot:'#C8372D'};
+    else sync=t.dark?{label:'En ligne',bg:'rgba(255,255,255,.14)',ink:'#FFFFFF',dot:'#5FD08F'}:{label:'En ligne',bg:'#E1EFE6',ink:'#0B5A31',dot:'#1E9152'};
+    sync.onTap=this.tapSync;
+    const name=j?`${j.p} ${j.n}`:'';
+    const H={groupe:['Groupe Grand-Dakar','Vue groupe',false],home:['Groupe Grand-Dakar','Troupe Saint-Paul',st.stack.length>0],dash:['Troupe Saint-Paul','Tableau de bord',false],famille:['Espace famille','Famille Ndiaye',false],ref:['Administration','Référentiels',false],fiche:[j?BR[j.b].unit:'',name,true],valider:[`Valider · ${name}`,j?BR[j.b].steps[j.s].name:'',true],carnet:['Carnet PDF',name,true]}[scr]||['','',false];
+    const open=(id)=>()=>this.go('fiche',{jid:id});
+    const jeunes=empty?[]:J.map(x=>{const step=BR.troupe.steps[x.s],d=this.doneCount(x);return {initials:x.p[0]+x.n[0],name:`${x.p} ${x.n}`,step:step.name,frac:`${d}/${step.crit.length}`,pct:Math.round(d/step.crit.length*100)+'%',pending:this.hasPending(x),onOpen:open(x.id)};});
+    let f={},v={},cn={};
+    if(j){
+      const B=BR[j.b],step=B.steps[j.s],tot=step.crit.length,d=this.doneCount(j),ro=!cadre;
+      f={trailOn:!!t.trail,gridOn:!t.trail,trail:B.steps.map((s,k)=>{const done=k<j.s,cur=k===j.s,last=k===B.steps.length-1;return {name:s.name,dotSize:cur?'20px':'14px',dotBg:done?a.acc:cur?'#F2B400':'transparent',dotBorder:done?a.acc:cur?'#F2B400':t.lineStrong,lineStyle:done?'solid':'dashed',lineColor:last?'transparent':(done?a.acc:t.lineStrong),size:cur?'18px':'15px',weight:cur?800:500,color:k>j.s?t.muted:t.ink,date:done?`Remise le ${fmtD(j.last+150*(j.s-k)+40,true)}`:cur?`En cours · ${d}/${tot}`:'À venir'};}),meta:`${j.age} ans · ${B.unit}`,readOnly:ro,stepName:step.name,frac:`${d} / ${tot}`,pct:Math.round(d/tot*100)+'%',hasRule:!!step.rule,rule:step.rule||'',valBy:step.val,ready:d===tot,
+        steps:B.steps.map((s,k)=>k<j.s?{name:s.name,bar:a.acc,weight:500,color:t.muted,date:fmtD(j.last+150*(j.s-k)+40)}:k===j.s?{name:s.name,bar:mix(a.acc,40),weight:700,color:t.ink,date:'en cours'}:{name:s.name,bar:t.track,weight:500,color:t.muted,date:''}),
+        crits:step.crit.map((label,i)=>{const r=this.status(j,i),opt=(step.opt||[]).includes(i);const base={label,labelColor:t.ink,cursor:'default',tappable:false,onTap:null};
+          if(r.st==='done'||r.st==='pending'){const pend=r.st==='pending';Object.assign(base,{boxBg:pend?'#FDEFD6':a.acc,boxBorder:pend?'#D98A00':a.acc,boxInk:pend?'#6B4100':a.accInk,mark:'✓',meta:pend?"Aujourd'hui · en attente de réseau":`${r.e.days===0?"Aujourd'hui":fmtD(r.e.days)} · ${r.e.by}`,metaColor:pend?'#8A5300':t.muted});if(cadre)Object.assign(base,{tappable:true,cursor:'pointer',onTap:()=>this.setState({sheet:{jid:j.id,k:r.e.k}})});}
+          else if(r.st==='cancelled')Object.assign(base,{boxBg:'transparent',boxBorder:t.lineStrong,boxInk:t.muted,mark:'',meta:`Annulée le ${r.e.annulee} · à revalider`,metaColor:'#A1231B',labelColor:t.muted});
+          else Object.assign(base,{boxBg:'transparent',boxBorder:t.lineStrong,boxInk:t.muted,mark:'',meta:opt?'Optionnel · à valider':'À valider',metaColor:t.muted});
+          return base;}),
+        specs:j.spec.map(s=>({name:s[0],meta:s[1]})),hasSpecs:j.spec.length>0,noSpecs:!j.spec.length,
+        hist:j.b==='meute'?[{unit:'Meute Saint-Paul',period:'depuis sept. 2024'}]:(j.age>=13?[{unit:'Troupe Saint-Paul',period:`depuis sept. ${2026-(j.age-12)}`},{unit:'Meute Saint-Paul',period:`2018 – ${2026-(j.age-12)}`}]:[{unit:'Troupe Saint-Paul',period:'depuis sept. 2026'},{unit:'Meute Saint-Paul',period:'2021 – 2026'}]),
+        openCarnet:()=>this.go('carnet')};
+      const items=step.crit.map((label,i)=>({label,i,r:this.status(j,i),opt:(step.opt||[]).includes(i)})).filter(x=>x.r.st==='todo'||x.r.st==='cancelled');
+      v={already:`${d} critère${d>1?'s':''} sur ${tot} déjà validé${d>1?'s':''} · étape ${step.name}`,stepName:step.name,allDone:!items.length,comment:st.comment,onComment:e=>this.setState({comment:e.target.value}),complete:st.sel.length>0&&d+st.sel.length>=tot,
+        items:items.map(x=>{const on=st.sel.includes(x.i);const sub=x.r.st==='cancelled'?`Annulée le ${x.r.e.annulee}`:(x.opt?'Optionnel':'');return {label:x.label,mark:on?'✓':'',boxBg:on?a.acc:'transparent',boxBorder:on?a.acc:t.lineStrong,rowBg:on?a.soft:t.rowBg,hasSub:!!sub,sub,subColor:x.r.st==='cancelled'?'#A1231B':t.muted,onTap:()=>this.setState(s=>({sel:s.sel.includes(x.i)?s.sel.filter(y=>y!==x.i):[...s.sel,x.i]}))};})};
+      const live=(st.vals[j.id]||[]).filter(e=>e.s===j.s&&!e.annulee).sort((x,y)=>x.cid-y.cid);
+      cn={name,unit:`${B.unit} · Groupe Grand-Dakar`,branch:B.name.toUpperCase(),stepName:step.name,offline:st.offline,
+        steps:B.steps.map((s,k)=>({name:s.name,state:k<j.s?`remise le ${fmtD(j.last+150*(j.s-k)+40,true)}`:k===j.s?`en cours · ${d}/${tot}`:'—'})),
+        crits:live.map(e=>({label:step.crit[e.cid],meta:(e.pending?'en attente · ':'')+fmtD(e.days)})),
+        specs:j.spec.length?j.spec.map(s=>`${s[0]} (${s[1]})`).join(' ; '):'Aucune pour l\'instant'};
+    }
+    const bySteps=BR.troupe.steps.map((s,k)=>({name:s.name,c:J.filter(x=>x.s===k).length}));const mx=Math.max(...bySteps.map(x=>x.c));
+    const stale=J.map(x=>({x,l:this.lastDays(x)})).filter(o=>o.l>=30).sort((m,n)=>n.l-m.l);
+    const award=J.filter(x=>this.doneCount(x)===BR.troupe.steps[x.s].crit.length);
+    const dash={bySteps:bySteps.map(x=>({name:x.name,count:x.c,pct:Math.round(x.c/mx*100)+'%'})),stale:stale.map(o=>({name:`${o.x.p} ${o.x.n}`,step:BR.troupe.steps[o.x.s].name,label:`${o.l} jours`,onOpen:open(o.x.id)})),noStale:!stale.length,award:award.map(x=>({name:`${x.p} ${x.n}`,step:BR.troupe.steps[x.s].name,onOpen:open(x.id)})),noAward:!award.length};
+    const hero={count:J.length,award:award.length,segs:bySteps.map((x,k)=>({flex:`${Math.max(x.c,1.6)} 1 0`,color:mix(t.segBase||a.acc,[40,60,80,100][k]),label:x.name,count:x.c}))};const heroOn=!!t.hero&&!empty&&scr==='home';
+    const brA=b=>t.night?{...BR[b],...NIGHT[b]}:BR[b];const sh=[40,60,80,100];
+    const segsOf=(b,counts)=>BR[b].steps.map((x,k)=>({flex:`${Math.max(counts[k],1.6)} 1 0`,color:mix(brA(b).acc,sh[k]),label:x.name,count:counts[k]}));
+    const mAward=[['Seynabou Diouf','2e étoile'],['Alioune Kane','1re étoile']];
+    const grp={bg:t.hero?t.heroBg:t.cardBg,ink:t.hero?t.heroInk:t.ink,muted:t.hero?t.heroMuted:t.muted,
+      kpis:[{v:J.length+18+7,l:'jeunes dans 3 unités'},{v:award.length+mAward.length,l:'étapes à remettre en novembre'},{v:stale.length+4,l:'sans validation depuis 30 jours'}],
+      units:[
+        {name:'Meute Saint-Paul',acc:brA('meute').acc,eff:'18 jeunes · 4 cadres',active:true,inactive:false,segs:segsOf('meute',[5,7,4,2]),recent:'14 sur 18 validés ce mois',stale:'4 sans validation',staleColor:'#B86A00',cta:'Ouvrir la meute',onOpen:()=>this.toast('Module meute : ouverture prévue en V2 (mars 2027)')},
+        {name:'Troupe Saint-Paul',acc:brA('troupe').acc,eff:`${J.length} jeunes · 3 cadres`,active:true,inactive:false,segs:segsOf('troupe',bySteps.map(x=>x.c)),recent:`${J.length-stale.length} sur ${J.length} validés ce mois`,stale:stale.length?`${stale.length} sans validation`:'À jour',staleColor:stale.length?'#B86A00':t.muted,cta:'Ouvrir la troupe',onOpen:()=>this.go('home')},
+        {name:'Route Saint-Paul',acc:brA('route').acc,eff:'7 jeunes · 2 cadres',active:false,inactive:true,note:'Module route prévu en V2. Le référentiel officiel de la branche est encore attendu.'}],
+      award:[...award.map(x=>({name:`${x.p} ${x.n}`,sub:"Troupe · cour d'honneur du 7 nov.",step:BR.troupe.steps[x.s].name,soft:brA('troupe').soft,ink:brA('troupe').accText,cursor:'pointer',onOpen:open(x.id)})),...mAward.map(m=>({name:m[0],sub:'Meute · remise des insignes le 14 nov.',step:m[1],soft:brA('meute').soft,ink:brA('meute').accText,cursor:'default',onOpen:null}))],
+      onExport:()=>this.toast(st.offline?"Export impossible hors connexion : il se fait depuis le serveur.":'groupe-grand-dakar-listes.csv exporté')};
+    const kids=['awa','ibou'].map(id=>{const x=this.jeune(id),B=BR[x.b],step=B.steps[x.s],d=this.doneCount(x),l=this.lastDays(x);return {name:`${x.p} ${x.n}`,unit:B.unit,acc:t.night?NIGHT[x.b].acc:B.acc,step:`${step.name} en cours`,frac:`${d}/${step.crit.length}`,pct:Math.round(d/step.crit.length*100)+'%',last:`Dernière validation : ${l===0?"aujourd'hui":fmtD(l)}`,onOpen:open(id),onCarnet:()=>this.go('carnet',{jid:id})};});
+    const rb=st.refB,RB=BR[rb],routeEmpty=rb==='route'&&!st.routeCreated;
+    const ref={tabs:['meute','troupe','route'].map(b=>{const on=b===rb;return {label:BR[b].name,dot:BR[b].dot,bg:on?t.surface:'transparent',ink:on?t.ink:t.muted,shadow:on?'0 1px 2px rgba(0,0,0,.1)':'none',onTap:()=>this.setState({refB:b,refOpen:b==='route'?-1:1})};}),
+      empty:routeEmpty,has:!routeEmpty,onCreate:()=>{this.setState({routeCreated:true});this.toast('Référentiel de la route créé (vide, version 1)');},
+      title:rb==='troupe'?'Carnet de preuves':rb==='meute'?'Guide du louvetier':'Référentiel de la route',
+      version:rb==='route'?'Version 1 · brouillon':`Version ${st.refVer[rb]} · active · ${rb==='troupe'?214:96} validations`,
+      hasNote:rb==='meute',note:'Base proposée : chaque chef de meute peut adapter les critères de son unité.',
+      steps:RB.steps.map((s,i)=>{const extra=st.refExtra[rb+i]||0;const crits=[...s.crit,...Array.from({length:extra},(_,n)=>`Nouveau critère ${n+1}`)];const isOpen=st.refOpen===i;
+        return {n:i+1,name:s.name,count:`${crits.length} critères${s.rule?' · règle chiffrée':''}`,chev:isOpen?'▴':'▾',open:isOpen,hasRule:!!s.rule,rule:s.rule||'',onToggle:()=>this.setState({refOpen:isOpen?-1:i}),
+          onAdd:()=>this.setState(z=>({refExtra:{...z.refExtra,[rb+i]:extra+1},refDirty:{...z.refDirty,[rb]:true}})),
+          crits:crits.map((label,ci)=>{const key=`${rb}.${i}.${ci}`;const ob=key in st.refEdits?st.refEdits[key]:!(s.opt||[]).includes(ci);return {label,tag:ob?'Obligatoire':'Optionnel',tagBg:ob?a.soft:'transparent',tagInk:ob?a.accText:t.muted,tagBorder:ob?'transparent':t.lineStrong,onToggle:()=>this.setState(z=>({refEdits:{...z.refEdits,[key]:!ob},refDirty:{...z.refDirty,[rb]:true}}))};})};})};
+    let foot={show:false};
+    if(scr==='fiche'&&cadre&&j)foot={show:true,label:'Valider des critères',bg:a.acc,ink:a.accInk,cursor:'pointer',onTap:()=>this.go('valider',{sel:[],comment:''})};
+    if(scr==='valider'&&j){const n=st.sel.length;foot={show:true,hasNote:st.offline,note:'Sans réseau, la validation attend sur le téléphone.',label:n?`Valider ${n} critère${n>1?'s':''}`:'Cochez au moins un critère',bg:n?a.acc:t.track,ink:n?a.accInk:t.muted,cursor:n?'pointer':'default',onTap:this.confirm};}
+    if(scr==='carnet'&&j)foot={show:true,label:st.offline?'Téléchargement indisponible':'Télécharger le PDF',bg:st.offline?t.track:a.acc,ink:st.offline?t.muted:a.accInk,cursor:st.offline?'default':'pointer',onTap:()=>{if(!st.offline)this.toast(`carnet-${j.p.toLowerCase()}-${j.n.toLowerCase()}.pdf téléchargé`);}};
+    if(scr==='ref'&&st.refDirty[rb]&&rb!=='route')foot={show:true,hasNote:true,note:`Les validations faites restent attachées à la version ${st.refVer[rb]}.`,label:`Publier la version ${st.refVer[rb]+1}`,bg:a.acc,ink:a.accInk,cursor:'pointer',onTap:()=>{const nv=st.refVer[rb]+1;this.setState(z=>({refVer:{...z.refVer,[rb]:nv},refDirty:{...z.refDirty,[rb]:false}}));this.toast(`Version ${nv} publiée pour la ${RB.name.toLowerCase()}`);}};
+    const shE=st.sheet?(st.vals[st.sheet.jid]||[]).find(e=>e.k===st.sheet.k):null;const shJ=st.sheet?this.jeune(st.sheet.jid):null;
+    const sheet=shE?{open:true,label:BR[shJ.b].steps[shE.s].crit[shE.cid],meta:`${shE.days===0?"Aujourd'hui":'Validé le '+fmtD(shE.days)} · ${shE.by}`,onKeep:()=>this.setState({sheet:null}),onCancel:this.cancelVal}:{open:false};
+    const nav=(TABS[role]||[]).map(([s,l])=>{const on=st.tab===s;return {label:l,color:on?t.ink:t.muted,bar:on?a.acc:'transparent',onTap:()=>this.tab(s)};});
+    return {t,a,net:st.offline?'Pas de réseau':'4G',isLogin:scr==='login',inApp:scr!=='login',
+      login:{id:st.loginId,pw:st.loginPw,onId:e=>this.setState({loginId:e.target.value,loginErr:null}),onPw:e=>this.setState({loginPw:e.target.value,loginErr:null}),hasError:!!st.loginErr,error:st.loginErr||'',submit:this.submit,roles:[['cadre','Cadre'],['groupe','Chef de groupe'],['parent','Parent'],['admin','Admin']].map(([r,l])=>({label:l,onTap:()=>this.enter(r)}))},
+      hdr:{kicker:H[0],title:H[1],back:H[2]},goBack:this.back,sync,
+      showBanner:st.offline&&['home','fiche','valider'].includes(scr),bannerText:p?`Hors connexion · ${p} validation${p>1?'s':''} en attente. Elles partiront au retour du réseau.`:'Hors connexion. Vos validations restent sur le téléphone et partiront au retour du réseau.',
+      isHome:scr==='home',isFiche:scr==='fiche'&&!!j,isValider:scr==='valider'&&!!j,isDash:scr==='dash',isFamille:scr==='famille',isCarnet:scr==='carnet'&&!!j,isRef:scr==='ref',isGroupe:scr==='groupe',grp,
+      isEmpty:empty,hasJeunes:!empty,homeCount:empty?'0 jeune':`${J.length} jeunes`,jeunes,heroOn,hero,f,v,cn,dash,kids,ref,foot,sheet,nav,
+      toast:st.toast?{show:true,msg:st.toast.msg,hasUndo:!!st.toast.undo,onUndo:()=>{const u=st.toast.undo;clearTimeout(this._t);this.setState({toast:null});u();},bottom:foot.show?'150px':'72px'}:{show:false}};
+  }
+}
+</script>
+</body>
+</html>
