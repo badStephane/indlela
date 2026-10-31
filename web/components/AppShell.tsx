@@ -14,9 +14,17 @@ const TABS: Record<Role, [string, string][]> = {
     ["/unite", "Unité"],
     ["/unite/tableau-de-bord", "Tableau de bord"],
   ],
-  groupe: [["/groupe", "Vue groupe"]],
+  groupe: [
+    ["/groupe", "Vue groupe"],
+    ["/admin/donnees", "Données"],
+  ],
   parent: [["/famille", "Famille"]],
-  admin: [["/admin/referentiels", "Référentiels"]],
+  admin: [
+    ["/admin/referentiels", "Référentiels"],
+    ["/admin/comptes", "Comptes"],
+    ["/admin/journal", "Journal"],
+    ["/admin/donnees", "Données"],
+  ],
 };
 
 export interface FootAction {
@@ -82,6 +90,8 @@ export function AppShell({
     : "Hors connexion. Vos validations restent sur le téléphone et partiront au retour du réseau.";
 
   const tabs = role ? TABS[role] : [];
+  // Cinq onglets tiennent sur 360 px en resserrant le texte.
+  const tabText = tabs.length >= 4 ? "flex-auto px-1 text-[12px]" : "flex-1 text-[13px]";
 
   return (
     <Frame style={accentVars(branch)}>
@@ -135,7 +145,7 @@ export function AppShell({
                 store.setLastTab(href);
                 router.push(href);
               }}
-              className={cx("h-[58px] flex-1 border-t-[3px] bg-transparent text-[13px] font-bold", on ? "border-acc text-ink" : "border-transparent text-muted")}
+              className={cx("h-[58px] min-w-0 truncate border-t-[3px] bg-transparent font-bold", tabText, on ? "border-acc text-ink" : "border-transparent text-muted")}
             >
               {label}
             </button>
@@ -147,7 +157,7 @@ export function AppShell({
             store.logout();
             router.replace("/connexion");
           }}
-          className="h-[58px] flex-1 border-t-[3px] border-transparent bg-transparent text-[13px] font-bold text-muted"
+          className={cx("h-[58px] min-w-0 truncate border-t-[3px] border-transparent bg-transparent font-bold text-muted", tabText)}
         >
           Quitter
         </button>

@@ -24,6 +24,9 @@ npm run build && npm start
 | `/jeunes/[id]/carnet` | 7 · Carnet PDF | cadre, chef de groupe, parent |
 | `/famille` | 8 · Espace famille | parent |
 | `/admin/referentiels` | 9 · Référentiels | admin |
+| `/admin/comptes` | 10 · Comptes et unités (consentements, liens parent, affectations) | admin |
+| `/admin/journal` | 11 · Journal, en ajout seul, avec avant / après | admin |
+| `/admin/donnees` | 12 · Import CSV des jeunes, exports, sauvegardes | admin, chef de groupe |
 
 ## États de démo
 
@@ -34,7 +37,13 @@ npm run build && npm start
   (actif par défaut).
 - **Unité vide** : interrupteur « Unité vide » sur l'écran de connexion.
 - **Annulation** : dans une fiche, touchez un critère validé. La validation reste dans le
-  journal (`annuleeLe`), elle n'est jamais effacée.
+  journal (`annuleeLe`), elle n'est jamais effacée. Le « Annuler » du toast efface seulement
+  une saisie restée sur le téléphone ; une saisie déjà reçue est annulée et journalisée.
+- **Import** : Données → « Essayer un exemple » charge un CSV avec des lignes en erreur.
+  Les fiches importées restent inactives jusqu'au consentement (Comptes → « Consentement reçu »),
+  puis apparaissent dans l'unité.
+- **Journal** : chaque écriture (validation, annulation, publication, compte, consentement,
+  import, export, sauvegarde) y entre. Une validation hors connexion y entre à la synchronisation.
 
 ## Écarts assumés avec la maquette
 

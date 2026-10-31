@@ -7,7 +7,7 @@ import { Bar, Card, OutlineButton } from "@/components/ui";
 import { useGuard } from "@/lib/access";
 import { useStore } from "@/lib/store";
 import { BRANCHES, BRANCH_COLORS } from "@/lib/referentiels";
-import { FAMILLE, findJeune, fullName } from "@/lib/mock";
+import { fullName } from "@/lib/mock";
 import { currentStep, doneCount, lastValidationDays, pct } from "@/lib/progress";
 import { daysAgo, fmtShort, toISODate } from "@/lib/dates";
 
@@ -24,11 +24,12 @@ export default function Famille() {
   if (!ok) return null;
 
   return (
-    <AppShell kicker="Espace famille" title={FAMILLE.name}>
+    <AppShell kicker="Espace famille" title={store.compte?.nom ?? "Famille"}>
       <div className="flex flex-col gap-4 px-4 py-[18px]">
         <p className="m-0 text-[14px] text-muted text-pretty">Vous suivez la progression de vos enfants en lecture seule. Les cadres font les validations.</p>
-        {FAMILLE.kids.map((id) => {
-          const j = findJeune(id)!;
+        {(store.compte?.enfants ?? []).map((id) => {
+          const j = store.findJeune(id);
+          if (!j || !j.consentementLe) return null;
           const step = currentStep(j);
           const d = doneCount(store.vals, j);
           const l = lastValidationDays(store.vals, j);
