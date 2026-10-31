@@ -153,20 +153,20 @@ export function analyseImport(rows: string[][], existing: Person[], now: Date = 
 /** Modèle Excel de l'import de l'admin. */
 export const MODELE_IMPORT: string[][] = [
   ["Prénom", "Nom", "Date de naissance", "Unité"],
-  ["Mame Diarra", "Sy", "14/03/2013", "Troupe Saint-Paul"],
+  ["Mame Diarra", "Sy", "14/03/2013", "Troupe"],
 ];
 
 /** Fichier d'essai : quelques lignes justes, et une erreur de chaque sorte. */
 export const EXEMPLE_IMPORT: string[][] = [
   ["Prénom", "Nom", "Date de naissance", "Unité"],
-  ["Mame Diarra", "Sy", "14/03/2013", "Troupe Saint-Paul"],
-  ["Babacar", "Ndao", "02/11/2012", "Troupe Saint-Paul"],
-  ["Coumba", "Faye", "27/06/2014", "Troupe Saint-Paul"],
+  ["Mame Diarra", "Sy", "14/03/2013", "Troupe"],
+  ["Babacar", "Ndao", "02/11/2012", "Troupe"],
+  ["Coumba", "Faye", "27/06/2014", "Troupe"],
   ["Alassane", "Wade", "09/01/2013", "Troupe"],
-  ["Seynabou", "Diouf", "18/08/2016", "Meute Saint-Paul"],
-  ["Moussa", "Diop", "05/05/2012", "Troupe Saint-Paul"],
-  ["Adja", "Mbengue", "31/02/2013", "Troupe Saint-Paul"],
-  ["Ousseynou", "", "12/12/2012", "Troupe Saint-Paul"],
+  ["Seynabou", "Diouf", "18/08/2016", "Meute"],
+  ["Moussa", "Diop", "05/05/2012", "Troupe"],
+  ["Adja", "Mbengue", "31/02/2013", "Troupe"],
+  ["Ousseynou", "", "12/12/2012", "Troupe"],
 ];
 
 /** Modèle Excel de la liste d'une unité, rempli par son responsable. */

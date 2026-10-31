@@ -58,7 +58,7 @@ export default function Carnet() {
             <span className="text-[11px] uppercase tracking-[0.08em] text-[#6B665C]">Carnet de progression</span>
             <span className="text-[20px] font-bold">{name}</span>
             <span className="text-[12px] text-[#6B665C]">
-              {B.unit} · {store.groupeNom}
+              {store.unitesNoms[j.branche]} · {store.groupeLibelle}
             </span>
           </div>
           <div className="flex flex-col">

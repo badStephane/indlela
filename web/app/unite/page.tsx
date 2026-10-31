@@ -33,7 +33,7 @@ export default function Unite() {
   const addJeunes = () => router.push("/unite/ajouter");
 
   return (
-    <AppShell kicker={store.groupeNom} title="Troupe Saint-Paul" back={role === "groupe" ? "/groupe" : undefined} banner>
+    <AppShell kicker={store.groupeNom} title={store.unitesNoms.troupe} back={role === "groupe" ? "/groupe" : undefined} banner>
       <div className="flex flex-col gap-3 p-4">
         <div className="flex items-center justify-between gap-2 text-[13px] text-muted">
           <span>Réunion du {fmtMeeting(new Date())}</span>

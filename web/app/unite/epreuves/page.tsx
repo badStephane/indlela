@@ -18,7 +18,7 @@ export default function EpreuvesUnite() {
   if (!ok) return null;
 
   return (
-    <AppShell kicker="Troupe Saint-Paul" title="Épreuves de l'unité">
+    <AppShell kicker={store.unitesNoms.troupe} title="Épreuves de l'unité">
       <div className="p-4">
         <UnitEpreuves branche="troupe" />
       </div>

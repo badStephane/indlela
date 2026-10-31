@@ -1,7 +1,8 @@
 // Mise en forme du rapport d'évolution : mêmes chiffres pour le classeur Excel et la page PDF.
 
 import type { Feuille, Valeur } from "./excel";
-import { BRANCHES, type BranchCode } from "./referentiels";
+import type { BranchCode } from "./referentiels";
+import type { NomsUnites } from "./groupe";
 import {
   bilanJeunes,
   evolution,
@@ -60,18 +61,18 @@ const dateExcel = (iso: string) => {
 
 const etapeName = (steps: { id: string; name: string }[], id: string) => steps.find((s) => s.id === id)?.name ?? id;
 
-export function feuillesRapport(r: Rapport, steps: Record<BranchCode, { id: string; name: string }[]>): Feuille[] {
+export function feuillesRapport(r: Rapport, steps: Record<BranchCode, { id: string; name: string }[]>, noms: NomsUnites): Feuille[] {
   const synthese: Feuille = {
     nom: "Synthèse",
     lignes: [
       ["Unité", "Jeunes à la rentrée", "Jeunes aujourd'hui", "Preuves validées", "Jeunes ayant progressé", "Étapes reconnues", "Étapes ajournées"],
-      ...r.synthese.map((s): Valeur[] => [BRANCHES[s.branche].unit, s.effectifDebut, s.effectifFin, s.validations, s.jeunesProgressant, s.reconnues, s.ajournees]),
+      ...r.synthese.map((s): Valeur[] => [noms[s.branche], s.effectifDebut, s.effectifFin, s.validations, s.jeunesProgressant, s.reconnues, s.ajournees]),
     ],
     largeurs: [22, 12, 12, 12, 14, 12, 12],
   };
 
   const parUnite: Feuille[] = r.branches.map((b) => ({
-    nom: BRANCHES[b].unit,
+    nom: noms[b],
     lignes: [
       ["Période", "Du", "Au", "Jeunes", "Preuves validées", "Jeunes ayant progressé", "Étapes reconnues", "Étapes ajournées", ...steps[b].map((s) => s.name)],
       ...r.lignes
@@ -96,7 +97,7 @@ export function feuillesRapport(r: Rapport, steps: Record<BranchCode, { id: stri
     lignes: [
       ["Unité", "Prénom", "Nom", "Étape à la rentrée", "Étape actuelle", "Preuves validées", "Étapes reconnues"],
       ...r.jeunes.map((x): Valeur[] => [
-        BRANCHES[x.j.branche].unit,
+        noms[x.j.branche],
         x.j.prenom,
         x.j.nom,
         etapeName(steps[x.j.branche], x.etapeDebut),

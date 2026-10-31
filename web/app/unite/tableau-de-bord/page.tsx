@@ -36,7 +36,7 @@ export default function TableauDeBord() {
   const open = (id: string) => () => router.push(jeuneHref(id));
 
   return (
-    <AppShell kicker="Troupe Saint-Paul" title="Tableau de bord">
+    <AppShell kicker={store.unitesNoms.troupe} title="Tableau de bord">
       <div className="flex flex-col gap-6 p-4">
         {troupe.length === 0 ? (
           <EmptyBox>Le tableau de bord se remplit dès que l&apos;unité compte des jeunes.</EmptyBox>

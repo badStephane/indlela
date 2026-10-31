@@ -73,7 +73,7 @@ export default function Donnees() {
       action: "import",
       table: "jeunes",
       ligne: fichier ?? "import.xlsx",
-      resume: `${added.length} ${plural(added.length, "fiche importée", "fiches importées")} dans Troupe Saint-Paul`,
+      resume: `${added.length} ${plural(added.length, "fiche importée", "fiches importées")} dans ${store.unitesNoms.troupe}`,
       apres: { fichier: fichier ?? null, lignes: rows!.length, importees: added.length, rejetees: errors.length },
     });
     store.showToast(`${added.length} ${plural(added.length, "fiche créée", "fiches créées")} · inactives jusqu'au consentement des parents`);
@@ -98,7 +98,7 @@ export default function Donnees() {
     if (kind === "jeunes") {
       const lignes = troupe.map((j) => {
         const p = progressOf(j, store.steps, vals);
-        return [BRANCHES[j.branche].unit, j.prenom, j.nom, ageOf(j), p.step?.name, p.done, p.total, j.consentementLe];
+        return [store.unitesNoms[j.branche], j.prenom, j.nom, ageOf(j), p.step?.name, p.done, p.total, j.consentementLe];
       });
       return { nom: "Jeunes", lignes: [["Unité", "Prénom", "Nom", "Âge", "Étape", "Preuves validées", "Preuves de l'étape", "Consentement le"], ...lignes], largeurs: [20, 16, 16, 6, 14, 10, 10, 14] };
     }
@@ -110,7 +110,7 @@ export default function Donnees() {
           if (!j) return [v.id, "", "", "", "", v.date, v.validePar, v.commentaire, v.annuleeLe];
           const steps = store.steps[j.branche];
           const step = steps.find((x) => x.id === v.etapeId);
-          return [v.id, fullName(j), BRANCHES[j.branche].unit, step?.name, preuveLabel(steps, v.etapeId, v.preuveId), v.date, v.validePar, v.commentaire, v.annuleeLe];
+          return [v.id, fullName(j), store.unitesNoms[j.branche], step?.name, preuveLabel(steps, v.etapeId, v.preuveId), v.date, v.validePar, v.commentaire, v.annuleeLe];
         });
       return {
         nom: "Validations",
@@ -227,7 +227,7 @@ export default function Donnees() {
                       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <span className={cx("truncate text-[15px] font-medium", r.erreur && "text-muted")}>{[r.prenom, r.nom].filter(Boolean).join(" ") || "Sans nom"}</span>
                         <span className={cx("font-mono text-[12px]", r.erreur ? "text-err-ink" : "text-muted")}>
-                          ligne {r.ligne} · {r.erreur ?? `${r.age} ans · Troupe Saint-Paul`}
+                          ligne {r.ligne} · {r.erreur ?? `${r.age} ans · ${store.unitesNoms.troupe}`}
                         </span>
                       </span>
                     </div>

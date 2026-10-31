@@ -49,7 +49,6 @@ export interface Etape {
 export interface Branche {
   code: BranchCode;
   name: string;
-  unit: string;
   steps: Etape[];
 }
 
@@ -57,11 +56,10 @@ export interface Branche {
 const axe = (id: string, label: string, obligatoire = true): Domaine => ({ id, name: label, obligatoire, preuves: [{ id: `${id}.1`, label }] });
 
 export const BRANCHES: Record<BranchCode, Branche> = {
-  troupe: { code: "troupe", name: "Troupe", unit: "Troupe Saint-Paul", steps: TROUPE_STEPS },
+  troupe: { code: "troupe", name: "Troupe", steps: TROUPE_STEPS },
   meute: {
     code: "meute",
     name: "Meute",
-    unit: "Meute Saint-Paul",
     steps: [
       {
         id: "me.pt",
@@ -104,7 +102,7 @@ export const BRANCHES: Record<BranchCode, Branche> = {
       },
     ],
   },
-  route: { code: "route", name: "Route", unit: "Route Saint-Paul", steps: [] },
+  route: { code: "route", name: "Route", steps: [] },
 };
 
 /** Couleurs de branche (accent, texte sur fond clair, encre sur accent, fond doux). */

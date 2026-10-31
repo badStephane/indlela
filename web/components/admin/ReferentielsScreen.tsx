@@ -83,7 +83,7 @@ export function ReferentielsScreen({ kicker, title, withUnits = false }: Referen
 
         {mode === "unite" ? (
           <>
-            <span className="text-[17px] font-bold">{RB.unit}</span>
+            <span className="text-[17px] font-bold">{store.unitesNoms[rb]}</span>
             <UnitEpreuves key={rb} branche={rb} />
           </>
         ) : routeEmpty ? (

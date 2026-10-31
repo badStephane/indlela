@@ -85,7 +85,7 @@ export default function Comptes() {
                   <span className="flex min-w-0 flex-col">
                     <span className="truncate text-[15px] font-semibold text-ink">{fullName(j)}</span>
                     <span className="text-[12px]">
-                      {BRANCHES[j.branche].unit}
+                      {store.unitesNoms[j.branche]}
                       {j.importe ? " · importé" : ""}
                     </span>
                   </span>
@@ -262,7 +262,7 @@ function CompteSheet({ id, onClose }: { id: string; onClose: () => void }) {
             return (
               <div key={jid} className="flex min-h-11 items-center justify-between gap-2 border-b border-line">
                 <span className="text-[14px]">
-                  {j ? fullName(j) : jid} <span className="text-muted">· {j ? BRANCHES[j.branche].unit : ""}</span>
+                  {j ? fullName(j) : jid} <span className="text-muted">· {j ? store.unitesNoms[j.branche] : ""}</span>
                 </span>
                 <button
                   type="button"

@@ -92,7 +92,7 @@ export default function Progression() {
                 <div key={compte.id} className={`${rowClass} min-h-[52px] justify-between gap-3 py-2`}>
                   <span className="flex min-w-0 flex-col">
                     <span className="text-[15px] font-semibold">{compte.nom}</span>
-                    <span className="text-[12px] text-muted">{compte.unites.map((u) => BRANCHES[u as BranchCode]?.unit ?? u).join(", ") || "Aucune unité"}</span>
+                    <span className="text-[12px] text-muted">{compte.unites.map((u) => store.unitesNoms[u as BranchCode] ?? u).join(", ") || "Aucune unité"}</span>
                   </span>
                   <span className="flex-none font-mono text-[13px] font-semibold text-stale">{jours === null ? "Jamais connecté" : `${jours} jours`}</span>
                 </div>
@@ -109,7 +109,7 @@ export default function Progression() {
               {attente.map((j) => (
                 <div key={j.id} className={`${rowClass} min-h-[52px] justify-between gap-3 py-2`}>
                   <span className="text-[15px] font-semibold">{fullName(j)}</span>
-                  <span className="flex-none text-[12px] text-muted">{BRANCHES[j.branche].unit}</span>
+                  <span className="flex-none text-[12px] text-muted">{store.unitesNoms[j.branche]}</span>
                 </div>
               ))}
             </List>
@@ -140,7 +140,7 @@ function UniteCard({ branche, relances }: { branche: BranchCode; relances: Jeune
       <div className="h-1" style={{ background: color }} />
       <div className="flex flex-col gap-3 px-4 pb-4 pt-3.5">
         <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
-          <span className="whitespace-nowrap text-[18px] font-extrabold">{B.unit}</span>
+          <span className="whitespace-nowrap text-[18px] font-extrabold">{store.unitesNoms[branche]}</span>
           <span className="flex-none font-mono text-[12px] text-muted">
             {membres.length} {plural(membres.length, "jeune", "jeunes")} · {nbCadres} {plural(nbCadres, "cadre", "cadres")}
           </span>
@@ -192,7 +192,8 @@ function JeuneLigne({ j, progress, color, onOpen }: { j: Jeune; progress: Return
 
 function JeunesARelancer({ list }: { list: JeuneARelancer[] }) {
   const router = useRouter();
-  const { steps } = useStore();
+  const store = useStore();
+  const { steps } = store;
   return (
     <List>
       {list.map(({ j, jours }) => (
@@ -200,7 +201,7 @@ function JeunesARelancer({ list }: { list: JeuneARelancer[] }) {
           <span className="flex min-w-0 flex-col">
             <span className="text-[15px] font-semibold">{fullName(j)}</span>
             <span className="text-[12px] text-muted">
-              {BRANCHES[j.branche].unit} · {steps[j.branche].find((s) => s.id === j.etapeId)?.name}
+              {store.unitesNoms[j.branche]} · {steps[j.branche].find((s) => s.id === j.etapeId)?.name}
             </span>
           </span>
           <span className="flex-none font-mono text-[13px] font-semibold text-stale">{jours === null ? "Jamais" : `${jours} jours`}</span>

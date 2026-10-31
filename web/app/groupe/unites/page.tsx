@@ -4,14 +4,15 @@ import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { Card, Section } from "@/components/ui";
 import { useGuard } from "@/lib/access";
-import { MAX_GROUPE_NOM, useStore } from "@/lib/store";
+import { useStore } from "@/lib/store";
+import { MAX_GROUPE_NOM, nettoyerGroupe, nomGroupe, nomsUnites, type Groupe } from "@/lib/groupe";
 import { BRANCH_COLORS, type BranchCode } from "@/lib/referentiels";
 import type { Compte, Unite } from "@/lib/admin";
 import { plural } from "@/lib/progress";
 import { estActif } from "@/lib/suivi";
 
-// Le chef de groupe ou le responsable progression tient à jour le nom du groupe, le
-// responsable de chaque unité et son équipe de cadres. La liste des jeunes, elle, est
+// Le chef de groupe ou le responsable progression tient à jour le nom du groupe (les unités
+// en prennent le nom), sa paroisse, le responsable de chaque unité et son équipe de cadres. La liste des jeunes, elle, est
 // importée par le responsable de l'unité (fichier Excel).
 
 const ORDER: BranchCode[] = ["meute", "troupe", "route"];
@@ -21,20 +22,21 @@ const fieldClass = "h-11 min-w-0 rounded-ui border border-line-strong bg-surface
 export default function GroupeUnites() {
   const ok = useGuard((r) => r === "groupe" || r === "progression");
   const store = useStore();
-  const [nom, setNom] = useState(store.groupeNom);
+  const [form, setForm] = useState<Groupe>(store.groupe);
 
   useEffect(() => {
     if (ok) store.setLastTab("/groupe/unites");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ok]);
-  useEffect(() => setNom(store.groupeNom), [store.groupeNom]);
+  useEffect(() => setForm(store.groupe), [store.groupe]);
 
   if (!ok) return null;
 
   const { offline } = store;
   const unites = [...store.unites].sort((a, b) => ORDER.indexOf(a.branche) - ORDER.indexOf(b.branche));
-  const nomPropre = nom.trim();
-  const nomChange = !!nomPropre && nomPropre !== store.groupeNom;
+  const propre = nettoyerGroupe(form);
+  const change = !!propre.nom && (propre.nom !== store.groupe.nom || propre.paroisse !== store.groupe.paroisse);
+  const apercu = nomsUnites(propre);
 
   return (
     <AppShell kicker={store.groupeNom} title="Groupe et unités">
@@ -46,22 +48,50 @@ export default function GroupeUnites() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                if (!nomChange || offline) return;
-                store.setGroupeNom(nomPropre);
-                store.showToast("Nom du groupe enregistré");
+                if (!change || offline) return;
+                store.setGroupe(propre);
+                store.showToast(`${nomGroupe(propre)} enregistré · les unités suivent`);
               }}
-              className="flex flex-col gap-1.5"
+              className="flex flex-col gap-3"
             >
-              <label htmlFor="groupe-nom" className="text-[13px] font-semibold">
+              <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
                 Nom du groupe
+                <span className="flex items-center gap-2">
+                  <span className="flex-none text-[15px] font-normal text-muted">Groupe</span>
+                  <input
+                    value={form.nom}
+                    onChange={(e) => setForm((f) => ({ ...f, nom: e.target.value }))}
+                    maxLength={MAX_GROUPE_NOM + 7}
+                    placeholder="Troisième Dakar"
+                    disabled={offline}
+                    className={`${fieldClass} flex-1`}
+                  />
+                </span>
               </label>
-              <div className="flex gap-2">
-                <input id="groupe-nom" value={nom} onChange={(e) => setNom(e.target.value)} maxLength={MAX_GROUPE_NOM} disabled={offline} className={`${fieldClass} flex-1`} />
-                <button type="submit" disabled={!nomChange || offline} className="h-11 flex-none rounded-ui bg-acc px-4 text-[14px] font-bold text-acc-ink disabled:bg-track disabled:text-muted">
-                  Enregistrer
-                </button>
+              <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
+                Paroisse
+                <span className="flex items-center gap-2">
+                  <span className="flex-none text-[15px] font-normal text-muted">Paroisse</span>
+                  <input
+                    value={form.paroisse}
+                    onChange={(e) => setForm((f) => ({ ...f, paroisse: e.target.value }))}
+                    maxLength={MAX_GROUPE_NOM + 9}
+                    placeholder="Saint-Pierre"
+                    disabled={offline}
+                    className={`${fieldClass} flex-1`}
+                  />
+                </span>
+              </label>
+              <div className="flex flex-col gap-1 rounded-ui bg-track px-3 py-2.5 text-[13px]">
+                <span className="font-semibold">Les unités s&apos;appelleront</span>
+                <span className="text-muted">
+                  {apercu.meute} · {apercu.troupe} · {apercu.route}
+                </span>
               </div>
-              <span className="text-[12px] text-muted">Affiché en tête de chaque écran, sur les carnets et dans les rapports.</span>
+              <button type="submit" disabled={!change || offline} className="h-11 rounded-ui bg-acc px-4 text-[14px] font-bold text-acc-ink disabled:bg-track disabled:text-muted">
+                Enregistrer
+              </button>
+              <span className="text-[12px] text-muted">Le nom du groupe et de ses unités s&apos;affiche en tête de chaque écran, sur les carnets et dans les rapports.</span>
             </form>
           </Card>
         </Section>

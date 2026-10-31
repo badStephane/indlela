@@ -29,7 +29,7 @@ Le service worker (`public/sw.js`, généré à chaque `npm run build` depuis `s
 | `/jeune/cour?id=…` | Cour d'honneur : décision, observations, nom du CT ; vote aux 3/4 pour Animateur | cadre, chef de groupe, resp. progression |
 | `/unite/tableau-de-bord` | 5 · Tableau de bord | cadre |
 | `/groupe` | 6 · Vue groupe | chef de groupe |
-| `/groupe/unites` | Nom du groupe, responsable et équipe de cadres de chaque unité | chef de groupe, resp. progression |
+| `/groupe/unites` | Nom du groupe et paroisse (les unités prennent le nom du groupe : « Troupe Troisième Dakar »), responsable et équipe de cadres de chaque unité | chef de groupe, resp. progression |
 | `/progression` | Progression du groupe : chaque unité (jeunes par étape, liste des jeunes), jeunes et cadres à relancer, consentements manquants | resp. progression |
 | `/progression/rapport?annee=…&g=…` | Rapport d'évolution de l'année (par semaine, trimestre ou année), à enregistrer en PDF ; le même rapport s'exporte en Excel depuis `/progression` | resp. progression |
 | `/progression/cours` | Cours d'honneur de toutes les unités : jeunes à présenter, étapes ajournées, décisions récentes | resp. progression |

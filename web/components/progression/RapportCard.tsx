@@ -28,7 +28,7 @@ export function RapportCard() {
     const { jeunes, vals, recons, steps } = store;
     const r = construireRapport({ jeunes, vals, recons, steps }, annee, g, toISODate(new Date()));
     const name = `${slug(store.groupeNom)}-evolution-${annee.label}-${g}.xlsx`;
-    telechargerExcel(name, feuillesRapport(r, steps))
+    telechargerExcel(name, feuillesRapport(r, steps, store.unitesNoms))
       .then(() => {
         store.log({
           action: "export",

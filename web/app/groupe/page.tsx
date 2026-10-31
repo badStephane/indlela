@@ -72,7 +72,7 @@ export default function Groupe() {
   const exportListes = () => {
     if (offline) return store.showToast("Export impossible hors connexion : il se fait depuis le serveur.");
     const name = `${slug(store.groupeNom)}-listes.xlsx`;
-    const lines = rows.map(({ j, p }) => [BRANCHES.troupe.unit, j.prenom, j.nom, ageOf(j), p.step?.name, p.done, p.total]);
+    const lines = rows.map(({ j, p }) => [store.unitesNoms.troupe, j.prenom, j.nom, ageOf(j), p.step?.name, p.done, p.total]);
     telechargerExcel(name, [{ nom: "Listes", lignes: [["Unité", "Prénom", "Nom", "Âge", "Étape", "Preuves validées", "Preuves de l'étape"], ...lines], largeurs: [20, 16, 16, 6, 14, 10, 10] }])
       .then(() => {
         store.log({ action: "export", table: "jeunes", ligne: name, resume: `Export ${name} (${lines.length} lignes)`, apres: { fichier: name, lignes: lines.length } });
@@ -99,7 +99,7 @@ export default function Groupe() {
               <div className="h-1" style={{ background: BRANCH_COLORS[u.code].acc }} />
               <div className="flex flex-col gap-3 px-4 pb-4 pt-3.5">
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-[18px] font-extrabold">{BRANCHES[u.code].unit}</span>
+                  <span className="text-[18px] font-extrabold">{store.unitesNoms[u.code]}</span>
                   <span className="font-mono text-[12px] text-muted">{u.eff}</span>
                 </div>
                 <Segments segs={u.segs} barHeight={10} labelClass="text-muted" />
@@ -117,7 +117,7 @@ export default function Groupe() {
             <div className="h-1" style={{ background: BRANCH_COLORS.route.acc }} />
             <div className="flex flex-col gap-3 px-4 pb-4 pt-3.5">
               <div className="flex items-baseline justify-between gap-2">
-                <span className="text-[18px] font-extrabold">{BRANCHES.route.unit}</span>
+                <span className="text-[18px] font-extrabold">{store.unitesNoms.route}</span>
                 <span className="font-mono text-[12px] text-muted">
                   {R.effectif} jeunes · {R.cadres} cadres
                 </span>

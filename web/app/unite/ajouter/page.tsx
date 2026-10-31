@@ -129,7 +129,7 @@ export default function AjouterJeunes() {
   }
 
   return (
-    <AppShell kicker="Troupe Saint-Paul" title="Ajouter des jeunes" back="/unite" foot={foot}>
+    <AppShell kicker={store.unitesNoms.troupe} title="Ajouter des jeunes" back="/unite" foot={foot}>
       <div className="flex flex-col gap-4 p-4">
         <div role="tablist" aria-label="Façon d'ajouter" className="grid grid-cols-3 gap-1 rounded-ui bg-track p-1">
           {MODES.map(([m, label]) => (

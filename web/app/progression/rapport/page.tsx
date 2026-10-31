@@ -67,7 +67,7 @@ function RapportEvolution() {
           <div className="flex items-center justify-between border-b-2 border-[#1F1D19] pb-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.svg" alt="Indlela" className="h-[18px] w-auto" />
-            <span className="font-mono text-[11px] text-[#6B665C]">{groupeNom.toUpperCase()}</span>
+            <span className="font-mono text-[11px] text-[#6B665C]">{store.groupeLibelle.toUpperCase()}</span>
           </div>
           <div className="flex flex-col gap-0.5">
             <span className="text-[11px] uppercase tracking-[0.08em] text-[#6B665C]">Rapport d&apos;évolution de la progression</span>
@@ -135,13 +135,14 @@ function Tableau({ titres, lignes, nums = [] }: { titres: string[]; lignes: Reac
 }
 
 function Synthese({ r }: { r: Rapport }) {
+  const store = useStore();
   return (
     <section className="flex flex-col gap-2">
       <Titre>Synthèse de l&apos;année</Titre>
       <Tableau
         titres={["Unité", "Rentrée", "Aujourd'hui", "Preuves", "Ont progressé", "Reconnues", "Ajournées"]}
         nums={[1, 2, 3, 4, 5, 6]}
-        lignes={r.synthese.map((s) => [BRANCHES[s.branche].unit, s.effectifDebut, s.effectifFin, s.validations, s.jeunesProgressant, s.reconnues, s.ajournees])}
+        lignes={r.synthese.map((s) => [store.unitesNoms[s.branche], s.effectifDebut, s.effectifFin, s.validations, s.jeunesProgressant, s.reconnues, s.ajournees])}
       />
       <span className="text-[11px] text-[#6B665C]">
         Rentrée et aujourd&apos;hui : jeunes actifs. Ont progressé : jeunes avec au moins une preuve validée dans l&apos;année.
@@ -151,13 +152,14 @@ function Synthese({ r }: { r: Rapport }) {
 }
 
 function Unite({ r, b, etapes }: { r: Rapport; b: Rapport["branches"][number]; etapes: string[] }) {
+  const store = useStore();
   const lignes = r.lignes.filter((l) => l.branche === b);
   const max = Math.max(1, ...lignes.map((l) => l.validations));
   const color = BRANCH_COLORS[b].acc;
   const periode = (debut: string, fin: string, label: string) => (r.granularite === "semaine" ? `${label} · ${fmtShort(debut)} – ${fmtShort(fin)}` : label);
   return (
     <section className="flex flex-col gap-2">
-      <Titre color={color}>{BRANCHES[b].unit}</Titre>
+      <Titre color={color}>{store.unitesNoms[b]}</Titre>
       <Tableau
         titres={["Période", "Jeunes", "Preuves validées", "Ont progressé", "Reconnues", "Ajournées", ...etapes]}
         nums={[1, 3, 4, 5, ...etapes.map((_, i) => 6 + i)]}
@@ -189,7 +191,7 @@ function Jeunes({ r }: { r: Rapport }) {
         titres={["Unité", "Jeune", "À la rentrée", "Aujourd'hui", "Preuves", "Reconnues"]}
         nums={[4, 5]}
         lignes={r.jeunes.map((x) => [
-          BRANCHES[x.j.branche].unit,
+          store.unitesNoms[x.j.branche],
           `${x.j.prenom} ${x.j.nom}`,
           name(x.j.branche, x.etapeDebut),
           x.etapeFin !== x.etapeDebut ? <strong key="f">{name(x.j.branche, x.etapeFin)}</strong> : name(x.j.branche, x.etapeFin),

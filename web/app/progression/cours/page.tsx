@@ -49,7 +49,7 @@ export default function CoursHonneur() {
         {unites.map((b) => {
           const list = prets.filter((x) => x.j.branche === b);
           return (
-            <Section key={b} label={`${BRANCHES[b].unit} · à présenter`} gap="gap-2.5">
+            <Section key={b} label={`${store.unitesNoms[b]} · à présenter`} gap="gap-2.5">
               {list.length ? (
                 <List>
                   {list.map(({ j, p }) => (
@@ -77,7 +77,7 @@ export default function CoursHonneur() {
                   <span className="flex min-w-0 flex-col">
                     <span className="text-[15px] font-semibold">{fullName(j)}</span>
                     <span className="text-[12px] text-muted">
-                      {BRANCHES[j.branche].unit} · ajournée le {fmtShort(le, true)}
+                      {store.unitesNoms[j.branche]} · ajournée le {fmtShort(le, true)}
                     </span>
                   </span>
                   <Chip style={chipStyle(j.branche)}>{etapeName(j.branche, j.etapeId)}</Chip>

@@ -19,7 +19,7 @@ export function UnitEpreuves({ branche }: { branche: BranchCode }) {
   const store = useStore();
   const [open, setOpen] = useState(0);
   const steps = store.steps[branche];
-  const unit = BRANCHES[branche].unit;
+  const unit = store.unitesNoms[branche];
   const update: Update = (fn, resume) => store.updateAdapt(branche, fn, resume && `${unit} · ${resume}`);
 
   if (!steps.length) {

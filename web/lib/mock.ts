@@ -3,6 +3,7 @@
 
 import { BRANCHES, type BranchCode } from "./referentiels";
 import { daysAgo, fromISODate, toISODate } from "./dates";
+import type { NomsUnites } from "./groupe";
 
 export interface Spec {
   name: string;
@@ -53,8 +54,6 @@ export interface Validation {
   updatedAt: string;
 }
 
-/** Nom du groupe à l'installation ; le chef de groupe ou le responsable progression peut le changer. */
-export const GROUPE = "Groupe Grand-Dakar";
 
 export const CURRENT_CADRE = { full: "Cdt. Ibrahima Seck", short: "Cdt. I. Seck" };
 const CADRES = [CURRENT_CADRE.short, "Adj. F. Mbaye"];
@@ -170,14 +169,14 @@ export const GROUP_OTHER_UNITS = {
   ],
 };
 
-export function historiqueUnites(j: Jeune): { unit: string; period: string }[] {
-  const unit = BRANCHES[j.branche].unit;
+export function historiqueUnites(j: Jeune, noms: NomsUnites): { unit: string; period: string }[] {
+  const unit = noms[j.branche];
   const debut = fromISODate(j.dateEntree).getFullYear();
   const age = ageOf(j);
   if (j.branche !== "troupe" || age === null || age < 13) return [{ unit, period: `depuis sept. ${debut}` }];
   return [
     { unit, period: `depuis sept. ${debut}` },
-    { unit: BRANCHES.meute.unit, period: `${debut - 4} – ${debut}` },
+    { unit: noms.meute, period: `${debut - 4} – ${debut}` },
   ];
 }
 

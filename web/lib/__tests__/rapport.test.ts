@@ -150,9 +150,10 @@ describe("feuillesRapport", () => {
     const { construireRapport, feuillesRapport } = await import("../rapportExport");
     const data = { jeunes: [jeune("a"), jeune("l", { branche: "meute", etapeId: "me.pt" })], vals: [val("a", "2026-09-10")], recons: [], steps };
     const r = construireRapport(data, A, "trimestre", "2026-10-31");
-    const feuilles = feuillesRapport(r, steps);
+    const { GROUPE_DEMO, nomsUnites } = await import("../groupe");
+    const feuilles = feuillesRapport(r, steps, nomsUnites(GROUPE_DEMO));
     expect(r.branches).toEqual(["meute", "troupe"]);
-    expect(feuilles.map((f) => f.nom)).toEqual(["Synthèse", "Meute Saint-Paul", "Troupe Saint-Paul", "Jeunes"]);
+    expect(feuilles.map((f) => f.nom)).toEqual(["Synthèse", "Meute Troisième Dakar", "Troupe Troisième Dakar", "Jeunes"]);
     const troupe = feuilles[2].lignes;
     expect(troupe[0].slice(-4)).toEqual(["Volontaire", "Engagé", "Technicien", "Animateur"]);
     expect(troupe[1].slice(3, 5)).toEqual([1, 1]);
