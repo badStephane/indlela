@@ -35,7 +35,7 @@ export default function EpreuvesUnite() {
     <AppShell kicker="Troupe Saint-Paul" title="Épreuves de l'unité">
       <div className="flex flex-col gap-4 p-4">
         <p className="m-0 text-[14px] text-muted text-pretty">
-          Le carnet de preuves (version {store.ref.ver[BRANCHE]}) est la base. Retirez les domaines au choix que votre unité ne propose pas, et ajoutez vos propres
+          Le référentiel de la branche (version {store.refVersion[BRANCHE]}) est la base. Retirez les domaines au choix que votre unité ne propose pas, et ajoutez vos propres
           preuves dans un domaine.
         </p>
         <div className="flex flex-col overflow-hidden rounded-card border border-line bg-surface [&>*:last-child]:border-b-0">
@@ -49,7 +49,7 @@ export default function EpreuvesUnite() {
 }
 
 function EtapeBloc({ step, isOpen, onOpen, update }: { step: EtapeUnite; isOpen: boolean; onOpen: () => void; update: Update }) {
-  const proposes = step.domaines.filter((d) => !d.retire).length;
+  const proposes = step.domaines.filter((d) => !d.retire && !d.archive).length;
   return (
     <div className="flex flex-col border-b border-rule bg-surface">
       <button type="button" aria-expanded={isOpen} onClick={onOpen} className="flex min-h-14 w-full items-center gap-3 bg-transparent px-3.5 py-2 text-left text-inherit">
@@ -64,7 +64,7 @@ function EtapeBloc({ step, isOpen, onOpen, update }: { step: EtapeUnite; isOpen:
       </button>
       {isOpen && (
         <div className="flex flex-col gap-2 px-3.5 pb-3.5">
-          {step.domaines.map((d) => (
+          {step.domaines.filter((d) => !d.archive).map((d) => (
             <DomaineRow key={d.id} d={d} brevets={!!step.regle} update={update} />
           ))}
         </div>
@@ -115,7 +115,7 @@ function DomaineRow({ d, brevets, update }: { d: DomaineUnite; brevets: boolean;
         )}
       </summary>
       <div className="flex flex-col gap-1 border-t border-line px-3 pb-3 pt-2">
-        {d.preuves.map((x) => (
+        {d.preuves.filter((x) => !x.archive).map((x) => (
           <div key={x.id} className="flex items-start justify-between gap-2 py-1 text-[13px]">
             <span className="text-pretty">
               {x.label}

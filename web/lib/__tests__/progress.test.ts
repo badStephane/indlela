@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { EMPTY_ADAPT, effectiveSteps, type UnitAdapt } from "../effective";
+import { BASE_STEPS, EMPTY_ADAPT, effectiveSteps, type RefSteps, type UnitAdapt } from "../effective";
+import { updateDomaine, updatePreuve } from "../refEditor";
 import { critStatus, progressOf } from "../progress";
 import type { Jeune, Validation } from "../mock";
 
@@ -31,7 +32,7 @@ const val = (preuveId: string, patch: Partial<Validation> = {}): Validation => (
   ...patch,
 });
 
-const steps = (adapt: UnitAdapt = EMPTY_ADAPT) => effectiveSteps({ edits: {} }, { troupe: adapt });
+const steps = (adapt: UnitAdapt = EMPTY_ADAPT, ref: RefSteps = BASE_STEPS) => effectiveSteps(ref, { troupe: adapt });
 const domaineOf = (p: ReturnType<typeof progressOf>, id: string) => p.domaines.find((d) => d.domaine.id === id);
 
 describe("progressOf · étapes à domaines", () => {
@@ -93,6 +94,30 @@ describe("progressOf · étapes à domaines", () => {
     const p = progressOf(jeune({ etapeId: "inconnue" }), steps(), []);
     expect(p.index).toBe(0);
     expect(p.step?.id).toBe("tr.vol");
+  });
+});
+
+describe("progressOf · éléments archivés par l'admin", () => {
+  const archived = (fn: (t: RefSteps["troupe"]) => RefSteps["troupe"]) => steps(EMPTY_ADAPT, { ...BASE_STEPS, troupe: fn(BASE_STEPS.troupe) });
+
+  it("retire du programme une preuve archivée non validée", () => {
+    const base = progressOf(jeune(), steps(), []).total;
+    expect(progressOf(jeune(), archived((t) => updatePreuve(t, "tr.eng.sport.5", { archive: true })), []).total).toBe(base - 1);
+  });
+
+  it("garde dans l'historique une preuve archivée déjà validée, sans qu'elle remplace une preuve active", () => {
+    const ref = archived((t) => updatePreuve(t, "tr.eng.sport.5", { archive: true }));
+    const vals = ["tr.eng.sport.1", "tr.eng.sport.2", "tr.eng.sport.3", "tr.eng.sport.5"].map((id) => val(id));
+    const sport = domaineOf(progressOf(jeune(), ref, vals), "tr.eng.sport")!;
+    expect(sport.preuves.map((x) => x.id)).toContain("tr.eng.sport.5");
+    expect(sport.validated).toBe(3);
+    expect(sport.complete).toBe(false);
+  });
+
+  it("retire du programme et des choix un domaine archivé", () => {
+    const p = progressOf(jeune({ choix: ["tr.eng.chretienne"] }), archived((t) => updateDomaine(t, "tr.eng.chretienne", { archive: true })), []);
+    expect(domaineOf(p, "tr.eng.chretienne")).toBeUndefined();
+    expect(p.choixPossibles.map((c) => c.id)).not.toContain("tr.eng.chretienne");
   });
 });
 

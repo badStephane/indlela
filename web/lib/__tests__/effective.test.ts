@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { EMPTY_ADAPT, effectiveSteps, preuveLabel, type RefEdits, type UnitAdapt } from "../effective";
+import { BASE_STEPS, EMPTY_ADAPT, effectiveSteps, preuveLabel, type RefSteps, type UnitAdapt } from "../effective";
+import { updateDomaine } from "../refEditor";
 
-const NO_EDITS: RefEdits = { edits: {} };
-const engage = (ref: RefEdits, adapt: UnitAdapt) => effectiveSteps(ref, { troupe: adapt }).troupe.find((s) => s.id === "tr.eng")!;
-const domaine = (ref: RefEdits, adapt: UnitAdapt, id: string) => engage(ref, adapt).domaines.find((d) => d.id === id)!;
+const NO_EDITS: RefSteps = BASE_STEPS;
+const engage = (ref: RefSteps, adapt: UnitAdapt) => effectiveSteps(ref, { troupe: adapt }).troupe.find((s) => s.id === "tr.eng")!;
+const domaine = (ref: RefSteps, adapt: UnitAdapt, id: string) => engage(ref, adapt).domaines.find((d) => d.id === id)!;
 
 describe("effectiveSteps", () => {
   it("reprend les domaines du carnet quand l'unité n'a rien changé", () => {
@@ -28,8 +29,9 @@ describe("effectiveSteps", () => {
     expect(d.preuves.slice(0, -1).every((p) => !p.unite)).toBe(true);
   });
 
-  it("applique le réglage de l'admin : domaine obligatoire ou au choix", () => {
-    expect(domaine({ edits: { "tr.eng.chretienne": true } }, EMPTY_ADAPT, "tr.eng.chretienne").obligatoire).toBe(true);
+  it("part du référentiel publié par l'admin", () => {
+    const published = { ...BASE_STEPS, troupe: updateDomaine(BASE_STEPS.troupe, "tr.eng.chretienne", { obligatoire: true }) };
+    expect(domaine(published, EMPTY_ADAPT, "tr.eng.chretienne").obligatoire).toBe(true);
   });
 });
 

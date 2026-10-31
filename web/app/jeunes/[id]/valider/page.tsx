@@ -35,14 +35,14 @@ export default function Valider() {
   const p = progressOf(j, steps, vals);
   if (!p.step) return null;
 
-  const open = (x: PreuveUnite) => !isValidated(critStatus(vals, j.id, x.id));
+  const open = (x: PreuveUnite) => !x.archive && !isValidated(critStatus(vals, j.id, x.id));
   const auProgramme: Groupe[] = p.domaines
     .map((d) => ({ id: d.domaine.id, name: d.domaine.name, consigne: d.domaine.min && !p.brevets ? `${d.domaine.min} au choix` : undefined, preuves: d.preuves.filter(open) }))
     .filter((g) => g.preuves.length);
   const dansProgramme = new Set(p.domaines.flatMap((d) => d.preuves.map((x) => x.id)));
   const autres: Groupe[] = p.step.domaines
-    .filter((d) => !d.retire)
-    .map((d) => ({ id: d.id, name: d.name, preuves: d.preuves.filter((x) => open(x) && !dansProgramme.has(x.id)) }))
+    .filter((d) => !d.retire && !d.archive)
+    .map((d) => ({ id: d.id, name: d.name, preuves: d.preuves.filter((x) => !x.archive && open(x) && !dansProgramme.has(x.id)) }))
     .filter((g) => g.preuves.length && (p.brevets || !p.domaines.some((x) => x.domaine.id === g.id)));
 
   const ids = Object.keys(sel);

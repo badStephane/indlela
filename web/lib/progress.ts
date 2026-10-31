@@ -68,17 +68,22 @@ type Base = Pick<Progress, "steps" | "index" | "step">;
 function domaineProgress(base: Base, j: Jeune, ok: (p: PreuveUnite) => boolean): Progress {
   const domaines = base.step!.domaines
     .map((d) => {
-      const validated = d.preuves.filter(ok).length;
-      const required = Math.min(d.min ?? d.preuves.length, d.preuves.length);
-      return { domaine: d, preuves: d.preuves, validated, required, complete: validated >= required };
+      // Une preuve archivée ne reste affichée que si le jeune l'a déjà réussie.
+      const actives = d.preuves.filter((p) => !p.archive);
+      const preuves = d.preuves.filter((p) => !p.archive || ok(p));
+      // « N parmi M » : toute preuve réussie compte ; sinon, chaque preuve active est exigée.
+      const required = d.min ? Math.min(d.min, preuves.length) : actives.length;
+      const validated = (d.min ? preuves : actives).filter(ok).length;
+      return { domaine: d, preuves, validated, required, complete: validated >= required, entame: preuves.some(ok) };
     })
-    .filter(({ domaine: d, validated }) => validated > 0 || (!d.retire && (d.obligatoire || j.choix.includes(d.id))));
+    .filter(({ domaine: d, entame }) => entame || (!d.retire && !d.archive && (d.obligatoire || j.choix.includes(d.id))))
+    .map(({ entame: _entame, ...rest }) => rest);
   const done = domaines.reduce((n, d) => n + Math.min(d.validated, d.required), 0);
   const total = domaines.reduce((n, d) => n + d.required, 0);
   return {
     ...base,
     domaines,
-    choixPossibles: base.step!.domaines.filter((d) => !d.obligatoire && !d.retire).map((d) => ({ id: d.id, label: d.name })),
+    choixPossibles: base.step!.domaines.filter((d) => !d.obligatoire && !d.retire && !d.archive).map((d) => ({ id: d.id, label: d.name })),
     done,
     total,
     complete: total > 0 && domaines.every((d) => d.complete),
@@ -89,7 +94,7 @@ function domaineProgress(base: Base, j: Jeune, ok: (p: PreuveUnite) => boolean):
 function brevetProgress(base: Base, regle: { min: number; series: number }, j: Jeune, ok: (p: PreuveUnite) => boolean): Progress {
   const domaines = base.step!.domaines
     .map((d) => {
-      const preuves = d.preuves.filter((p) => ok(p) || (!d.retire && j.choix.includes(p.id)));
+      const preuves = d.preuves.filter((p) => ok(p) || (!d.retire && !d.archive && !p.archive && j.choix.includes(p.id)));
       const validated = preuves.filter(ok).length;
       return { domaine: d, preuves, validated, required: preuves.length, complete: preuves.length > 0 && validated === preuves.length };
     })
@@ -99,7 +104,9 @@ function brevetProgress(base: Base, regle: { min: number; series: number }, j: J
   return {
     ...base,
     domaines,
-    choixPossibles: base.step!.domaines.filter((d) => !d.retire).flatMap((d) => d.preuves.map((p) => ({ id: p.id, label: p.label, groupe: d.name }))),
+    choixPossibles: base.step!.domaines
+      .filter((d) => !d.retire && !d.archive)
+      .flatMap((d) => d.preuves.filter((p) => !p.archive).map((p) => ({ id: p.id, label: p.label, groupe: d.name }))),
     done: Math.min(obtenus, regle.min),
     total: regle.min,
     complete: obtenus >= regle.min && series >= regle.series,

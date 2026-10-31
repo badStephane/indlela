@@ -2,20 +2,22 @@
 
 import { useEffect, useState } from "react";
 import { AppShell, type FootAction } from "@/components/AppShell";
+import { AddInput, EtapeEditor, type Edit } from "@/components/admin/RefEditor";
 import { cx, OutlineButton } from "@/components/ui";
 import { useGuard } from "@/lib/access";
 import { useStore } from "@/lib/store";
+import { uuid } from "@/lib/mock";
+import { addEtape } from "@/lib/refEditor";
+import { plural } from "@/lib/progress";
 import { BRANCHES, BRANCH_COLORS, REF_TITLES, type BranchCode } from "@/lib/referentiels";
-import { adminDomaines } from "@/lib/effective";
 
 const ORDER: BranchCode[] = ["meute", "troupe", "route"];
-const VALIDATION_COUNTS: Partial<Record<BranchCode, number>> = { troupe: 214, meute: 96 };
 
 export default function Referentiels() {
   const ok = useGuard((r) => r === "admin");
   const store = useStore();
   const [rb, setRb] = useState<BranchCode>("troupe");
-  const [open, setOpen] = useState(1);
+  const [open, setOpen] = useState(0);
 
   useEffect(() => {
     if (ok) store.setLastTab("/admin/referentiels");
@@ -24,18 +26,23 @@ export default function Referentiels() {
 
   if (!ok) return null;
 
-  const { ref } = store;
+  const { ref, refSteps, refVersion } = store;
   const RB = BRANCHES[rb];
-  const routeEmpty = rb === "route" && !ref.routeCreated;
-  const ver = ref.ver[rb];
+  const draft = ref.draft[rb];
+  const steps = draft ?? refSteps[rb];
+  const ver = refVersion[rb];
+  const routeEmpty = rb === "route" && !ref.routeCreated && !steps.length;
+  const edit: Edit = (fn) => store.editDraft(rb, fn);
+  const branchIds = new Set(store.jeunes.filter((j) => j.branche === rb).map((j) => j.id));
+  const nbValidations = store.vals.filter((v) => branchIds.has(v.jeuneId) && !v.annuleeLe).length;
 
   let foot: FootAction | undefined;
-  if (ref.dirty[rb] && rb !== "route") {
+  if (draft) {
     foot = {
       label: `Publier la version ${ver + 1}`,
-      note: `Les validations faites restent attachées à la version ${ver}.`,
+      note: "Les validations faites restent attachées à leurs preuves ; une preuve archivée reste dans l'historique.",
       onClick: () => {
-        store.updateRef((r) => ({ ...r, ver: { ...r.ver, [rb]: ver + 1 }, dirty: { ...r.dirty, [rb]: false } }));
+        store.publishDraft(rb);
         store.showToast(`Version ${ver + 1} publiée pour la ${RB.name.toLowerCase()}`);
       },
     };
@@ -55,7 +62,7 @@ export default function Referentiels() {
                 aria-selected={on}
                 onClick={() => {
                   setRb(b);
-                  setOpen(b === "route" ? -1 : 1);
+                  setOpen(0);
                 }}
                 className={cx(
                   "flex h-10 items-center justify-center gap-1.5 rounded-ui text-[14px] font-bold",
@@ -64,6 +71,7 @@ export default function Referentiels() {
               >
                 <span className="h-2 w-2 rounded-full" style={{ background: BRANCH_COLORS[b].acc }} />
                 {BRANCHES[b].name}
+                {ref.draft[b] && <span className="h-1.5 w-1.5 rounded-full bg-wait-dot" aria-label="brouillon" />}
               </button>
             );
           })}
@@ -75,13 +83,7 @@ export default function Referentiels() {
             <span className="text-[14px] text-muted text-pretty">
               La route arrive en V2. Le document officiel est demandé aux cadres de la branche. Vous pouvez préparer un référentiel vide en attendant.
             </span>
-            <OutlineButton
-              onClick={() => {
-                store.updateRef((r) => ({ ...r, routeCreated: true }));
-                store.showToast("Référentiel de la route créé (vide, version 1)");
-              }}
-              className="h-11 bg-transparent px-4 text-[14px]"
-            >
+            <OutlineButton onClick={() => store.updateRef((r) => ({ ...r, routeCreated: true }))} className="h-11 bg-transparent px-4 text-[14px]">
               Créer un référentiel vide
             </OutlineButton>
           </div>
@@ -90,70 +92,35 @@ export default function Referentiels() {
             <div className="flex flex-col gap-0.5">
               <span className="text-[17px] font-bold">{REF_TITLES[rb]}</span>
               <span className="font-mono text-[13px] text-muted">
-                {rb === "route" ? "Version 1 · brouillon" : `Version ${ver} · active · ${VALIDATION_COUNTS[rb]} validations`}
+                Version {ver} · publiée · {nbValidations} {plural(nbValidations, "validation", "validations")}
               </span>
-              {rb === "meute" && (
-                <span className="mt-1 text-[13px] text-muted text-pretty">Base proposée : chaque chef de meute peut adapter les preuves de son unité.</span>
-              )}
+              {rb === "meute" && <span className="mt-1 text-[13px] text-muted text-pretty">Base proposée : chaque chef de meute peut adapter les preuves de son unité.</span>}
             </div>
-            {RB.steps.length > 0 && (
-              <div className="flex flex-col overflow-hidden rounded-card border border-line bg-surface [&>*:last-child]:border-b-0">
-                {RB.steps.map((s, i) => {
-                  const domaines = adminDomaines(s, ref);
-                  const isOpen = open === i;
-                  return (
-                    <div key={s.name} className="flex flex-col border-b border-rule bg-surface">
-                      <button
-                        type="button"
-                        aria-expanded={isOpen}
-                        onClick={() => setOpen(isOpen ? -1 : i)}
-                        className="flex min-h-14 w-full items-center gap-3 bg-transparent px-3.5 py-2 text-left text-inherit"
-                      >
-                        <span className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full bg-acc-soft font-mono text-[13px] font-bold text-acc-text">
-                          {i + 1}
-                        </span>
-                        <span className="flex flex-1 flex-col">
-                          <span className="text-[16px] font-semibold">{s.name}</span>
-                          <span className="text-[12px] text-muted">
-                            {domaines.length} {s.regle ? "séries de brevets" : "domaines"}{s.rule ? " · règle chiffrée" : ""}
-                          </span>
-                        </span>
-                        <span className="text-[16px] text-muted">{isOpen ? "▴" : "▾"}</span>
-                      </button>
-                      {isOpen && (
-                        <div className="flex flex-col gap-0.5 pb-3.5 pl-[52px] pr-3.5">
-                          {s.rule && <div className="mb-1.5 rounded-ui border border-line bg-surface px-2.5 py-2 text-[13px]">Règle chiffrée : {s.rule}</div>}
-                          {domaines.map(({ id: key, name, obligatoire: ob, preuves, min }) => {
-                            return (
-                              <div key={key} className="flex min-h-11 items-center justify-between gap-2 border-b border-line py-1">
-                                <span className="flex flex-col text-[14px]">
-                                  {name}
-                                  <span className="font-mono text-[11px] text-muted">
-                                    {preuves.length} {s.regle ? "brevets" : "preuves"}
-                                    {min ? ` · ${min} au choix` : ""}
-                                  </span>
-                                </span>
-                                <button
-                                  type="button"
-                                  aria-pressed={ob}
-                                  onClick={() => store.updateRef((r) => ({ ...r, edits: { ...r.edits, [key]: !ob }, dirty: { ...r.dirty, [rb]: true } }))}
-                                  className={cx(
-                                    "h-8 flex-none rounded-full border px-2.5 text-[12px] font-bold",
-                                    ob ? "border-transparent bg-acc-soft text-acc-text" : "border-line-strong bg-transparent text-muted",
-                                  )}
-                                >
-                                  {ob ? "Obligatoire" : "Au choix"}
-                                </button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+
+            {draft && (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-ui bg-wait-bg px-3.5 py-2.5 text-[13px] text-wait-ink">
+                <span className="text-pretty">Brouillon non publié : les cadres voient encore la version {ver}.</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    store.discardDraft(rb);
+                    store.showToast("Brouillon abandonné");
+                  }}
+                  className="h-8 flex-none rounded-full border border-wait-dot bg-transparent px-3 text-[12px] font-bold"
+                >
+                  Abandonner le brouillon
+                </button>
               </div>
             )}
+
+            {steps.length > 0 && (
+              <div className="flex flex-col overflow-hidden rounded-card border border-line bg-surface [&>*:last-child]:border-b-0">
+                {steps.map((s, i) => (
+                  <EtapeEditor key={s.id} step={s} index={i} edit={edit} isOpen={open === i} onOpen={() => setOpen(open === i ? -1 : i)} />
+                ))}
+              </div>
+            )}
+            <AddInput placeholder="Nouvelle étape" onAdd={(name) => edit((s) => addEtape(s, name, `${rb}.e${uuid().slice(0, 8)}`))} />
           </>
         )}
       </div>

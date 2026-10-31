@@ -9,6 +9,8 @@ export type BranchCode = "meute" | "troupe" | "route";
 export interface Preuve {
   id: string;
   label: string;
+  /** Archivée par l'admin : n'est plus proposée, reste lisible dans l'historique. */
+  archive?: boolean;
 }
 
 export interface Domaine {
@@ -18,6 +20,8 @@ export interface Domaine {
   obligatoire: boolean;
   /** « Satisfaire à N des épreuves suivantes » : nombre de preuves à réussir ; absent = toutes. */
   min?: number;
+  /** Archivé par l'admin : n'est plus proposé, reste lisible dans l'historique. */
+  archive?: boolean;
   preuves: Preuve[];
 }
 

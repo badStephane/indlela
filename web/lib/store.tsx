@@ -10,8 +10,8 @@ import { get, set } from "idb-keyval";
 import { CURRENT_CADRE, findJeune, seedJeunes, seedValidations, uuid, type Jeune, type Validation } from "./mock";
 import { critStatus, isValidated, pendingCount, plural } from "./progress";
 import { toISODate } from "./dates";
-import { EMPTY_ADAPT, domaineOfPreuve, effectiveSteps, preuveLabel, type RefEdits, type StepsByBranch, type UnitAdapt } from "./effective";
-import type { BranchCode } from "./referentiels";
+import { BASE_STEPS, EMPTY_ADAPT, domaineOfPreuve, effectiveSteps, preuveLabel, type RefSteps, type StepsByBranch, type UnitAdapt } from "./effective";
+import type { BranchCode, Etape } from "./referentiels";
 
 export type Role = "cadre" | "groupe" | "parent" | "admin";
 
@@ -22,11 +22,22 @@ export const ROLE_HOME: Record<Role, string> = {
   admin: "/admin/referentiels",
 };
 
-export interface RefState extends RefEdits {
-  dirty: Partial<Record<BranchCode, boolean>>;
-  ver: Record<BranchCode, number>;
+/** Version publiée d'un référentiel de branche. */
+export interface BranchRef {
+  version: number;
+  steps: Etape[];
+}
+
+export interface RefState {
+  /** Versions publiées par l'admin ; une branche absente suit le carnet transcrit. */
+  published: Partial<Record<BranchCode, BranchRef>>;
+  /** Brouillons en cours, invisibles des cadres jusqu'à la publication. */
+  draft: Partial<Record<BranchCode, Etape[]>>;
   routeCreated: boolean;
 }
+
+/** Version du carnet transcrit, avant toute publication par l'admin. */
+const BASE_VERSION: Record<BranchCode, number> = { troupe: 2, meute: 1, route: 1 };
 
 export interface DemoFlags {
   emptyUnit: boolean;
@@ -76,6 +87,9 @@ interface Store extends Persisted {
   sheet: string | null;
   /** Épreuves effectives de chaque branche, adaptations de l'unité comprises. */
   steps: StepsByBranch;
+  /** Référentiel publié de chaque branche et son numéro de version. */
+  refSteps: RefSteps;
+  refVersion: Record<BranchCode, number>;
   enter: (role: Role) => void;
   logout: () => void;
   setLastTab: (tab: string) => void;
@@ -91,12 +105,16 @@ interface Store extends Persisted {
   tapSync: () => void;
   setDemo: (patch: Partial<DemoFlags>) => void;
   updateRef: (fn: (r: RefState) => RefState) => void;
+  /** Modifie le brouillon de la branche (créé à partir de la version publiée). */
+  editDraft: (branche: BranchCode, fn: (steps: Etape[]) => Etape[]) => void;
+  publishDraft: (branche: BranchCode) => void;
+  discardDraft: (branche: BranchCode) => void;
 }
 
-// v3 : étape → domaine → preuves, d'après le carnet de preuves (les données de démo antérieures ne sont pas reprises).
-const KEY = "carnet-indlela-v3";
+// v4 : référentiels versionnés par l'admin (les données de démo antérieures ne sont pas reprises).
+const KEY = "carnet-indlela-v4";
 
-const initialRef = (): RefState => ({ edits: {}, dirty: {}, ver: { troupe: 2, meute: 1, route: 1 }, routeCreated: false });
+const initialRef = (): RefState => ({ published: {}, draft: {}, routeCreated: false });
 
 const initial = (): Persisted => ({
   role: null,
@@ -190,7 +208,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const offline = p.simOffline || !netOnline;
   const pending = pendingCount(p.vals);
-  const steps = useMemo(() => effectiveSteps(p.ref, p.adapts), [p.ref, p.adapts]);
+  const refSteps = useMemo<RefSteps>(
+    () => ({
+      troupe: p.ref.published.troupe?.steps ?? BASE_STEPS.troupe,
+      meute: p.ref.published.meute?.steps ?? BASE_STEPS.meute,
+      route: p.ref.published.route?.steps ?? BASE_STEPS.route,
+    }),
+    [p.ref.published],
+  );
+  const refVersion = useMemo<Record<BranchCode, number>>(
+    () => ({
+      troupe: p.ref.published.troupe?.version ?? BASE_VERSION.troupe,
+      meute: p.ref.published.meute?.version ?? BASE_VERSION.meute,
+      route: p.ref.published.route?.version ?? BASE_VERSION.route,
+    }),
+    [p.ref.published],
+  );
+  const steps = useMemo(() => effectiveSteps(refSteps, p.adapts), [refSteps, p.adapts]);
 
   const tapSync = useCallback(() => {
     if (!offline && !syncErr) {
@@ -282,6 +316,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       toast,
       sheet,
       steps,
+      refSteps,
+      refVersion,
       enter: (role) => setP((s) => ({ ...s, role, lastTab: ROLE_HOME[role] })),
       logout: () => {
         setSheet(null);
@@ -309,8 +345,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           jeunes: patch.emptyUnit === undefined ? s.jeunes : withDemoTroupe(s.jeunes, patch.emptyUnit),
         })),
       updateRef: (fn) => setP((s) => ({ ...s, ref: fn(s.ref) })),
+      editDraft: (b, fn) =>
+        setP((s) => ({ ...s, ref: { ...s.ref, draft: { ...s.ref.draft, [b]: fn(s.ref.draft[b] ?? s.ref.published[b]?.steps ?? BASE_STEPS[b]) } } })),
+      publishDraft: (b) =>
+        setP((s) => {
+          const draft = s.ref.draft[b];
+          if (!draft) return s;
+          const version = (s.ref.published[b]?.version ?? BASE_VERSION[b]) + 1;
+          const { [b]: _published, ...otherDrafts } = s.ref.draft;
+          return { ...s, ref: { ...s.ref, published: { ...s.ref.published, [b]: { version, steps: draft } }, draft: otherDrafts } };
+        }),
+      discardDraft: (b) =>
+        setP((s) => {
+          const { [b]: _dropped, ...otherDrafts } = s.ref.draft;
+          return { ...s, ref: { ...s.ref, draft: otherDrafts } };
+        }),
     }),
-    [p, hydrated, offline, syncErr, pending, toast, sheet, steps, showToast, hideToast, addJeunes, validate, cancelValidation, tapSync],
+    [p, hydrated, offline, syncErr, pending, toast, sheet, steps, refSteps, refVersion, showToast, hideToast, addJeunes, validate, cancelValidation, tapSync],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

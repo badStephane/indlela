@@ -1,14 +1,13 @@
-// Domaines et preuves réellement utilisés par une unité : le référentiel de la branche,
-// avec les réglages de l'admin, puis les adaptations du chef d'unité.
+// Domaines et preuves réellement utilisés par une unité : le référentiel publié par l'admin,
+// puis les adaptations du chef d'unité.
 // En production : etapes, domaines, preuves (référentiel actif) + une table d'adaptations par unité.
 
 import { BRANCHES, type BranchCode, type Domaine, type Etape, type Preuve } from "./referentiels";
 
-/** Réglages de l'admin sur le référentiel de branche. */
-export interface RefEdits {
-  /** Domaine obligatoire (true) ou au choix, par identifiant de domaine. */
-  edits: Record<string, boolean>;
-}
+/** Référentiel publié de chaque branche (le carnet transcrit, puis les versions de l'admin). */
+export type RefSteps = Record<BranchCode, Etape[]>;
+
+export const BASE_STEPS: RefSteps = { troupe: BRANCHES.troupe.steps, meute: BRANCHES.meute.steps, route: BRANCHES.route.steps };
 
 /** Adaptations d'une unité par son chef. */
 export interface UnitAdapt {
@@ -37,13 +36,8 @@ export type StepsByBranch = Record<BranchCode, EtapeUnite[]>;
 
 export const EMPTY_ADAPT: UnitAdapt = { retirees: [], ajoutees: {} };
 
-/** Domaines d'une étape après les réglages de l'admin. */
-export function adminDomaines(step: Etape, ref: RefEdits): Domaine[] {
-  return step.domaines.map((d) => (d.id in ref.edits ? { ...d, obligatoire: ref.edits[d.id] } : d));
-}
-
-function effectiveStep(step: Etape, ref: RefEdits, adapt: UnitAdapt): EtapeUnite {
-  const domaines = adminDomaines(step, ref).map((d) => ({
+function effectiveStep(step: Etape, adapt: UnitAdapt): EtapeUnite {
+  const domaines = step.domaines.map((d) => ({
     ...d,
     retire: !d.obligatoire && adapt.retirees.includes(d.id),
     preuves: [...d.preuves.map((p) => ({ ...p, unite: false })), ...(adapt.ajoutees[d.id] ?? []).map((p) => ({ ...p, unite: true }))],
@@ -51,8 +45,8 @@ function effectiveStep(step: Etape, ref: RefEdits, adapt: UnitAdapt): EtapeUnite
   return { ...step, domaines };
 }
 
-export function effectiveSteps(ref: RefEdits, adapts: Partial<Record<BranchCode, UnitAdapt>>): StepsByBranch {
-  const of = (b: BranchCode) => BRANCHES[b].steps.map((s) => effectiveStep(s, ref, adapts[b] ?? EMPTY_ADAPT));
+export function effectiveSteps(ref: RefSteps, adapts: Partial<Record<BranchCode, UnitAdapt>>): StepsByBranch {
+  const of = (b: BranchCode) => ref[b].map((s) => effectiveStep(s, adapts[b] ?? EMPTY_ADAPT));
   return { troupe: of("troupe"), meute: of("meute"), route: of("route") };
 }
 
