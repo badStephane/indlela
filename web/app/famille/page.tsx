@@ -8,8 +8,9 @@ import { useGuard } from "@/lib/access";
 import { useStore } from "@/lib/store";
 import { BRANCHES, BRANCH_COLORS } from "@/lib/referentiels";
 import { fullName } from "@/lib/mock";
-import { currentStep, doneCount, lastValidationDays, pct } from "@/lib/progress";
+import { lastValidationDays, pct, progressOf } from "@/lib/progress";
 import { daysAgo, fmtShort, toISODate } from "@/lib/dates";
+import { jeuneHref } from "@/lib/routes";
 
 export default function Famille() {
   const ok = useGuard((r) => r === "parent");
@@ -23,15 +24,16 @@ export default function Famille() {
 
   if (!ok) return null;
 
+  const enfants = store.compte?.enfants ?? [];
+  const kids = store.jeunes.filter((j) => enfants.includes(j.id) && !!j.consentementLe);
+
   return (
     <AppShell kicker="Espace famille" title={store.compte?.nom ?? "Famille"}>
       <div className="flex flex-col gap-4 px-4 py-[18px]">
         <p className="m-0 text-[14px] text-muted text-pretty">Vous suivez la progression de vos enfants en lecture seule. Les cadres font les validations.</p>
-        {(store.compte?.enfants ?? []).map((id) => {
-          const j = store.findJeune(id);
-          if (!j || !j.consentementLe) return null;
-          const step = currentStep(j);
-          const d = doneCount(store.vals, j);
+        {kids.map((j) => {
+          const id = j.id;
+          const p = progressOf(j, store.steps, store.vals);
           const l = lastValidationDays(store.vals, j);
           const acc = BRANCH_COLORS[j.branche].acc;
           return (
@@ -43,20 +45,20 @@ export default function Famille() {
                   <span className="text-[12px] text-muted">{BRANCHES[j.branche].unit}</span>
                 </div>
                 <div className="flex justify-between text-[14px]">
-                  <span>{step.name} en cours</span>
+                  <span>{p.step?.name} en cours</span>
                   <span className="font-mono text-muted">
-                    {d}/{step.crit.length}
+                    {p.done}/{p.total}
                   </span>
                 </div>
-                <Bar value={pct(d, step.crit.length)} height={8} color={acc} />
+                <Bar value={pct(p.done, p.total)} height={8} color={acc} />
                 <span className="text-[13px] text-muted">
                   Dernière validation : {l === 0 ? "aujourd'hui" : l === 999 ? "aucune" : fmtShort(toISODate(daysAgo(l)))}
                 </span>
                 <div className="mt-1 grid grid-cols-2 gap-2">
-                  <OutlineButton onClick={() => router.push(`/jeunes/${id}`)} className="h-11 bg-transparent text-[14px]">
+                  <OutlineButton onClick={() => router.push(jeuneHref(id))} className="h-11 bg-transparent text-[14px]">
                     Voir la fiche
                   </OutlineButton>
-                  <OutlineButton onClick={() => router.push(`/jeunes/${id}/carnet`)} className="h-11 bg-transparent text-[14px]">
+                  <OutlineButton onClick={() => router.push(jeuneHref(id, "carnet"))} className="h-11 bg-transparent text-[14px]">
                     Carnet PDF
                   </OutlineButton>
                 </div>

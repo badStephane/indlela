@@ -1,8 +1,14 @@
 const MONTHS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
-const LONG_MONTHS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+export const LONG_MONTHS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
 const DAYS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
 
 const DAY_MS = 86_400_000;
+
+/** Lit « 2026-10-31 » comme une date locale (new Date() la lirait en UTC, un jour plus tôt sous les fuseaux négatifs). */
+export function fromISODate(iso: string): Date {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(iso);
+}
 
 export function startOfDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -16,12 +22,12 @@ export function daysAgo(n: number, from: Date = new Date()): Date {
 
 /** Nombre de jours entiers entre une date ISO et aujourd'hui. */
 export function daysSince(iso: string, now: Date = new Date()): number {
-  return Math.round((startOfDay(now).getTime() - startOfDay(new Date(iso)).getTime()) / DAY_MS);
+  return Math.round((startOfDay(now).getTime() - startOfDay(fromISODate(iso)).getTime()) / DAY_MS);
 }
 
 /** « 1er oct. », « 14 juin 2025 ». L'année s'affiche si demandée ou si elle diffère de l'année en cours. */
 export function fmtShort(iso: string, withYear = false, now: Date = new Date()): string {
-  const x = new Date(iso);
+  const x = fromISODate(iso);
   const d = x.getDate();
   const y = withYear || x.getFullYear() !== now.getFullYear() ? " " + x.getFullYear() : "";
   return `${d === 1 ? "1er" : d} ${MONTHS[x.getMonth()]}${y}`;
@@ -39,7 +45,7 @@ export function fmtMeeting(d: Date): string {
 
 /** « 7 nov. » / « 7 novembre » */
 export function fmtDayMonth(iso: string, long = false): string {
-  const x = new Date(iso);
+  const x = fromISODate(iso);
   return `${x.getDate() === 1 ? "1er" : x.getDate()} ${(long ? LONG_MONTHS : MONTHS)[x.getMonth()]}`;
 }
 

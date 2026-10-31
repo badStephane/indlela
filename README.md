@@ -1,25 +1,28 @@
-# CODING AGENTS: READ THIS FIRST
+# Indlela · Carnet de progression numérique
 
-This is a **handoff bundle** from Claude Design (claude.ai/design).
+Application web, pensée d'abord pour le téléphone, où les cadres des Scouts du Sénégal valident la progression des jeunes, et où les familles la suivent en lecture seule. Les règles de progression sont des données : l'admin les modifie sans développeur.
 
-A user mocked up designs in HTML/CSS/JS using an AI design tool, then exported this bundle so a coding agent can implement the designs for real.
+## Contenu du dépôt
 
-## What you should do — IMPORTANT
+| Dossier | Contenu |
+| --- | --- |
+| [`web/`](web/) | L'application (Next.js 15, Tailwind 4, PWA). Voir [`web/README.md`](web/README.md) pour la lancer et la liste des écrans. |
+| [`docs/`](docs/) | Audit du prototype et suivi des corrections. |
+| [`project/`](project/) | Maquettes Claude Design, document de conception et fichiers d'origine (logos). |
+| [`chats/`](chats/) | Échanges de conception avec Claude Design. |
 
-**Read the chat transcripts first.** There are 1 chat transcript(s) in `chats/`. The transcripts show the full back-and-forth between the user and the design assistant — they tell you **what the user actually wants** and **where they landed** after iterating. Don't skip them. The final HTML files are the output, but the chat is where the intent lives.
+## Démarrer
 
-**Read `project/Carnet Prototype.dc.html` in full.** The user had this file open when they triggered the handoff, so it's almost certainly the primary design they want built. Read it top to bottom — don't skim. Then **follow its imports**: open every file it pulls in (shared components, CSS, scripts) so you understand how the pieces fit together before you start implementing.
+```bash
+cd web
+nvm use          # Node 22
+npm install
+npm run dev      # http://localhost:3000
+npm test         # tests de la logique de progression
+```
 
-**If anything is ambiguous, ask the user to confirm before you start implementing.** It's much cheaper to clarify scope up front than to build the wrong thing.
+Le prototype tourne en **mode démo** (données fictives, entrées « Démo · entrer comme »). `NEXT_PUBLIC_DEMO=0` donne le comportement prévu en production : téléphone vide au départ, et tout est effacé du téléphone à la déconnexion. Le branchement à Supabase (comptes, droits RLS, synchronisation) reste à faire.
 
-## About the design files
+## Intégration continue
 
-The design medium is **HTML/CSS/JS** — these are prototypes, not production code. Your job is to **recreate them pixel-perfectly** in whatever technology makes sense for the target codebase (React, Vue, native, whatever fits). Match the visual output; don't copy the prototype's internal structure unless it happens to fit.
-
-**Don't render these files in a browser or take screenshots unless the user asks you to.** Everything you need — dimensions, colors, layout rules — is spelled out in the source. Read the HTML and CSS directly; a screenshot won't tell you anything they don't.
-
-## Bundle contents
-
-- `README.md` — this file
-- `chats/` — conversation transcripts (read these!)
-- `project/` — the `Formulaire pré-maquettage` project files (HTML prototypes, assets, components)
+Chaque pull request passe le typecheck, les tests, le build et l'audit des dépendances ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).

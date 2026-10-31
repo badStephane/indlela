@@ -7,9 +7,10 @@ import { Card, Chip, cx, List, mix, OutlineButton, rowClass, SEG_SHADES, Section
 import { useGuard } from "@/lib/access";
 import { useStore, useTroupe } from "@/lib/store";
 import { BRANCHES, BRANCH_COLORS, type BranchCode } from "@/lib/referentiels";
-import { ceremonies, fullName, GROUP_OTHER_UNITS, GROUPE } from "@/lib/mock";
-import { currentStep, doneCount, isStepComplete, lastValidationDays } from "@/lib/progress";
-import { fmtDayMonth } from "@/lib/dates";
+import { ageOf, ceremonies, fullName, GROUP_OTHER_UNITS, GROUPE } from "@/lib/mock";
+import { lastValidationDays, progressOf } from "@/lib/progress";
+import { fmtDayMonth, LONG_MONTHS, fromISODate } from "@/lib/dates";
+import { jeuneHref } from "@/lib/routes";
 import { downloadCsv } from "@/lib/csv";
 
 const segsOf = (b: BranchCode, counts: number[]): Seg[] =>
@@ -19,8 +20,8 @@ export default function Groupe() {
   const ok = useGuard((r) => r === "groupe");
   const store = useStore();
   const router = useRouter();
-  const { vals, offline } = store;
-  const TROUPE = useTroupe();
+  const troupe = useTroupe();
+  const { vals, offline, steps } = store;
 
   useEffect(() => {
     if (ok) store.setLastTab("/groupe");
@@ -32,13 +33,16 @@ export default function Groupe() {
   const M = GROUP_OTHER_UNITS.meute;
   const R = GROUP_OTHER_UNITS.route;
   const { courHonneur, remiseMeute } = ceremonies();
-  const troupeCounts = BRANCHES.troupe.steps.map((_, k) => TROUPE.filter((j) => j.etape === k).length);
-  const stale = TROUPE.filter((j) => lastValidationDays(vals, j) >= 30);
-  const award = TROUPE.filter((j) => isStepComplete(vals, j));
+  const rows = troupe.map((j) => ({ j, p: progressOf(j, steps, vals) }));
+  const troupeCounts = steps.troupe.map((_, k) => rows.filter((r) => r.p.index === k).length);
+  const stale = troupe.filter((j) => lastValidationDays(vals, j) >= 30);
+  const award = rows.filter((r) => r.p.complete);
+  // Mois des prochaines cérémonies (celle de la meute suit celle de la troupe).
+  const moisCeremonies = LONG_MONTHS[fromISODate(courHonneur).getMonth()];
 
   const kpis = [
-    { v: TROUPE.length + M.effectif + R.effectif, l: "jeunes dans 3 unités" },
-    { v: award.length + GROUP_OTHER_UNITS.aRemettre.length, l: "étapes à remettre en novembre" },
+    { v: troupe.length + M.effectif + R.effectif, l: "jeunes dans 3 unités" },
+    { v: award.length + GROUP_OTHER_UNITS.aRemettre.length, l: `étapes à remettre en ${moisCeremonies}` },
     { v: stale.length + M.sansValidation, l: "sans validation depuis 30 jours" },
   ];
 
@@ -55,9 +59,9 @@ export default function Groupe() {
     },
     {
       code: "troupe" as const,
-      eff: `${TROUPE.length} jeunes · ${store.comptes.filter((c) => c.role === "cadre" && c.actif && c.unites.includes("troupe")).length} cadres`,
+      eff: `${troupe.length} jeunes · ${store.comptes.filter((c) => c.role === "cadre" && c.actif && c.unites.includes("troupe")).length} cadres`,
       segs: segsOf("troupe", troupeCounts),
-      recent: `${TROUPE.length - stale.length} sur ${TROUPE.length} validés ce mois`,
+      recent: `${troupe.length - stale.length} sur ${troupe.length} validés ce mois`,
       stale: stale.length ? `${stale.length} sans validation` : "À jour",
       staleOn: stale.length > 0,
       cta: "Ouvrir la troupe",
@@ -68,12 +72,9 @@ export default function Groupe() {
   const exportCsv = () => {
     if (offline) return store.showToast("Export impossible hors connexion : il se fait depuis le serveur.");
     const name = "groupe-grand-dakar-listes.csv";
-    const rows = TROUPE.map((j) => {
-      const s = currentStep(j);
-      return [BRANCHES.troupe.unit, j.prenom, j.nom, j.age, s.name, doneCount(vals, j), s.crit.length];
-    });
-    downloadCsv(name, [["unite", "prenom", "nom", "age", "etape", "criteres_valides", "criteres_total"], ...rows]);
-    store.log({ action: "export", table: "jeunes", ligne: name, resume: `Export ${name} (${rows.length} lignes)`, apres: { fichier: name, lignes: rows.length } });
+    const lines = rows.map(({ j, p }) => [BRANCHES.troupe.unit, j.prenom, j.nom, ageOf(j) ?? "", p.step?.name ?? "", p.done, p.total]);
+    downloadCsv(name, [["unite", "prenom", "nom", "age", "etape", "preuves_validees", "preuves_total"], ...lines]);
+    store.log({ action: "export", table: "jeunes", ligne: name, resume: `Export ${name} (${lines.length} lignes)`, apres: { fichier: name, lignes: lines.length } });
     store.showToast(`${name} exporté`);
   };
 
@@ -123,15 +124,15 @@ export default function Groupe() {
           </Card>
         </Section>
 
-        <Section label="À remettre · cérémonies de novembre" gap="gap-2.5">
+        <Section label={`À remettre · cérémonies de ${moisCeremonies}`} gap="gap-2.5">
           <List>
-            {award.map((j) => (
-              <button key={j.id} type="button" onClick={() => router.push(`/jeunes/${j.id}`)} className={`${rowClass} min-h-14 justify-between gap-3 py-2`}>
+            {award.map(({ j, p }) => (
+              <button key={j.id} type="button" onClick={() => router.push(jeuneHref(j.id))} className={`${rowClass} min-h-14 justify-between gap-3 py-2`}>
                 <span className="flex min-w-0 flex-col">
                   <span className="text-[15px] font-semibold">{fullName(j)}</span>
                   <span className="text-[12px] text-muted">Troupe · cour d&apos;honneur du {fmtDayMonth(courHonneur)}</span>
                 </span>
-                <Chip style={{ background: BRANCH_COLORS.troupe.soft, color: BRANCH_COLORS.troupe.accText }}>{currentStep(j).name}</Chip>
+                <Chip style={{ background: BRANCH_COLORS.troupe.soft, color: BRANCH_COLORS.troupe.accText }}>{p.step?.name}</Chip>
               </button>
             ))}
             {GROUP_OTHER_UNITS.aRemettre.map((m) => (

@@ -1,18 +1,20 @@
 "use client";
 
 // État de l'application côté téléphone. Tout ce qui doit survivre à un
-// rechargement (validations en attente comprises) est gardé dans IndexedDB.
+// rechargement (jeunes ajoutés, validations en attente comprises) est gardé dans IndexedDB.
 // En production, flush() enverra la file d'attente à Supabase ; ici, la
-// synchronisation est simulée. Le journal n'enregistre que ce que le serveur
-// a reçu : une validation saisie hors connexion y entre à la synchronisation.
+// synchronisation est simulée.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { get, set } from "idb-keyval";
-import { DEMO_USERS, fullName, SEED_JEUNES, seedValidations, uuid, type Jeune, type Validation } from "./mock";
+import { del, get, set } from "idb-keyval";
+import { DEMO } from "./demo";
+import { DEMO_USERS, findJeune, fullName, seedJeunes, seedValidations, uuid, type Jeune, type Validation } from "./mock";
 import { SEED_COMPTES, SEED_UNITES, seedJournal, type Compte, type JournalEntry, type Unite } from "./admin";
-import { pendingCount, plural } from "./progress";
+import { critStatus, isValidated, pendingCount, plural } from "./progress";
 import { toISODate } from "./dates";
-import { BRANCHES, type BranchCode } from "./referentiels";
+import { BASE_STEPS, EMPTY_ADAPT, domaineOfPreuve, effectiveSteps, preuveLabel, type RefSteps, type StepsByBranch, type UnitAdapt } from "./effective";
+import { REF_TITLES, type BranchCode, type Etape } from "./referentiels";
+import { etapeSuivante, type DecisionInput, type Reconnaissance } from "./courHonneur";
 
 export type Role = "cadre" | "groupe" | "parent" | "admin";
 
@@ -23,15 +25,22 @@ export const ROLE_HOME: Record<Role, string> = {
   admin: "/admin/referentiels",
 };
 
+/** Version publiée d'un référentiel de branche. */
+export interface BranchRef {
+  version: number;
+  steps: Etape[];
+}
+
 export interface RefState {
-  /** Critère obligatoire (true) ou optionnel, par clé « branche.etape.critere ». */
-  edits: Record<string, boolean>;
-  /** Critères ajoutés, par clé « branche + etape ». */
-  extra: Record<string, number>;
-  dirty: Partial<Record<BranchCode, boolean>>;
-  ver: Record<BranchCode, number>;
+  /** Versions publiées par l'admin ; une branche absente suit le carnet transcrit. */
+  published: Partial<Record<BranchCode, BranchRef>>;
+  /** Brouillons en cours, invisibles des cadres jusqu'à la publication. */
+  draft: Partial<Record<BranchCode, Etape[]>>;
   routeCreated: boolean;
 }
+
+/** Version du carnet transcrit, avant toute publication par l'admin. */
+const BASE_VERSION: Record<BranchCode, number> = { troupe: 2, meute: 1, route: 1 };
 
 export interface DemoFlags {
   emptyUnit: boolean;
@@ -39,11 +48,37 @@ export interface DemoFlags {
   syncFails: boolean;
 }
 
+/** Jeune saisi par le chef d'unité, avant que l'application lui donne un identifiant. */
+export interface NewJeune {
+  prenom: string;
+  nom: string;
+  dateNaissance: string | null;
+  branche: BranchCode;
+  etapeId: string;
+  /** Date ISO du consentement des parents ; sans lui, la fiche reste inactive. */
+  consentementLe: string | null;
+}
+
+/** Décision de cour d'honneur saisie par le cadre. */
+export interface CourInput extends DecisionInput {
+  date: string;
+  observations: string;
+  ct: string;
+}
+
+/** Une preuve cochée à la validation, avec la façon dont le jeune l'a réussie. */
+export interface ValidationEntry {
+  preuveId: string;
+  commentaire: string;
+}
+
 interface Persisted {
   role: Role | null;
   lastTab: string | null;
-  vals: Validation[];
   jeunes: Jeune[];
+  vals: Validation[];
+  /** Décisions de cour d'honneur (étapes reconnues ou ajournées). */
+  recons: Reconnaissance[];
   comptes: Compte[];
   unites: Unite[];
   journal: JournalEntry[];
@@ -52,6 +87,8 @@ interface Persisted {
   simOffline: boolean;
   demo: DemoFlags;
   ref: RefState;
+  /** Adaptations des épreuves par unité (une unité par branche dans la démo). */
+  adapts: Partial<Record<BranchCode, UnitAdapt>>;
 }
 
 interface Toast {
@@ -64,59 +101,86 @@ export type JournalInput = Omit<JournalEntry, "id" | "at" | "user">;
 
 interface Store extends Persisted {
   hydrated: boolean;
-  offline: boolean;
-  syncErr: boolean;
-  pending: number;
-  toast: Toast | null;
-  sheet: string | null;
   /** Nom inscrit au journal et sur les validations pour le rôle connecté. */
   userName: string;
   /** Compte connecté (table utilisateurs). */
   compte: Compte | undefined;
   findJeune: (id: string | undefined | null) => Jeune | undefined;
+  setJeunes: (fn: (j: Jeune[]) => Jeune[]) => void;
+  setComptes: (fn: (c: Compte[]) => Compte[]) => void;
+  setUnites: (fn: (u: Unite[]) => Unite[]) => void;
+  setLastBackup: (iso: string) => void;
+  log: (...entries: JournalInput[]) => void;
+  /** Le téléphone n'arrive plus à enregistrer (mémoire pleine, navigation privée…). */
+  storageErr: boolean;
+  offline: boolean;
+  syncErr: boolean;
+  pending: number;
+  toast: Toast | null;
+  sheet: string | null;
+  /** Épreuves effectives de chaque branche, adaptations de l'unité comprises. */
+  steps: StepsByBranch;
+  /** Référentiel publié de chaque branche et son numéro de version. */
+  refSteps: RefSteps;
+  refVersion: Record<BranchCode, number>;
   enter: (role: Role) => void;
   logout: () => void;
   setLastTab: (tab: string) => void;
   showToast: (msg: string, undo?: () => void) => void;
   hideToast: () => void;
-  validate: (j: Jeune, criteres: number[], commentaire: string) => void;
+  addJeunes: (list: NewJeune[]) => void;
+  updateJeune: (id: string, patch: Partial<Pick<Jeune, "etapeId" | "choix">>) => void;
+  /** Adapte les épreuves de l'unité ; `resume` est inscrit au journal. */
+  updateAdapt: (branche: BranchCode, fn: (a: UnitAdapt) => UnitAdapt, resume?: string) => void;
+  validate: (j: Jeune, entries: ValidationEntry[], date: string) => void;
+  /** Enregistre la décision de la cour d'honneur ; une étape reconnue fait passer le jeune à la suivante. */
+  reconnaitre: (j: Jeune, input: CourInput) => void;
   openCancelSheet: (validationId: string) => void;
   closeSheet: () => void;
   cancelValidation: (validationId: string) => void;
   tapSync: () => void;
   setDemo: (patch: Partial<DemoFlags>) => void;
   updateRef: (fn: (r: RefState) => RefState) => void;
-  setJeunes: (fn: (j: Jeune[]) => Jeune[]) => void;
-  setComptes: (fn: (c: Compte[]) => Compte[]) => void;
-  setUnites: (fn: (u: Unite[]) => Unite[]) => void;
-  setLastBackup: (iso: string) => void;
-  log: (...entries: JournalInput[]) => void;
+  /** Modifie le brouillon de la branche (créé à partir de la version publiée). */
+  editDraft: (branche: BranchCode, fn: (steps: Etape[]) => Etape[]) => void;
+  publishDraft: (branche: BranchCode) => void;
+  discardDraft: (branche: BranchCode) => void;
 }
 
-const KEY = "carnet-indlela-v1";
+// v6 : comptes, consentement et journal (fusion avec les écrans admin). Les données de démo antérieures,
+// dont les fiches sans consentement enregistré, ne sont pas reprises.
+const KEY = "carnet-indlela-v6";
 
-const initialRef = (): RefState => ({ edits: {}, extra: {}, dirty: {}, ver: { troupe: 2, meute: 1, route: 1 }, routeCreated: false });
+const initialRef = (): RefState => ({ published: {}, draft: {}, routeCreated: false });
 
 const initial = (): Persisted => {
-  const vals = seedValidations();
+  // Hors démo, le téléphone part vide : les données viendront du serveur.
+  const vals = DEMO ? seedValidations() : [];
   const backup = new Date();
   backup.setHours(3, 0, 0, 0);
   return {
-    role: null,
-    lastTab: null,
-    vals,
-    jeunes: SEED_JEUNES,
-    comptes: SEED_COMPTES,
-    unites: SEED_UNITES,
-    journal: seedJournal(vals),
-    lastBackup: backup.toISOString(),
-    simOffline: false,
-    demo: { emptyUnit: false, syncFails: true },
-    ref: initialRef(),
+  role: null,
+  lastTab: null,
+  jeunes: DEMO ? seedJeunes() : [],
+  vals,
+  recons: [],
+  comptes: DEMO ? SEED_COMPTES : [],
+  unites: SEED_UNITES,
+  journal: DEMO ? seedJournal(vals) : [],
+  lastBackup: backup.toISOString(),
+  simOffline: false,
+  demo: { emptyUnit: false, syncFails: true },
+  ref: initialRef(),
+  adapts: {},
   };
 };
 
-const critLabel = (j: Jeune, v: Validation) => BRANCHES[j.branche].steps[v.etape].crit[v.critere];
+/** Démo « Unité vide » : retire la troupe, ou remet les jeunes de démo qui manquent. */
+function withDemoTroupe(jeunes: Jeune[], empty: boolean): Jeune[] {
+  if (empty) return jeunes.filter((j) => j.branche !== "troupe");
+  const missing = seedJeunes().filter((x) => x.branche === "troupe" && !jeunes.some((j) => j.id === x.id));
+  return [...jeunes, ...missing];
+}
 
 const Ctx = createContext<Store | null>(null);
 
@@ -125,6 +189,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const [netOnline, setNetOnline] = useState(true);
   const [syncErr, setSyncErr] = useState(false);
+  const [storageErr, setStorageErr] = useState(false);
   const failedOnce = useRef(false);
   const [toast, setToast] = useState<Toast | null>(null);
   const [sheet, setSheet] = useState<string | null>(null);
@@ -132,14 +197,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let alive = true;
+    // Sans cette demande, le navigateur peut effacer les saisies en attente quand la mémoire manque.
+    navigator.storage?.persist?.().catch(() => undefined);
     get<Persisted>(KEY)
       .then((saved) => {
         if (!alive || !saved) return;
-        // Un état enregistré avant l'ajout du journal repart du journal de démo.
         const base = initial();
-        setP({ ...base, ...saved, journal: saved.journal ?? seedJournal(saved.vals ?? base.vals), ref: { ...initialRef(), ...saved.ref } });
+        setP({ ...base, ...saved, journal: saved.journal ?? base.journal, ref: { ...initialRef(), ...saved.ref } });
       })
-      .catch(() => {})
+      .catch(() => alive && setStorageErr(true))
       .finally(() => alive && setHydrated(true));
     setNetOnline(navigator.onLine);
     return () => {
@@ -148,38 +214,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (hydrated) set(KEY, p).catch(() => {});
+    if (!hydrated) return;
+    set(KEY, p)
+      .then(() => setStorageErr(false))
+      .catch(() => setStorageErr(true));
   }, [p, hydrated]);
-
-  const userName = p.role ? DEMO_USERS[p.role].nom : "";
-  const findJeune = useCallback((id: string | undefined | null) => p.jeunes.find((j) => j.id === id), [p.jeunes]);
-
-  const entries = useCallback((user: string, list: JournalInput[]): JournalEntry[] => {
-    const at = new Date().toISOString();
-    return list.map((e) => ({ ...e, id: uuid(), at, user }));
-  }, []);
-
-  const log = useCallback(
-    (...list: JournalInput[]) => setP((s) => ({ ...s, journal: [...entries(s.role ? DEMO_USERS[s.role].nom : "", list), ...s.journal] })),
-    [entries],
-  );
-
-  const validationEntry = (j: Jeune, v: Validation): JournalInput => ({
-    action: "validation",
-    table: "validations",
-    ligne: v.id,
-    resume: `« ${critLabel(j, v)} » validé pour ${fullName(j)}`,
-    apres: { critere: critLabel(j, v), date: v.date, valide_par: v.validePar, commentaire: v.commentaire ?? null },
-  });
-
-  const cancelEntry = (j: Jeune, v: Validation, today: string): JournalInput => ({
-    action: "annulation",
-    table: "validations",
-    ligne: v.id,
-    resume: `Validation de « ${critLabel(j, v)} » annulée pour ${fullName(j)}`,
-    avant: { annulee_le: null },
-    apres: { annulee_le: today },
-  });
 
   const showToast = useCallback((msg: string, undo?: () => void) => {
     clearTimeout(timer.current);
@@ -193,37 +232,55 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
   useEffect(() => () => clearTimeout(timer.current), []);
 
+  const userName = p.role ? DEMO_USERS[p.role].nom : "";
+  const findJeuneById = useCallback((id: string | undefined | null) => findJeune(p.jeunes, id), [p.jeunes]);
+
+  /** Le journal n'enregistre que ce que le serveur a reçu : une saisie hors connexion y entre à la synchronisation. */
+  const entries = useCallback((user: string, list: JournalInput[]): JournalEntry[] => {
+    const at = new Date().toISOString();
+    return list.map((e) => ({ ...e, id: uuid(), at, user }));
+  }, []);
+  const log = useCallback(
+    (...list: JournalInput[]) => setP((s) => ({ ...s, journal: [...entries(s.role ? DEMO_USERS[s.role].nom : "", list), ...s.journal] })),
+    [entries],
+  );
+
   const flush = useCallback(
     (n: number) => {
       const now = new Date().toISOString();
       setP((s) => {
         const sent = s.vals.filter((v) => v.pending && !v.annuleeLe);
         const logged = sent.flatMap((v) => {
-          const j = s.jeunes.find((x) => x.id === v.jeuneId);
-          return j ? [validationEntry(j, v)] : [];
+          const j = findJeune(s.jeunes, v.jeuneId);
+          return j ? [validationEntry(stepsRef.current, j, v)] : [];
+        });
+        const reconsLogged = s.recons.filter((r) => r.pending).flatMap((r) => {
+          const j = findJeune(s.jeunes, r.jeuneId);
+          return j ? [reconEntry(stepsRef.current, j, r)] : [];
         });
         return {
           ...s,
           simOffline: false,
           vals: s.vals.map((v) => (v.pending ? { ...v, pending: false, updatedAt: now } : v)),
-          journal: [...entries(s.role ? DEMO_USERS[s.role].nom : "", logged), ...s.journal],
+          recons: s.recons.map((r) => (r.pending ? { ...r, pending: false } : r)),
+          journal: [...entries(s.role ? DEMO_USERS[s.role].nom : "", [...logged, ...reconsLogged]), ...s.journal],
         };
       });
       setSyncErr(false);
       showToast(n ? `${n} ${plural(n, "validation synchronisée", "validations synchronisées")}` : "De nouveau en ligne");
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [showToast, entries],
   );
 
   // Retour du vrai réseau : la file part seule, sauf si la démo force le mode hors connexion.
   const pRef = useRef(p);
+  const stepsRef = useRef<StepsByBranch>(effectiveSteps(BASE_STEPS, {}));
   pRef.current = p;
   useEffect(() => {
     const on = () => {
       setNetOnline(true);
       if (!pRef.current.simOffline) {
-        const n = pendingCount(pRef.current.vals);
+        const n = pendingCount(pRef.current.vals) + pRef.current.recons.filter((r) => r.pending).length;
         if (n) flush(n);
       }
     };
@@ -237,9 +294,32 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [flush]);
 
   const offline = p.simOffline || !netOnline;
-  const pending = pendingCount(p.vals);
+  const pending = pendingCount(p.vals) + p.recons.filter((r) => r.pending).length;
+  const refSteps = useMemo<RefSteps>(
+    () => ({
+      troupe: p.ref.published.troupe?.steps ?? BASE_STEPS.troupe,
+      meute: p.ref.published.meute?.steps ?? BASE_STEPS.meute,
+      route: p.ref.published.route?.steps ?? BASE_STEPS.route,
+    }),
+    [p.ref.published],
+  );
+  const refVersion = useMemo<Record<BranchCode, number>>(
+    () => ({
+      troupe: p.ref.published.troupe?.version ?? BASE_VERSION.troupe,
+      meute: p.ref.published.meute?.version ?? BASE_VERSION.meute,
+      route: p.ref.published.route?.version ?? BASE_VERSION.route,
+    }),
+    [p.ref.published],
+  );
+  const steps = useMemo(() => effectiveSteps(refSteps, p.adapts), [refSteps, p.adapts]);
+  stepsRef.current = steps;
 
   const tapSync = useCallback(() => {
+    if (!DEMO && !offline && !syncErr) {
+      if (pending) flush(pending);
+      else showToast("Tout est envoyé.");
+      return;
+    }
     if (!offline && !syncErr) {
       setP((s) => ({ ...s, simOffline: true }));
       showToast("Hors connexion : les validations restent sur le téléphone.");
@@ -259,47 +339,120 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     flush(pending);
   }, [offline, syncErr, netOnline, pending, p.demo.syncFails, showToast, flush]);
 
+  const addJeunes = useCallback(
+    (list: NewJeune[]) => {
+      if (!list.length) return;
+      const today = toISODate(new Date());
+      const add: Jeune[] = list.map((x) => ({ ...x, id: uuid(), dateEntree: today, choix: [], specs: [], statut: "actif" }));
+      const n = add.length;
+      const sansConsentement = add.filter((j) => !j.consentementLe).length;
+      setP((s) => ({
+        ...s,
+        jeunes: [...s.jeunes, ...add],
+        journal: [
+          ...entries(s.role ? DEMO_USERS[s.role].nom : "", [
+            {
+              action: "creation",
+              table: "jeunes",
+              ligne: n === 1 ? add[0].id : `${n} fiches`,
+              resume: n === 1 ? `Fiche de ${fullName(add[0])} créée` : `${n} fiches créées dans ${add[0].branche === "troupe" ? "Troupe Saint-Paul" : add[0].branche}`,
+              apres: { fiches: n, sans_consentement: sansConsentement },
+            },
+          ]),
+          ...s.journal,
+        ],
+      }));
+      showToast(n === 1 ? `${add[0].prenom} ${add[0].nom} est dans l'unité` : `${n} jeunes ajoutés à l'unité`);
+    },
+    [showToast, entries],
+  );
+
   const validate = useCallback(
-    (j: Jeune, criteres: number[], commentaire: string) => {
-      if (!criteres.length) return;
+    (j: Jeune, items: ValidationEntry[], date: string) => {
       const batch = uuid();
-      const now = new Date();
-      const add: Validation[] = criteres.map((critere) => ({
+      const stamp = new Date().toISOString();
+      // Une preuve déjà validée ne l'est pas deux fois (double touche, deux cadres).
+      const fresh = items.filter((e) => !isValidated(critStatus(pRef.current.vals, j.id, e.preuveId)));
+      if (!fresh.length) return;
+      const step = steps[j.branche].find((x) => x.id === j.etapeId);
+      const add: Validation[] = fresh.map((e) => ({
         id: uuid(),
         jeuneId: j.id,
-        etape: j.etape,
-        critere,
-        date: toISODate(now),
+        etapeId: j.etapeId,
+        domaineId: domaineOfPreuve(step, e.preuveId)?.id ?? "",
+        preuveId: e.preuveId,
+        date,
         validePar: userName,
-        commentaire: commentaire || undefined,
+        commentaire: e.commentaire || undefined,
         pending: offline,
         annuleeLe: null,
         batch,
-        updatedAt: now.toISOString(),
+        refVersion: refVersion[j.branche],
+        updatedAt: stamp,
       }));
-      setP((s) => ({ ...s, vals: [...s.vals, ...add], journal: offline ? s.journal : [...entries(userName, add.map((v) => validationEntry(j, v))), ...s.journal] }));
+      // pRef suit l'état rendu : on l'avance tout de suite pour qu'une seconde touche voie ces lignes.
+      pRef.current = { ...pRef.current, vals: [...pRef.current.vals, ...add] };
+      setP((s) => ({
+        ...s,
+        vals: [...s.vals, ...add],
+        journal: offline ? s.journal : [...entries(userName, add.map((v) => validationEntry(steps, j, v))), ...s.journal],
+      }));
       const n = add.length;
-      showToast(`${n} ${plural(n, "critère validé", "critères validés")} pour ${j.prenom}${offline ? " · en attente de réseau" : ""}`, () => {
-        // Une saisie restée sur le téléphone peut disparaître ; une saisie reçue par
-        // le serveur ne s'efface jamais : elle est annulée et le journal le garde.
+      showToast(`${n} ${plural(n, "preuve validée", "preuves validées")} pour ${j.prenom}${offline ? " · en attente de réseau" : ""}`, () => {
+        // Une saisie restée sur le téléphone s'efface ; une saisie déjà envoyée s'annule au journal.
         const today = toISODate(new Date());
-        const stamp = new Date().toISOString();
+        const now = new Date().toISOString();
         setP((s) => {
-          const mine = s.vals.filter((v) => v.batch === batch);
-          const synced = mine.filter((v) => !v.pending && !v.annuleeLe);
+          const synced = s.vals.filter((v) => v.batch === batch && !v.pending && !v.annuleeLe);
           return {
             ...s,
-            vals: s.vals
-              .filter((v) => v.batch !== batch || !v.pending)
-              .map((v) => (v.batch === batch && !v.annuleeLe ? { ...v, annuleeLe: today, annuleePar: userName, updatedAt: stamp } : v)),
-            journal: synced.length ? [...entries(userName, synced.map((v) => cancelEntry(j, v, today))), ...s.journal] : s.journal,
+            vals: s.vals.flatMap((v) => (v.batch !== batch ? [v] : v.pending ? [] : [{ ...v, annuleeLe: today, annuleePar: userName, updatedAt: now }])),
+            journal: synced.length ? [...entries(userName, synced.map((v) => cancelEntry(steps, j, v, today))), ...s.journal] : s.journal,
           };
         });
         showToast("Validation retirée");
       });
+      if (storageErr) showToast("Attention : ce téléphone n'enregistre plus les saisies. Retrouvez du réseau avant de fermer l'application.");
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [offline, showToast, userName, entries],
+    [offline, showToast, steps, refVersion, storageErr, userName, entries],
+  );
+
+  const reconnaitre = useCallback(
+    (j: Jeune, input: CourInput) => {
+      const recon: Reconnaissance = {
+        id: uuid(),
+        jeuneId: j.id,
+        etapeId: j.etapeId,
+        date: input.date,
+        decision: input.decision,
+        observations: input.observations.trim().slice(0, 1000),
+        ct: input.ct.trim().slice(0, 80),
+        ...(input.presents !== undefined ? { presents: input.presents, voixPour: input.voixPour } : {}),
+        pending: offline,
+      };
+      const branche = steps[j.branche];
+      const current = branche.find((x) => x.id === j.etapeId);
+      const next = input.decision === "reconnue" ? etapeSuivante(branche, j.etapeId) : undefined;
+      setP((s) => ({
+        ...s,
+        recons: [...s.recons, recon],
+        jeunes: next ? s.jeunes.map((x) => (x.id === j.id ? { ...x, etapeId: next.id } : x)) : s.jeunes,
+        journal: offline ? s.journal : [...entries(userName, [reconEntry(steps, j, recon)]), ...s.journal],
+      }));
+      const msg =
+        input.decision === "ajournee"
+          ? `${j.prenom} : étape ${current?.name} ajournée`
+          : `${j.prenom} : étape ${current?.name} reconnue${next ? ` · passe ${next.name}` : ""}`;
+      showToast(msg, () => {
+        setP((s) => ({
+          ...s,
+          recons: s.recons.filter((r) => r.id !== recon.id),
+          jeunes: next ? s.jeunes.map((x) => (x.id === j.id ? { ...x, etapeId: j.etapeId } : x)) : s.jeunes,
+        }));
+        showToast("Décision retirée");
+      });
+    },
+    [offline, showToast, steps, userName, entries],
   );
 
   const cancelValidation = useCallback(
@@ -309,16 +462,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setSheet(null);
       setP((s) => {
         const v = s.vals.find((x) => x.id === id);
-        const j = v && s.jeunes.find((x) => x.id === v.jeuneId);
+        const j = v && findJeune(s.jeunes, v.jeuneId);
         return {
           ...s,
           vals: s.vals.map((x) => (x.id === id ? { ...x, annuleeLe: today, annuleePar: userName, updatedAt: now } : x)),
-          journal: v && j && !v.pending ? [...entries(userName, [cancelEntry(j, v, today)]), ...s.journal] : s.journal,
+          journal: v && j && !v.pending ? [...entries(userName, [cancelEntry(stepsRef.current, j, v, today)]), ...s.journal] : s.journal,
         };
       });
       showToast("Validation annulée · gardée dans le journal");
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [showToast, userName, entries],
   );
 
@@ -326,24 +478,72 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     () => ({
       ...p,
       hydrated,
+      storageErr,
+      userName,
+      compte: p.role ? p.comptes.find((c) => c.id === DEMO_USERS[p.role!].compte) : undefined,
+      findJeune: findJeuneById,
+      setJeunes: (fn) => setP((s) => ({ ...s, jeunes: fn(s.jeunes) })),
+      setComptes: (fn) => setP((s) => ({ ...s, comptes: fn(s.comptes) })),
+      setUnites: (fn) => setP((s) => ({ ...s, unites: fn(s.unites) })),
+      setLastBackup: (iso) => setP((s) => ({ ...s, lastBackup: iso })),
+      log,
       offline,
       syncErr,
       pending,
       toast,
       sheet,
-      userName,
-      compte: p.role ? p.comptes.find((c) => c.id === DEMO_USERS[p.role!].compte) : undefined,
-      findJeune,
+      steps,
+      refSteps,
+      refVersion,
       enter: (role) => setP((s) => ({ ...s, role, lastTab: ROLE_HOME[role] })),
       logout: () => {
         setSheet(null);
         hideToast();
-        setP((s) => ({ ...s, role: null, lastTab: null }));
+        if (DEMO) {
+          setP((s) => ({ ...s, role: null, lastTab: null }));
+          return;
+        }
+        // Hors démo : aucune donnée de mineur ne reste sur un téléphone partagé.
+        del(KEY).catch(() => setStorageErr(true));
+        setP(initial());
       },
       setLastTab: (tab) => setP((s) => (s.lastTab === tab ? s : { ...s, lastTab: tab })),
       showToast,
       hideToast,
+      addJeunes,
+      updateJeune: (id, patch) =>
+        setP((s) => {
+          const before = findJeune(s.jeunes, id);
+          const etapeChange = before && patch.etapeId && patch.etapeId !== before.etapeId;
+          const name = (eid: string) => steps[before?.branche ?? "troupe"].find((x) => x.id === eid)?.name ?? eid;
+          return {
+            ...s,
+            jeunes: s.jeunes.map((j) => (j.id === id ? { ...j, ...patch } : j)),
+            journal: etapeChange
+              ? [
+                  ...entries(userName, [
+                    {
+                      action: "modification",
+                      table: "jeunes",
+                      ligne: id,
+                      resume: `Étape de ${fullName(before)} corrigée : ${name(before.etapeId)} → ${name(patch.etapeId!)}`,
+                      avant: { etape: name(before.etapeId) },
+                      apres: { etape: name(patch.etapeId!) },
+                    },
+                  ]),
+                  ...s.journal,
+                ]
+              : s.journal,
+          };
+        }),
+      updateAdapt: (branche, fn, resume) =>
+        setP((s) => ({
+          ...s,
+          adapts: { ...s.adapts, [branche]: fn(s.adapts[branche] ?? EMPTY_ADAPT) },
+          journal: resume ? [...entries(userName, [{ action: "modification", table: "adaptations_unite", ligne: branche, resume }]), ...s.journal] : s.journal,
+        })),
       validate,
+      reconnaitre,
       openCancelSheet: (id) => {
         hideToast();
         setSheet(id);
@@ -351,15 +551,42 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       closeSheet: () => setSheet(null),
       cancelValidation,
       tapSync,
-      setDemo: (patch) => setP((s) => ({ ...s, demo: { ...s.demo, ...patch } })),
+      setDemo: (patch) =>
+        setP((s) => ({
+          ...s,
+          demo: { ...s.demo, ...patch },
+          jeunes: patch.emptyUnit === undefined ? s.jeunes : withDemoTroupe(s.jeunes, patch.emptyUnit),
+        })),
       updateRef: (fn) => setP((s) => ({ ...s, ref: fn(s.ref) })),
-      setJeunes: (fn) => setP((s) => ({ ...s, jeunes: fn(s.jeunes) })),
-      setComptes: (fn) => setP((s) => ({ ...s, comptes: fn(s.comptes) })),
-      setUnites: (fn) => setP((s) => ({ ...s, unites: fn(s.unites) })),
-      setLastBackup: (iso) => setP((s) => ({ ...s, lastBackup: iso })),
-      log,
+      editDraft: (b, fn) =>
+        setP((s) => ({ ...s, ref: { ...s.ref, draft: { ...s.ref.draft, [b]: fn(s.ref.draft[b] ?? s.ref.published[b]?.steps ?? BASE_STEPS[b]) } } })),
+      publishDraft: (b) =>
+        setP((s) => {
+          const draft = s.ref.draft[b];
+          if (!draft) return s;
+          const version = (s.ref.published[b]?.version ?? BASE_VERSION[b]) + 1;
+          const { [b]: _published, ...otherDrafts } = s.ref.draft;
+          const publication: JournalInput = {
+            action: "publication",
+            table: "referentiels",
+            ligne: `${b}-v${version}`,
+            resume: `${REF_TITLES[b]} · version ${version} publiée`,
+            avant: { version: version - 1 },
+            apres: { version, actif: true },
+          };
+          return {
+            ...s,
+            ref: { ...s.ref, published: { ...s.ref.published, [b]: { version, steps: draft } }, draft: otherDrafts },
+            journal: [...entries(userName, [publication]), ...s.journal],
+          };
+        }),
+      discardDraft: (b) =>
+        setP((s) => {
+          const { [b]: _dropped, ...otherDrafts } = s.ref.draft;
+          return { ...s, ref: { ...s.ref, draft: otherDrafts } };
+        }),
     }),
-    [p, hydrated, offline, syncErr, pending, toast, sheet, userName, findJeune, showToast, hideToast, validate, cancelValidation, tapSync, log],
+    [p, hydrated, storageErr, offline, syncErr, pending, toast, sheet, steps, refSteps, refVersion, userName, findJeuneById, entries, log, showToast, hideToast, addJeunes, validate, reconnaitre, cancelValidation, tapSync],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
@@ -371,20 +598,57 @@ export function useStore(): Store {
   return s;
 }
 
-/** Validation ciblée par la feuille d'annulation, avec son jeune. */
+/** Validation ciblée par la feuille d'annulation, avec son jeune et le libellé de l'épreuve. */
 export function useSheetTarget() {
-  const { sheet, vals, findJeune } = useStore();
+  const { sheet, vals, jeunes, steps } = useStore();
   if (!sheet) return null;
   const v = vals.find((x) => x.id === sheet);
-  const j = v ? findJeune(v.jeuneId) : undefined;
-  return v && j ? { v, j } : null;
+  const j = v ? findJeune(jeunes, v.jeuneId) : undefined;
+  return v && j ? { v, j, label: preuveLabel(steps[j.branche], v.etapeId, v.preuveId) } : null;
 }
 
-/** Jeunes actifs de la troupe : fiche active seulement avec le consentement des parents. */
+/** Jeunes actifs de la troupe : une fiche n'est active qu'avec le consentement des parents. */
 export function useTroupe(): Jeune[] {
-  const { jeunes, demo } = useStore();
-  return useMemo(
-    () => jeunes.filter((j) => j.branche === "troupe" && j.statut === "actif" && !!j.consentementLe && (!demo.emptyUnit || j.importe)),
-    [jeunes, demo.emptyUnit],
-  );
+  const { jeunes } = useStore();
+  return useMemo(() => jeunes.filter((j) => j.branche === "troupe" && j.statut === "actif" && !!j.consentementLe), [jeunes]);
+}
+
+/** Fiches de la troupe en attente du consentement des parents. */
+export function useTroupeSansConsentement(): Jeune[] {
+  const { jeunes } = useStore();
+  return useMemo(() => jeunes.filter((j) => j.branche === "troupe" && j.statut === "actif" && !j.consentementLe), [jeunes]);
+}
+
+function validationEntry(steps: StepsByBranch, j: Jeune, v: Validation): JournalInput {
+  const label = preuveLabel(steps[j.branche], v.etapeId, v.preuveId);
+  return {
+    action: "validation",
+    table: "validations",
+    ligne: v.id,
+    resume: `« ${label} » validé pour ${fullName(j)}`,
+    apres: { preuve: label, date: v.date, valide_par: v.validePar, commentaire: v.commentaire ?? null, version: v.refVersion ?? null },
+  };
+}
+
+function cancelEntry(steps: StepsByBranch, j: Jeune, v: Validation, today: string): JournalInput {
+  const label = preuveLabel(steps[j.branche], v.etapeId, v.preuveId);
+  return {
+    action: "annulation",
+    table: "validations",
+    ligne: v.id,
+    resume: `Validation de « ${label} » annulée pour ${fullName(j)}`,
+    avant: { annulee_le: null },
+    apres: { annulee_le: today },
+  };
+}
+
+function reconEntry(steps: StepsByBranch, j: Jeune, r: Reconnaissance): JournalInput {
+  const etape = steps[j.branche].find((x) => x.id === r.etapeId)?.name ?? r.etapeId;
+  return {
+    action: "creation",
+    table: "cours_honneur",
+    ligne: r.id,
+    resume: `Cour d'honneur : étape ${etape} ${r.decision === "reconnue" ? "reconnue" : "ajournée"} pour ${fullName(j)}`,
+    apres: { etape, decision: r.decision, date: r.date, ct: r.ct, presents: r.presents ?? null, voix_pour: r.voixPour ?? null },
+  };
 }

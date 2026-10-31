@@ -1,17 +1,49 @@
 // Référentiels de progression par branche. Ce sont des données, pas du code :
 // en production, ces lignes viennent des tables referentiels, etapes et criteres.
+// Étape → domaines → preuves ; une validation pointe vers une preuve par son identifiant.
+
+import { TROUPE_STEPS } from "./carnetTroupe";
 
 export type BranchCode = "meute" | "troupe" | "route";
 
+export interface Preuve {
+  id: string;
+  label: string;
+  /** Archivée par l'admin : n'est plus proposée, reste lisible dans l'historique. */
+  archive?: boolean;
+}
+
+export interface Domaine {
+  id: string;
+  name: string;
+  /** false : domaine au choix, que le cadre active pour un jeune ou que l'unité retire. */
+  obligatoire: boolean;
+  /** « Satisfaire à N des épreuves suivantes » : nombre de preuves à réussir ; absent = toutes. */
+  min?: number;
+  /** Archivé par l'admin : n'est plus proposé, reste lisible dans l'historique. */
+  archive?: boolean;
+  preuves: Preuve[];
+}
+
+/** Étape validée par un nombre de brevets répartis sur plusieurs séries (Technicien). */
+export interface RegleBrevets {
+  kind: "brevets";
+  min: number;
+  series: number;
+}
+
 export interface Etape {
+  id: string;
   name: string;
   /** Qui reconnaît l'étape (cour d'honneur, Akéla…). */
   val: string;
-  /** Règle chiffrée éventuelle, stockée comme donnée. */
+  /** Règle affichée telle quelle. */
   rule?: string;
-  crit: string[];
-  /** Index des critères optionnels. */
-  opt?: number[];
+  /** Règle calculée, quand l'étape ne se valide pas domaine par domaine. */
+  regle?: RegleBrevets;
+  /** Reconnaissance par vote secret de la cour d'honneur (Animateur : 3/4 des voix). */
+  vote?: { majorite: number };
+  domaines: Domaine[];
 }
 
 export interface Branche {
@@ -21,45 +53,55 @@ export interface Branche {
   steps: Etape[];
 }
 
+/** Axe de la meute : un domaine d'une seule preuve (le guide laisse chaque meute les détailler). */
+const axe = (id: string, label: string, obligatoire = true): Domaine => ({ id, name: label, obligatoire, preuves: [{ id: `${id}.1`, label }] });
+
 export const BRANCHES: Record<BranchCode, Branche> = {
-  troupe: {
-    code: "troupe",
-    name: "Troupe",
-    unit: "Troupe Saint-Paul",
-    steps: [
-      {
-        name: "Volontaire",
-        val: "observations du chef de troupe, avis de la cour d'honneur",
-        crit: ["Esprit scout", "Sport", "Nature", "Intervention service", "Civisme", "Hygiène", "Demande de Promesse"],
-      },
-      {
-        name: "Engagé",
-        val: "cour d'honneur",
-        crit: ["Esprit scout", "Vie chrétienne", "Sport", "Nature", "Intervention service", "Civisme", "Équipement", "Informatique", "Observation", "Hygiène"],
-        opt: [1],
-      },
-      {
-        name: "Technicien",
-        val: "cour d'honneur",
-        rule: "3 degrés de compétence dans 2 services",
-        crit: ["Degré 1 · série sport", "Degré 1 · série contact", "Degré 1 · série pionnier", "Degré 2 · série pionnier", "Mise en pratique"],
-      },
-      {
-        name: "Animateur",
-        val: "vote secret de la cour d'honneur, 3/4 des voix",
-        crit: ["Enseigner une technique", "Former un successeur", "Organiser une activité communautaire"],
-      },
-    ],
-  },
+  troupe: { code: "troupe", name: "Troupe", unit: "Troupe Saint-Paul", steps: TROUPE_STEPS },
   meute: {
     code: "meute",
     name: "Meute",
     unit: "Meute Saint-Paul",
     steps: [
-      { name: "Patte tendre", val: "Promesse dite à Akéla devant la meute", crit: ["Accueil (environ 6 mois)", "Promesse dite à Akéla"] },
-      { name: "1re étoile", val: "remise de l'insigne d'étoile", crit: ["Civisme", "Matelotage", "Hygiène", "Débrouillardise", "Autonomie", "Religion"], opt: [5] },
-      { name: "2e étoile", val: "remise de l'insigne d'étoile", crit: ["Civisme", "Matelotage", "Hygiène", "Débrouillardise", "Autonomie", "Vie du mouvement"] },
-      { name: "Brevets", val: "insigne de brevet", rule: "ouverts à partir de deux étoiles", crit: ["Premier brevet", "Deuxième brevet", "Troisième brevet"] },
+      {
+        id: "me.pt",
+        name: "Patte tendre",
+        val: "Promesse dite à Akéla devant la meute",
+        domaines: [axe("me.pt.accueil", "Accueil (environ 6 mois)"), axe("me.pt.promesse", "Promesse dite à Akéla")],
+      },
+      {
+        id: "me.e1",
+        name: "1re étoile",
+        val: "remise de l'insigne d'étoile",
+        domaines: [
+          axe("me.e1.civisme", "Civisme"),
+          axe("me.e1.matelotage", "Matelotage"),
+          axe("me.e1.hygiene", "Hygiène"),
+          axe("me.e1.debrouillardise", "Débrouillardise"),
+          axe("me.e1.autonomie", "Autonomie"),
+          axe("me.e1.religion", "Religion", false),
+        ],
+      },
+      {
+        id: "me.e2",
+        name: "2e étoile",
+        val: "remise de l'insigne d'étoile",
+        domaines: [
+          axe("me.e2.civisme", "Civisme"),
+          axe("me.e2.matelotage", "Matelotage"),
+          axe("me.e2.hygiene", "Hygiène"),
+          axe("me.e2.debrouillardise", "Débrouillardise"),
+          axe("me.e2.autonomie", "Autonomie"),
+          axe("me.e2.mouvement", "Vie du mouvement"),
+        ],
+      },
+      {
+        id: "me.br",
+        name: "Brevets",
+        val: "insigne de brevet",
+        rule: "ouverts à partir de deux étoiles",
+        domaines: [axe("me.br.1", "Premier brevet"), axe("me.br.2", "Deuxième brevet"), axe("me.br.3", "Troisième brevet")],
+      },
     ],
   },
   route: { code: "route", name: "Route", unit: "Route Saint-Paul", steps: [] },

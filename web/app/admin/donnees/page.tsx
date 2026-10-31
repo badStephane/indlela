@@ -6,9 +6,10 @@ import { Card, cx, List, OutlineButton, rowClass, Section } from "@/components/u
 import { useGuard } from "@/lib/access";
 import { useStore, useTroupe } from "@/lib/store";
 import { BRANCHES } from "@/lib/referentiels";
-import { fullName, uuid, type Jeune } from "@/lib/mock";
+import { ageOf, fullName, uuid, type Jeune } from "@/lib/mock";
 import { analyseImport, downloadCsv, EXEMPLE_IMPORT, MODELE_IMPORT, type ImportRow } from "@/lib/csv";
-import { currentStep, doneCount, plural } from "@/lib/progress";
+import { plural, progressOf } from "@/lib/progress";
+import { preuveLabel } from "@/lib/effective";
 import { daysSince, fmtShort, toISODate } from "@/lib/dates";
 
 const ONLINE_ONLY = "Import, export et sauvegardes passent par le serveur : retrouvez du réseau.";
@@ -49,16 +50,16 @@ export default function Donnees() {
 
   const doImport = () => {
     if (!ready.length) return;
+    const premiereEtape = store.steps.troupe[0]?.id ?? "";
     const added: Jeune[] = ready.map((r) => ({
       id: uuid(),
       prenom: r.prenom,
       nom: r.nom,
-      age: r.age ?? 12,
-      dateNaissance: r.dateNaissance ?? undefined,
+      dateNaissance: r.dateNaissance,
+      dateEntree: today,
       branche: "troupe",
-      etape: 0,
-      seedDone: 0,
-      seedLast: 0,
+      etapeId: premiereEtape,
+      choix: [],
       specs: [],
       consentementLe: null,
       statut: "actif",
@@ -84,22 +85,24 @@ export default function Donnees() {
     if (kind === "jeunes") {
       name = "groupe-grand-dakar-jeunes.csv";
       const list = troupe.map((j) => {
-        const s = currentStep(j);
-        return [BRANCHES[j.branche].unit, j.prenom, j.nom, j.age, s.name, doneCount(vals, j), s.crit.length, j.consentementLe];
+        const p = progressOf(j, store.steps, vals);
+        return [BRANCHES[j.branche].unit, j.prenom, j.nom, ageOf(j) ?? "", p.step?.name ?? "", p.done, p.total, j.consentementLe];
       });
       count = list.length;
-      downloadCsv(name, [["unite", "prenom", "nom", "age", "etape", "criteres_valides", "criteres_total", "consentement_le"], ...list]);
+      downloadCsv(name, [["unite", "prenom", "nom", "age", "etape", "preuves_validees", "preuves_total", "consentement_le"], ...list]);
     } else if (kind === "validations") {
       name = "groupe-grand-dakar-validations.csv";
       const list = vals
         .filter((v) => !v.pending)
         .map((v) => {
-          const j = store.findJeune(v.jeuneId)!;
-          const step = BRANCHES[j.branche].steps[v.etape];
-          return [v.id, fullName(j), BRANCHES[j.branche].unit, step.name, step.crit[v.critere], v.date, v.validePar, v.commentaire, v.annuleeLe];
+          const j = store.findJeune(v.jeuneId);
+          if (!j) return [v.id, "", "", "", "", v.date, v.validePar, v.commentaire, v.annuleeLe];
+          const steps = store.steps[j.branche];
+          const step = steps.find((x) => x.id === v.etapeId);
+          return [v.id, fullName(j), BRANCHES[j.branche].unit, step?.name ?? "", preuveLabel(steps, v.etapeId, v.preuveId), v.date, v.validePar, v.commentaire, v.annuleeLe];
         });
       count = list.length;
-      downloadCsv(name, [["id", "jeune", "unite", "etape", "critere", "date", "valide_par", "commentaire", "annulee_le"], ...list]);
+      downloadCsv(name, [["id", "jeune", "unite", "etape", "preuve", "date", "valide_par", "commentaire", "annulee_le"], ...list]);
     } else {
       name = "groupe-grand-dakar-journal.csv";
       count = journal.length;

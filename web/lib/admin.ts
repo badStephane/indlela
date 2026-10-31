@@ -4,7 +4,7 @@
 import type { BranchCode } from "./referentiels";
 import { BRANCHES } from "./referentiels";
 import { daysAgo, toISODate } from "./dates";
-import { fullName, SEED_JEUNES, uuid, type Validation } from "./mock";
+import { fullName, seedJeunes, uuid, type Validation } from "./mock";
 import type { Role } from "./store";
 
 export interface Compte {
@@ -140,9 +140,11 @@ export function seedJournal(vals: Validation[]): JournalEntry[] {
     { id: uuid(), at: at(d(64), 620), user: admin, action: "publication", table: "referentiels", ligne: "troupe-v2", resume: "Carnet de preuves · version 2 publiée", avant: { version: 1 }, apres: { version: 2, actif: true } },
     { id: uuid(), at: at(d(40), 615), user: admin, action: "modification", table: "utilisateurs", ligne: "u-psagna", resume: "Compte de Paul Sagna désactivé", avant: { actif: true }, apres: { actif: false } },
   );
+  const jeunes = seedJeunes();
   vals.forEach((v, i) => {
-    const j = SEED_JEUNES.find((x) => x.id === v.jeuneId)!;
-    const crit = BRANCHES[j.branche].steps[v.etape].crit[v.critere];
+    const j = jeunes.find((x) => x.id === v.jeuneId);
+    if (!j) return;
+    const crit = preuveDuCarnet(j.branche, v.etapeId, v.preuveId);
     out.push({
       id: uuid(),
       at: at(v.date, 30 + ((i * 7) % 50)),
@@ -167,4 +169,10 @@ export function seedJournal(vals: Validation[]): JournalEntry[] {
       });
   });
   return out.sort((a, b) => b.at.localeCompare(a.at));
+}
+
+/** Libellé d'une preuve dans le carnet transcrit (journal de démo). */
+function preuveDuCarnet(branche: BranchCode, etapeId: string, preuveId: string): string {
+  const step = BRANCHES[branche].steps.find((x) => x.id === etapeId);
+  return step?.domaines.flatMap((d) => d.preuves).find((p) => p.id === preuveId)?.label ?? "Preuve";
 }

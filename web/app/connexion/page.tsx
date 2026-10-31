@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Frame } from "@/components/AppShell";
 import { cx } from "@/components/ui";
 import { ROLE_HOME, useStore, type Role } from "@/lib/store";
+import { DEMO } from "@/lib/demo";
 
 const ROLES: [Role, string][] = [
   ["cadre", "Cadre"],
@@ -82,6 +83,7 @@ export default function Connexion() {
             Se connecter
           </button>
         </form>
+        {DEMO && (
         <div className="mt-auto flex flex-col gap-2.5 border-t border-line pt-4">
           <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted">Démo · entrer comme</span>
           <div className="grid grid-cols-2 gap-2">
@@ -96,6 +98,7 @@ export default function Connexion() {
             <DemoToggle on={store.demo.syncFails} onClick={() => store.setDemo({ syncFails: !store.demo.syncFails })} label="1re synchro en échec" />
           </div>
         </div>
+        )}
       </div>
     </Frame>
   );

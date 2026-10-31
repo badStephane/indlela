@@ -35,7 +35,7 @@ export const rowClass = "flex w-full items-center border-b border-rule bg-surfac
 
 export function Bar({ value, height = 6, color = "var(--acc)", className }: { value: string; height?: number; color?: string; className?: string }) {
   return (
-    <span className={cx("block flex-none overflow-hidden bg-track", className)} style={{ height, borderRadius: height / 2 }}>
+    <span className={cx("block overflow-hidden bg-track", className)} style={{ height, minHeight: height, borderRadius: height / 2 }}>
       <span className="block h-full" style={{ width: value, background: color, borderRadius: height / 2 }} />
     </span>
   );
