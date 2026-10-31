@@ -1,0 +1,258 @@
+"use client";
+
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { AppShell, type FootAction } from "@/components/AppShell";
+import { Card, cx, List, OutlineButton, rowClass, Section } from "@/components/ui";
+import { useGuard } from "@/lib/access";
+import { useStore, useTroupe } from "@/lib/store";
+import { BRANCHES } from "@/lib/referentiels";
+import { fullName, uuid, type Jeune } from "@/lib/mock";
+import { analyseImport, downloadCsv, EXEMPLE_IMPORT, MODELE_IMPORT, type ImportRow } from "@/lib/csv";
+import { currentStep, doneCount, plural } from "@/lib/progress";
+import { daysSince, fmtShort, toISODate } from "@/lib/dates";
+
+const ONLINE_ONLY = "Import, export et sauvegardes passent par le serveur : retrouvez du réseau.";
+
+export default function Donnees() {
+  const ok = useGuard((r) => r === "admin" || r === "groupe");
+  const store = useStore();
+  const troupe = useTroupe();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [fichier, setFichier] = useState<string | null>(null);
+  const [rows, setRows] = useState<ImportRow[] | null>(null);
+  const [backingUp, setBackingUp] = useState(false);
+
+  useEffect(() => {
+    if (ok) store.setLastTab("/admin/donnees");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ok]);
+
+  if (!ok) return null;
+
+  const { offline, role, vals, journal } = store;
+  const admin = role === "admin";
+  const ready = rows?.filter((r) => !r.erreur) ?? [];
+  const errors = rows?.filter((r) => r.erreur) ?? [];
+  const today = toISODate(new Date());
+
+  const load = (name: string, text: string) => {
+    setFichier(name);
+    setRows(analyseImport(text, store.jeunes));
+  };
+
+  const onFile = (e: ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    f.text().then((t) => load(f.name, t));
+  };
+
+  const doImport = () => {
+    if (!ready.length) return;
+    const added: Jeune[] = ready.map((r) => ({
+      id: uuid(),
+      prenom: r.prenom,
+      nom: r.nom,
+      age: r.age ?? 12,
+      dateNaissance: r.dateNaissance ?? undefined,
+      branche: "troupe",
+      etape: 0,
+      seedDone: 0,
+      seedLast: 0,
+      specs: [],
+      consentementLe: null,
+      statut: "actif",
+      importe: true,
+    }));
+    store.setJeunes((list) => [...list, ...added]);
+    store.log({
+      action: "import",
+      table: "jeunes",
+      ligne: fichier ?? "import.csv",
+      resume: `${added.length} ${plural(added.length, "fiche importée", "fiches importées")} dans Troupe Saint-Paul`,
+      apres: { fichier: fichier ?? null, lignes: rows!.length, importees: added.length, rejetees: errors.length },
+    });
+    store.showToast(`${added.length} ${plural(added.length, "fiche créée", "fiches créées")} · inactives jusqu'au consentement des parents`);
+    setRows(null);
+    setFichier(null);
+  };
+
+  const exporter = (kind: "jeunes" | "validations" | "journal") => {
+    if (offline) return store.showToast(ONLINE_ONLY);
+    let name = "";
+    let count = 0;
+    if (kind === "jeunes") {
+      name = "groupe-grand-dakar-jeunes.csv";
+      const list = troupe.map((j) => {
+        const s = currentStep(j);
+        return [BRANCHES[j.branche].unit, j.prenom, j.nom, j.age, s.name, doneCount(vals, j), s.crit.length, j.consentementLe];
+      });
+      count = list.length;
+      downloadCsv(name, [["unite", "prenom", "nom", "age", "etape", "criteres_valides", "criteres_total", "consentement_le"], ...list]);
+    } else if (kind === "validations") {
+      name = "groupe-grand-dakar-validations.csv";
+      const list = vals
+        .filter((v) => !v.pending)
+        .map((v) => {
+          const j = store.findJeune(v.jeuneId)!;
+          const step = BRANCHES[j.branche].steps[v.etape];
+          return [v.id, fullName(j), BRANCHES[j.branche].unit, step.name, step.crit[v.critere], v.date, v.validePar, v.commentaire, v.annuleeLe];
+        });
+      count = list.length;
+      downloadCsv(name, [["id", "jeune", "unite", "etape", "critere", "date", "valide_par", "commentaire", "annulee_le"], ...list]);
+    } else {
+      name = "groupe-grand-dakar-journal.csv";
+      count = journal.length;
+      downloadCsv(name, [
+        ["date", "utilisateur", "action", "table", "ligne", "resume", "avant", "apres"],
+        ...journal.map((e) => [e.at, e.user, e.action, e.table, e.ligne, e.resume, e.avant ? JSON.stringify(e.avant) : "", e.apres ? JSON.stringify(e.apres) : ""]),
+      ]);
+    }
+    store.log({ action: "export", table: kind, ligne: name, resume: `Export ${name} (${count} ${plural(count, "ligne", "lignes")})`, apres: { fichier: name, lignes: count } });
+    store.showToast(`${name} exporté`);
+  };
+
+  const sauvegarder = () => {
+    if (offline) return store.showToast(ONLINE_ONLY);
+    setBackingUp(true);
+    setTimeout(() => {
+      const at = new Date().toISOString();
+      store.setLastBackup(at);
+      store.log({ action: "sauvegarde", table: "base", ligne: `sauvegarde-${today}`, resume: "Sauvegarde chiffrée lancée à la main", apres: { chiffree: true, copies: 3 } });
+      store.showToast("Sauvegarde chiffrée terminée · 3 copies");
+      setBackingUp(false);
+    }, 1500);
+  };
+
+  let foot: FootAction | undefined;
+  if (rows)
+    foot = {
+      label: ready.length ? `Importer ${ready.length} ${plural(ready.length, "jeune", "jeunes")}` : "Aucune ligne à importer",
+      disabled: !ready.length || offline,
+      note: offline ? ONLINE_ONLY : errors.length ? `${errors.length} ${plural(errors.length, "ligne sera ignorée", "lignes seront ignorées")}.` : undefined,
+      onClick: doImport,
+    };
+
+  const lastBackupDays = daysSince(store.lastBackup);
+  const backupWhen =
+    (lastBackupDays === 0 ? "aujourd'hui" : lastBackupDays === 1 ? "hier" : `le ${fmtShort(store.lastBackup)}`) +
+    " à " +
+    new Date(store.lastBackup).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+
+  return (
+    <AppShell kicker={admin ? "Administration" : "Groupe Grand-Dakar"} title="Import et export" foot={foot}>
+      <div className="flex flex-col gap-6 p-4">
+        <Section label="Importer des jeunes" gap="gap-2.5">
+          <Card className="flex flex-col gap-3 p-4">
+            <span className="text-[14px] text-pretty">
+              Un fichier CSV, une ligne par jeune : <span className="font-mono text-[13px]">prenom ; nom ; date_naissance ; unite</span>. Les fiches restent inactives
+              jusqu&apos;au consentement des parents. En V1, seule la troupe est ouverte.
+            </span>
+            <input ref={fileRef} type="file" accept=".csv,text/csv" onChange={onFile} className="hidden" />
+            <button type="button" onClick={() => fileRef.current?.click()} className="h-12 rounded-ui bg-acc text-[15px] font-bold text-acc-ink">
+              Choisir un fichier CSV
+            </button>
+            <div className="grid grid-cols-2 gap-2">
+              <OutlineButton onClick={() => downloadCsv("modele-import-jeunes.csv", MODELE_IMPORT)} className="h-11 bg-transparent text-[14px]">
+                Modèle CSV
+              </OutlineButton>
+              <OutlineButton onClick={() => load("exemple.csv", EXEMPLE_IMPORT)} className="h-11 bg-transparent text-[14px]">
+                Essayer un exemple
+              </OutlineButton>
+            </div>
+          </Card>
+
+          {rows && (
+            <>
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="truncate font-mono text-[13px] text-muted">{fichier}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRows(null);
+                    setFichier(null);
+                  }}
+                  className="flex-none bg-transparent text-[13px] font-bold text-acc-text"
+                >
+                  Effacer
+                </button>
+              </div>
+              <span className="text-[14px]">
+                {rows.length} {plural(rows.length, "ligne", "lignes")} · <span className="font-semibold text-ok-ink">{ready.length} prêtes</span>
+                {errors.length > 0 && (
+                  <>
+                    {" "}
+                    · <span className="font-semibold text-err-ink">{errors.length} à corriger</span>
+                  </>
+                )}
+              </span>
+              {rows.length === 0 ? (
+                <div className="rounded-card border border-dashed border-line-strong px-5 py-7 text-[15px] text-muted">Le fichier est vide.</div>
+              ) : (
+                <List>
+                  {rows.map((r) => (
+                    <div key={r.ligne} className={`${rowClass} min-h-14 gap-3 py-2`}>
+                      <span
+                        aria-hidden
+                        className={cx(
+                          "flex h-6 w-6 flex-none items-center justify-center rounded-full border-2 text-[13px] font-extrabold",
+                          r.erreur ? "border-err-dot text-err-ink" : "border-acc bg-acc text-acc-ink",
+                        )}
+                      >
+                        {r.erreur ? "!" : "✓"}
+                      </span>
+                      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <span className={cx("truncate text-[15px] font-medium", r.erreur && "text-muted")}>{[r.prenom, r.nom].filter(Boolean).join(" ") || "Sans nom"}</span>
+                        <span className={cx("font-mono text-[12px]", r.erreur ? "text-err-ink" : "text-muted")}>
+                          ligne {r.ligne} · {r.erreur ?? `${r.age} ans · Troupe Saint-Paul`}
+                        </span>
+                      </span>
+                    </div>
+                  ))}
+                </List>
+              )}
+            </>
+          )}
+        </Section>
+
+        <Section label="Exporter" gap="gap-2.5">
+          <List>
+            {(
+              [
+                ["jeunes", "Listes des jeunes", `${troupe.length} jeunes actifs · étape et progression`],
+                ["validations", "Validations", "Toutes, annulées comprises, avec le nom du cadre"],
+                ...(admin ? [["journal", "Journal", `${journal.length} traces · avant et après`]] : []),
+              ] as ["jeunes" | "validations" | "journal", string, string][]
+            ).map(([kind, label, sub]) => (
+              <button key={kind} type="button" onClick={() => exporter(kind)} className={`${rowClass} min-h-[60px] justify-between gap-3 py-2`}>
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span className="text-[15px] font-semibold">{label}</span>
+                  <span className="text-[12px] text-muted">{sub}</span>
+                </span>
+                <span className={cx("flex-none font-mono text-[12px] font-semibold", offline ? "text-muted" : "text-acc-text")}>CSV ↓</span>
+              </button>
+            ))}
+          </List>
+          {offline && <span className="text-[13px] text-muted">{ONLINE_ONLY}</span>}
+        </Section>
+
+        {admin && (
+          <Section label="Sauvegardes" gap="gap-2.5">
+            <Card className="flex flex-col gap-2.5 p-4">
+              <div className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full bg-ok-dot" />
+                <span className="text-[15px] font-semibold">Dernière sauvegarde chiffrée {backupWhen}</span>
+              </div>
+              <span className="text-[13px] text-muted text-pretty">
+                Une sauvegarde chaque nuit, gardée en 3 copies dont une hors du serveur. Restauration testée avant chaque nouvelle version.
+              </span>
+              <OutlineButton onClick={sauvegarder} className={cx("h-11 bg-transparent text-[14px] font-bold", (backingUp || offline) && "text-muted")}>
+                {backingUp ? "Sauvegarde en cours…" : "Lancer une sauvegarde maintenant"}
+              </OutlineButton>
+            </Card>
+          </Section>
+        )}
+      </div>
+    </AppShell>
+  );
+}

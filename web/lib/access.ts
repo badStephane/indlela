@@ -5,14 +5,17 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { FAMILLE, type Jeune } from "./mock";
+import type { Jeune } from "./mock";
+import type { Compte } from "./admin";
 import { ROLE_HOME, useStore, type Role } from "./store";
 
-export function canSeeJeune(role: Role | null, j: Jeune | undefined): boolean {
-  if (!role || !j) return false;
+export function canSeeJeune(role: Role | null, j: Jeune | undefined, compte: Compte | undefined): boolean {
+  if (!role || !j || !compte?.actif) return false;
+  // Sans consentement des parents, la fiche reste inactive.
+  if (!j.consentementLe || j.statut !== "actif") return false;
   if (role === "groupe") return true;
-  if (role === "cadre") return j.branche === "troupe";
-  if (role === "parent") return FAMILLE.kids.includes(j.id);
+  if (role === "cadre") return compte.unites.includes(j.branche);
+  if (role === "parent") return compte.enfants.includes(j.id);
   return false;
 }
 

@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { Card, Chip, EmptyBox, List, rowClass, Section } from "@/components/ui";
 import { useGuard } from "@/lib/access";
-import { useStore } from "@/lib/store";
+import { useStore, useTroupe } from "@/lib/store";
 import { BRANCHES } from "@/lib/referentiels";
-import { ceremonies, fullName, TROUPE } from "@/lib/mock";
+import { ceremonies, fullName } from "@/lib/mock";
 import { isStepComplete, lastValidationDays } from "@/lib/progress";
 import { fmtDayMonth } from "@/lib/dates";
 
@@ -16,6 +16,7 @@ export default function TableauDeBord() {
   const store = useStore();
   const router = useRouter();
   const { vals } = store;
+  const TROUPE = useTroupe();
 
   useEffect(() => {
     if (ok) store.setLastTab("/unite/tableau-de-bord");
@@ -36,7 +37,7 @@ export default function TableauDeBord() {
   return (
     <AppShell kicker="Troupe Saint-Paul" title="Tableau de bord">
       <div className="flex flex-col gap-6 p-4">
-        {store.demo.emptyUnit ? (
+        {TROUPE.length === 0 ? (
           <EmptyBox>Le tableau de bord se remplit dès que l&apos;unité compte des jeunes.</EmptyBox>
         ) : (
           <>

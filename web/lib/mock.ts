@@ -17,6 +17,13 @@ export interface Jeune {
   /** Jours depuis la dernière validation (données de démo). */
   seedLast: number;
   specs: { name: string; meta: string }[];
+  /** Date ISO de naissance, connue pour les fiches importées. */
+  dateNaissance?: string;
+  /** Aucune fiche active ni accès parent sans consentement des parents. */
+  consentementLe: string | null;
+  statut: "actif" | "sorti";
+  /** Fiche créée par un import CSV. */
+  importe?: boolean;
 }
 
 export interface Validation {
@@ -43,37 +50,46 @@ export const GROUPE = "Groupe Grand-Dakar";
 export const CURRENT_CADRE = { full: "Cdt. Ibrahima Seck", short: "Cdt. I. Seck" };
 const CADRES = [CURRENT_CADRE.short, "Adj. F. Mbaye"];
 
+/** Compte connecté pour chaque rôle de démo, et nom inscrit au journal. */
+export const DEMO_USERS = {
+  cadre: { compte: "u-iseck", nom: CURRENT_CADRE.short },
+  groupe: { compte: "u-cg", nom: "CG J. Mendy" },
+  parent: { compte: "u-fam-ndiaye", nom: "Famille Ndiaye" },
+  admin: { compte: "u-admin1", nom: "Admin A. K. Sène" },
+} as const;
+
 const s = (name: string, meta: string) => ({ name, meta });
+const ok = { consentementLe: "2025-09-20", statut: "actif" as const };
 
 export const TROUPE: Jeune[] = [
-  { id: "moussa", prenom: "Moussa", nom: "Diop", age: 14, branche: "troupe", etape: 1, seedDone: 6, seedLast: 5, specs: [s("Secouriste", "Niveau 1 · 2 mai 2026")] },
-  { id: "awa", prenom: "Awa", nom: "Ndiaye", age: 13, branche: "troupe", etape: 1, seedDone: 7, seedLast: 12, specs: [s("Cuisinier", "Niveau 1 · 14 juin 2026"), s("Badge Environnement", "3 oct. 2026")] },
-  { id: "cheikh", prenom: "Cheikh", nom: "Fall", age: 15, branche: "troupe", etape: 2, seedDone: 3, seedLast: 19, specs: [s("Pionnier", "Niveau 2 · 9 août 2026"), s("Topographe", "Niveau 1 · 21 févr. 2026")] },
-  { id: "fatou", prenom: "Fatou", nom: "Sarr", age: 12, branche: "troupe", etape: 0, seedDone: 4, seedLast: 41, specs: [] },
-  { id: "ibrahima", prenom: "Ibrahima", nom: "Ba", age: 16, branche: "troupe", etape: 2, seedDone: 5, seedLast: 9, specs: [s("Secouriste", "Niveau 2 · 30 mai 2026"), s("Pionnier", "Niveau 1 · 12 avr. 2026")] },
-  { id: "aminata", prenom: "Aminata", nom: "Sow", age: 13, branche: "troupe", etape: 1, seedDone: 10, seedLast: 14, specs: [s("Musicien", "Niveau 1 · 18 juil. 2026")] },
-  { id: "mamadou", prenom: "Mamadou", nom: "Faye", age: 12, branche: "troupe", etape: 0, seedDone: 2, seedLast: 52, specs: [] },
-  { id: "khady", prenom: "Khady", nom: "Gueye", age: 14, branche: "troupe", etape: 1, seedDone: 3, seedLast: 33, specs: [s("Informatique", "Niveau 1 · 7 mars 2026")] },
-  { id: "ousmane", prenom: "Ousmane", nom: "Diallo", age: 17, branche: "troupe", etape: 3, seedDone: 1, seedLast: 26, specs: [s("Pionnier", "Niveau 3 · 2 août 2026"), s("Secouriste", "Niveau 2 · 15 nov. 2025"), s("Badge Service", "28 sept. 2026")] },
-  { id: "mariama", prenom: "Mariama", nom: "Cissé", age: 15, branche: "troupe", etape: 2, seedDone: 2, seedLast: 7, specs: [s("Photographe", "Niveau 1 · 5 sept. 2026")] },
-  { id: "pape", prenom: "Pape", nom: "Seck", age: 12, branche: "troupe", etape: 0, seedDone: 6, seedLast: 3, specs: [] },
-  { id: "ndeye", prenom: "Ndèye", nom: "Thiam", age: 13, branche: "troupe", etape: 1, seedDone: 5, seedLast: 21, specs: [] },
+  { id: "moussa", prenom: "Moussa", nom: "Diop", age: 14, branche: "troupe", etape: 1, seedDone: 6, seedLast: 5, specs: [s("Secouriste", "Niveau 1 · 2 mai 2026")], ...ok },
+  { id: "awa", prenom: "Awa", nom: "Ndiaye", age: 13, branche: "troupe", etape: 1, seedDone: 7, seedLast: 12, specs: [s("Cuisinier", "Niveau 1 · 14 juin 2026"), s("Badge Environnement", "3 oct. 2026")], ...ok },
+  { id: "cheikh", prenom: "Cheikh", nom: "Fall", age: 15, branche: "troupe", etape: 2, seedDone: 3, seedLast: 19, specs: [s("Pionnier", "Niveau 2 · 9 août 2026"), s("Topographe", "Niveau 1 · 21 févr. 2026")], ...ok },
+  { id: "fatou", prenom: "Fatou", nom: "Sarr", age: 12, branche: "troupe", etape: 0, seedDone: 4, seedLast: 41, specs: [], ...ok },
+  { id: "ibrahima", prenom: "Ibrahima", nom: "Ba", age: 16, branche: "troupe", etape: 2, seedDone: 5, seedLast: 9, specs: [s("Secouriste", "Niveau 2 · 30 mai 2026"), s("Pionnier", "Niveau 1 · 12 avr. 2026")], ...ok },
+  { id: "aminata", prenom: "Aminata", nom: "Sow", age: 13, branche: "troupe", etape: 1, seedDone: 10, seedLast: 14, specs: [s("Musicien", "Niveau 1 · 18 juil. 2026")], ...ok },
+  { id: "mamadou", prenom: "Mamadou", nom: "Faye", age: 12, branche: "troupe", etape: 0, seedDone: 2, seedLast: 52, specs: [], ...ok },
+  { id: "khady", prenom: "Khady", nom: "Gueye", age: 14, branche: "troupe", etape: 1, seedDone: 3, seedLast: 33, specs: [s("Informatique", "Niveau 1 · 7 mars 2026")], ...ok },
+  { id: "ousmane", prenom: "Ousmane", nom: "Diallo", age: 17, branche: "troupe", etape: 3, seedDone: 1, seedLast: 26, specs: [s("Pionnier", "Niveau 3 · 2 août 2026"), s("Secouriste", "Niveau 2 · 15 nov. 2025"), s("Badge Service", "28 sept. 2026")], ...ok },
+  { id: "mariama", prenom: "Mariama", nom: "Cissé", age: 15, branche: "troupe", etape: 2, seedDone: 2, seedLast: 7, specs: [s("Photographe", "Niveau 1 · 5 sept. 2026")], ...ok },
+  { id: "pape", prenom: "Pape", nom: "Seck", age: 12, branche: "troupe", etape: 0, seedDone: 6, seedLast: 3, specs: [], ...ok },
+  { id: "ndeye", prenom: "Ndèye", nom: "Thiam", age: 13, branche: "troupe", etape: 1, seedDone: 5, seedLast: 21, specs: [], ...ok },
 ];
 
 export const MEUTE: Jeune[] = [
-  { id: "ibou", prenom: "Ibou", nom: "Ndiaye", age: 9, branche: "meute", etape: 1, seedDone: 4, seedLast: 16, specs: [] },
+  { id: "ibou", prenom: "Ibou", nom: "Ndiaye", age: 9, branche: "meute", etape: 1, seedDone: 4, seedLast: 16, specs: [], ...ok },
+];
+
+/** Inscrit en septembre, consentement des parents pas encore reçu : fiche inactive. */
+const SANS_CONSENTEMENT: Jeune[] = [
+  { id: "souleymane", prenom: "Souleymane", nom: "Kane", age: 12, branche: "troupe", etape: 0, seedDone: 0, seedLast: 0, specs: [], consentementLe: null, statut: "actif" },
 ];
 
 export const ALL_JEUNES = [...TROUPE, ...MEUTE];
-
-export function findJeune(id: string | undefined | null): Jeune | undefined {
-  return ALL_JEUNES.find((j) => j.id === id);
-}
+export const SEED_JEUNES = [...ALL_JEUNES, ...SANS_CONSENTEMENT];
 
 export const fullName = (j: Jeune) => `${j.prenom} ${j.nom}`;
 
-/** Enfants liés au compte famille de démo (table liens_parent). */
-export const FAMILLE = { name: "Famille Ndiaye", kids: ["awa", "ibou"] };
 
 /** Prochaines cérémonies, relatives à aujourd'hui pour la démo. */
 export function ceremonies(now: Date = new Date()) {

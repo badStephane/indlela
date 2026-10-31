@@ -35,6 +35,14 @@ export default function Referentiels() {
       note: `Les validations faites restent attachées à la version ${ver}.`,
       onClick: () => {
         store.updateRef((r) => ({ ...r, ver: { ...r.ver, [rb]: ver + 1 }, dirty: { ...r.dirty, [rb]: false } }));
+        store.log({
+          action: "publication",
+          table: "referentiels",
+          ligne: `${rb}-v${ver + 1}`,
+          resume: `${REF_TITLES[rb]} · version ${ver + 1} publiée`,
+          avant: { version: ver },
+          apres: { version: ver + 1, actif: true },
+        });
         store.showToast(`Version ${ver + 1} publiée pour la ${RB.name.toLowerCase()}`);
       },
     };
@@ -77,6 +85,7 @@ export default function Referentiels() {
             <OutlineButton
               onClick={() => {
                 store.updateRef((r) => ({ ...r, routeCreated: true }));
+                store.log({ action: "creation", table: "referentiels", ligne: "route-v1", resume: "Référentiel de la route créé (vide, version 1)", apres: { version: 1, actif: false } });
                 store.showToast("Référentiel de la route créé (vide, version 1)");
               }}
               className="h-11 bg-transparent px-4 text-[14px]"
