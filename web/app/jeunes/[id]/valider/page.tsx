@@ -103,7 +103,7 @@ export default function Valider() {
           />
         </label>
         <span className="font-mono text-[13px] text-muted">
-          Le {fmtFull(new Date())} · par {CURRENT_CADRE.full}
+          Le {fmtFull(new Date())} · par {store.role === "cadre" ? CURRENT_CADRE.full : store.userName}
         </span>
       </div>
     </AppShell>

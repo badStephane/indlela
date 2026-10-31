@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { Bar, List, mix, rowClass, SEG_SHADES, Segments } from "@/components/ui";
 import { useGuard } from "@/lib/access";
-import { useStore } from "@/lib/store";
+import { useStore, useTroupe } from "@/lib/store";
 import { BRANCHES } from "@/lib/referentiels";
-import { ceremonies, fullName, GROUPE, TROUPE } from "@/lib/mock";
-import { currentStep, doneCount, hasPending, isStepComplete, pct } from "@/lib/progress";
+import { ceremonies, fullName, GROUPE } from "@/lib/mock";
+import { currentStep, doneCount, hasPending, isStepComplete, pct, plural } from "@/lib/progress";
 import { fmtDayMonth, fmtMeeting } from "@/lib/dates";
 
 export default function Unite() {
@@ -16,7 +16,8 @@ export default function Unite() {
   const store = useStore();
   const router = useRouter();
   const { vals, role } = store;
-  const empty = store.demo.emptyUnit;
+  const TROUPE = useTroupe();
+  const empty = TROUPE.length === 0;
 
   useEffect(() => {
     if (ok && role === "cadre") store.setLastTab("/unite");
@@ -34,7 +35,7 @@ export default function Unite() {
       <div className="flex flex-col gap-3 p-4">
         <div className="flex items-baseline justify-between gap-2 text-[13px] text-muted">
           <span>Réunion du {fmtMeeting(new Date())}</span>
-          <span className="font-mono">{empty ? "0 jeune" : `${TROUPE.length} jeunes`}</span>
+          <span className="font-mono">{TROUPE.length} {plural(TROUPE.length, "jeune", "jeunes")}</span>
         </div>
 
         {!empty && (

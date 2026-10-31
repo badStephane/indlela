@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { Card, Chip, cx, List, mix, OutlineButton, rowClass, SEG_SHADES, Section, Segments, type Seg } from "@/components/ui";
 import { useGuard } from "@/lib/access";
-import { useStore } from "@/lib/store";
+import { useStore, useTroupe } from "@/lib/store";
 import { BRANCHES, BRANCH_COLORS, type BranchCode } from "@/lib/referentiels";
-import { ceremonies, fullName, GROUP_OTHER_UNITS, GROUPE, TROUPE } from "@/lib/mock";
+import { ceremonies, fullName, GROUP_OTHER_UNITS, GROUPE } from "@/lib/mock";
 import { currentStep, doneCount, isStepComplete, lastValidationDays } from "@/lib/progress";
 import { fmtDayMonth } from "@/lib/dates";
+import { downloadCsv } from "@/lib/csv";
 
 const segsOf = (b: BranchCode, counts: number[]): Seg[] =>
   BRANCHES[b].steps.map((s, k) => ({ label: s.name, count: counts[k], color: mix(BRANCH_COLORS[b].acc, SEG_SHADES[k]) }));
@@ -19,6 +20,7 @@ export default function Groupe() {
   const store = useStore();
   const router = useRouter();
   const { vals, offline } = store;
+  const TROUPE = useTroupe();
 
   useEffect(() => {
     if (ok) store.setLastTab("/groupe");
@@ -53,7 +55,7 @@ export default function Groupe() {
     },
     {
       code: "troupe" as const,
-      eff: `${TROUPE.length} jeunes · 3 cadres`,
+      eff: `${TROUPE.length} jeunes · ${store.comptes.filter((c) => c.role === "cadre" && c.actif && c.unites.includes("troupe")).length} cadres`,
       segs: segsOf("troupe", troupeCounts),
       recent: `${TROUPE.length - stale.length} sur ${TROUPE.length} validés ce mois`,
       stale: stale.length ? `${stale.length} sans validation` : "À jour",
@@ -65,19 +67,14 @@ export default function Groupe() {
 
   const exportCsv = () => {
     if (offline) return store.showToast("Export impossible hors connexion : il se fait depuis le serveur.");
-    const rows = [["unite", "prenom", "nom", "age", "etape", "criteres_valides", "criteres_total"]];
-    for (const j of TROUPE) {
+    const name = "groupe-grand-dakar-listes.csv";
+    const rows = TROUPE.map((j) => {
       const s = currentStep(j);
-      rows.push([BRANCHES.troupe.unit, j.prenom, j.nom, String(j.age), s.name, String(doneCount(vals, j)), String(s.crit.length)]);
-    }
-    const csv = rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(";")).join("\r\n");
-    const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "groupe-grand-dakar-listes.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-    store.showToast("groupe-grand-dakar-listes.csv exporté");
+      return [BRANCHES.troupe.unit, j.prenom, j.nom, j.age, s.name, doneCount(vals, j), s.crit.length];
+    });
+    downloadCsv(name, [["unite", "prenom", "nom", "age", "etape", "criteres_valides", "criteres_total"], ...rows]);
+    store.log({ action: "export", table: "jeunes", ligne: name, resume: `Export ${name} (${rows.length} lignes)`, apres: { fichier: name, lignes: rows.length } });
+    store.showToast(`${name} exporté`);
   };
 
   return (
