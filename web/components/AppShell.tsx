@@ -19,6 +19,14 @@ const TABS: Record<Role, [string, string][]> = {
   ],
   groupe: [
     ["/groupe", "Vue groupe"],
+    ["/groupe/unites", "Unités"],
+    ["/admin/donnees", "Données"],
+  ],
+  progression: [
+    ["/progression", "Progression"],
+    ["/progression/cours", "Cours d'honneur"],
+    ["/progression/epreuves", "Épreuves"],
+    ["/groupe/unites", "Unités"],
     ["/admin/donnees", "Données"],
   ],
   parent: [["/famille", "Famille"]],

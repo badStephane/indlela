@@ -7,7 +7,8 @@ import { useGuard } from "@/lib/access";
 import { useStore, useTroupe } from "@/lib/store";
 import { BRANCHES } from "@/lib/referentiels";
 import { ageOf, fullName, uuid, type Jeune } from "@/lib/mock";
-import { analyseImport, downloadCsv, EXEMPLE_IMPORT, MODELE_IMPORT, type ImportRow } from "@/lib/csv";
+import { analyseImport, EXEMPLE_IMPORT, MODELE_IMPORT, type ImportRow } from "@/lib/importTable";
+import { EXCEL_ACCEPT, lireTableau, slug, telechargerExcel, type Feuille } from "@/lib/excel";
 import { plural, progressOf } from "@/lib/progress";
 import { preuveLabel } from "@/lib/effective";
 import { daysSince, fmtShort, toISODate } from "@/lib/dates";
@@ -15,7 +16,7 @@ import { daysSince, fmtShort, toISODate } from "@/lib/dates";
 const ONLINE_ONLY = "Import, export et sauvegardes passent par le serveur : retrouvez du réseau.";
 
 export default function Donnees() {
-  const ok = useGuard((r) => r === "admin" || r === "groupe");
+  const ok = useGuard((r) => r === "admin" || r === "groupe" || r === "progression");
   const store = useStore();
   const troupe = useTroupe();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -36,16 +37,18 @@ export default function Donnees() {
   const errors = rows?.filter((r) => r.erreur) ?? [];
   const today = toISODate(new Date());
 
-  const load = (name: string, text: string) => {
+  const load = (name: string, table: string[][]) => {
     setFichier(name);
-    setRows(analyseImport(text, store.jeunes));
+    setRows(analyseImport(table, store.jeunes));
   };
 
   const onFile = (e: ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     e.target.value = "";
     if (!f) return;
-    f.text().then((t) => load(f.name, t));
+    lireTableau(f)
+      .then((table) => load(f.name, table))
+      .catch(() => store.showToast("Ce fichier ne se lit pas. Enregistrez-le au format Excel (.xlsx) et réessayez."));
   };
 
   const doImport = () => {
@@ -69,8 +72,8 @@ export default function Donnees() {
     store.log({
       action: "import",
       table: "jeunes",
-      ligne: fichier ?? "import.csv",
-      resume: `${added.length} ${plural(added.length, "fiche importée", "fiches importées")} dans Troupe Saint-Paul`,
+      ligne: fichier ?? "import.xlsx",
+      resume: `${added.length} ${plural(added.length, "fiche importée", "fiches importées")} dans ${store.unitesNoms.troupe}`,
       apres: { fichier: fichier ?? null, lignes: rows!.length, importees: added.length, rejetees: errors.length },
     });
     store.showToast(`${added.length} ${plural(added.length, "fiche créée", "fiches créées")} · inactives jusqu'au consentement des parents`);
@@ -80,39 +83,49 @@ export default function Donnees() {
 
   const exporter = (kind: "jeunes" | "validations" | "journal") => {
     if (offline) return store.showToast(ONLINE_ONLY);
-    let name = "";
-    let count = 0;
+    const feuille = exportFeuille(kind);
+    const name = `${slug(store.groupeNom)}-${kind}.xlsx`;
+    const count = feuille.lignes.length - 1;
+    telechargerExcel(name, [feuille])
+      .then(() => {
+        store.log({ action: "export", table: kind, ligne: name, resume: `Export ${name} (${count} ${plural(count, "ligne", "lignes")})`, apres: { fichier: name, lignes: count } });
+        store.showToast(`${name} exporté`);
+      })
+      .catch(() => store.showToast("L'export a échoué. Réessayez."));
+  };
+
+  const exportFeuille = (kind: "jeunes" | "validations" | "journal"): Feuille => {
     if (kind === "jeunes") {
-      name = "groupe-grand-dakar-jeunes.csv";
-      const list = troupe.map((j) => {
+      const lignes = troupe.map((j) => {
         const p = progressOf(j, store.steps, vals);
-        return [BRANCHES[j.branche].unit, j.prenom, j.nom, ageOf(j) ?? "", p.step?.name ?? "", p.done, p.total, j.consentementLe];
+        return [store.unitesNoms[j.branche], j.prenom, j.nom, ageOf(j), p.step?.name, p.done, p.total, j.consentementLe];
       });
-      count = list.length;
-      downloadCsv(name, [["unite", "prenom", "nom", "age", "etape", "preuves_validees", "preuves_total", "consentement_le"], ...list]);
-    } else if (kind === "validations") {
-      name = "groupe-grand-dakar-validations.csv";
-      const list = vals
+      return { nom: "Jeunes", lignes: [["Unité", "Prénom", "Nom", "Âge", "Étape", "Preuves validées", "Preuves de l'étape", "Consentement le"], ...lignes], largeurs: [20, 16, 16, 6, 14, 10, 10, 14] };
+    }
+    if (kind === "validations") {
+      const lignes = vals
         .filter((v) => !v.pending)
         .map((v) => {
           const j = store.findJeune(v.jeuneId);
           if (!j) return [v.id, "", "", "", "", v.date, v.validePar, v.commentaire, v.annuleeLe];
           const steps = store.steps[j.branche];
           const step = steps.find((x) => x.id === v.etapeId);
-          return [v.id, fullName(j), BRANCHES[j.branche].unit, step?.name ?? "", preuveLabel(steps, v.etapeId, v.preuveId), v.date, v.validePar, v.commentaire, v.annuleeLe];
+          return [v.id, fullName(j), store.unitesNoms[j.branche], step?.name, preuveLabel(steps, v.etapeId, v.preuveId), v.date, v.validePar, v.commentaire, v.annuleeLe];
         });
-      count = list.length;
-      downloadCsv(name, [["id", "jeune", "unite", "etape", "preuve", "date", "valide_par", "commentaire", "annulee_le"], ...list]);
-    } else {
-      name = "groupe-grand-dakar-journal.csv";
-      count = journal.length;
-      downloadCsv(name, [
-        ["date", "utilisateur", "action", "table", "ligne", "resume", "avant", "apres"],
-        ...journal.map((e) => [e.at, e.user, e.action, e.table, e.ligne, e.resume, e.avant ? JSON.stringify(e.avant) : "", e.apres ? JSON.stringify(e.apres) : ""]),
-      ]);
+      return {
+        nom: "Validations",
+        lignes: [["Identifiant", "Jeune", "Unité", "Étape", "Preuve", "Date", "Validé par", "Commentaire", "Annulée le"], ...lignes],
+        largeurs: [12, 20, 18, 12, 48, 12, 16, 36, 12],
+      };
     }
-    store.log({ action: "export", table: kind, ligne: name, resume: `Export ${name} (${count} ${plural(count, "ligne", "lignes")})`, apres: { fichier: name, lignes: count } });
-    store.showToast(`${name} exporté`);
+    return {
+      nom: "Journal",
+      lignes: [
+        ["Date", "Utilisateur", "Action", "Table", "Ligne", "Résumé", "Avant", "Après"],
+        ...journal.map((e) => [e.at, e.user, e.action, e.table, e.ligne, e.resume, e.avant ? JSON.stringify(e.avant) : "", e.apres ? JSON.stringify(e.apres) : ""]),
+      ],
+      largeurs: [22, 18, 12, 14, 14, 60, 30, 30],
+    };
   };
 
   const sauvegarder = () => {
@@ -143,23 +156,30 @@ export default function Donnees() {
     new Date(store.lastBackup).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
   return (
-    <AppShell kicker={admin ? "Administration" : "Groupe Grand-Dakar"} title="Import et export" foot={foot}>
+    <AppShell kicker={admin ? "Administration" : store.groupeNom} title="Import et export" foot={foot}>
       <div className="flex flex-col gap-6 p-4">
         <Section label="Importer des jeunes" gap="gap-2.5">
           <Card className="flex flex-col gap-3 p-4">
             <span className="text-[14px] text-pretty">
-              Un fichier CSV, une ligne par jeune : <span className="font-mono text-[13px]">prenom ; nom ; date_naissance ; unite</span>. Les fiches restent inactives
-              jusqu&apos;au consentement des parents. En V1, seule la troupe est ouverte.
+              Un fichier Excel, une ligne par jeune, avec les colonnes <span className="font-semibold">Prénom, Nom, Date de naissance, Unité</span>. Les fiches restent
+              inactives jusqu&apos;au consentement des parents. En V1, seule la troupe est ouverte.
             </span>
-            <input ref={fileRef} type="file" accept=".csv,text/csv" onChange={onFile} className="hidden" />
+            <input ref={fileRef} type="file" accept={EXCEL_ACCEPT} onChange={onFile} className="hidden" />
             <button type="button" onClick={() => fileRef.current?.click()} className="h-12 rounded-ui bg-acc text-[15px] font-bold text-acc-ink">
-              Choisir un fichier CSV
+              Choisir un fichier Excel
             </button>
             <div className="grid grid-cols-2 gap-2">
-              <OutlineButton onClick={() => downloadCsv("modele-import-jeunes.csv", MODELE_IMPORT)} className="h-11 bg-transparent text-[14px]">
-                Modèle CSV
+              <OutlineButton
+                onClick={() =>
+                  telechargerExcel("modele-import-jeunes.xlsx", [{ nom: "Jeunes", lignes: MODELE_IMPORT, largeurs: [18, 18, 18, 22] }]).catch(() =>
+                    store.showToast("Le modèle n'a pas pu être créé. Réessayez."),
+                  )
+                }
+                className="h-11 bg-transparent text-[14px]"
+              >
+                Modèle Excel
               </OutlineButton>
-              <OutlineButton onClick={() => load("exemple.csv", EXEMPLE_IMPORT)} className="h-11 bg-transparent text-[14px]">
+              <OutlineButton onClick={() => load("exemple.xlsx", EXEMPLE_IMPORT)} className="h-11 bg-transparent text-[14px]">
                 Essayer un exemple
               </OutlineButton>
             </div>
@@ -207,7 +227,7 @@ export default function Donnees() {
                       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <span className={cx("truncate text-[15px] font-medium", r.erreur && "text-muted")}>{[r.prenom, r.nom].filter(Boolean).join(" ") || "Sans nom"}</span>
                         <span className={cx("font-mono text-[12px]", r.erreur ? "text-err-ink" : "text-muted")}>
-                          ligne {r.ligne} · {r.erreur ?? `${r.age} ans · Troupe Saint-Paul`}
+                          ligne {r.ligne} · {r.erreur ?? `${r.age} ans · ${store.unitesNoms.troupe}`}
                         </span>
                       </span>
                     </div>
@@ -232,7 +252,7 @@ export default function Donnees() {
                   <span className="text-[15px] font-semibold">{label}</span>
                   <span className="text-[12px] text-muted">{sub}</span>
                 </span>
-                <span className={cx("flex-none font-mono text-[12px] font-semibold", offline ? "text-muted" : "text-acc-text")}>CSV ↓</span>
+                <span className={cx("flex-none font-mono text-[12px] font-semibold", offline ? "text-muted" : "text-acc-text")}>Excel ↓</span>
               </button>
             ))}
           </List>

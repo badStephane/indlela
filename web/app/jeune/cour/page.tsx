@@ -24,7 +24,8 @@ export default function CourHonneur() {
   const [decision, setDecision] = useState<Decision>("reconnue");
   const [date, setDate] = useState(today);
   const [observations, setObservations] = useState("");
-  const [ct, setCt] = useState(store.role === "cadre" ? CURRENT_CADRE.full : store.userName);
+  // Le responsable progression saisit pour l'unité : il inscrit le nom du chef qui a présidé.
+  const [ct, setCt] = useState(store.role === "cadre" ? CURRENT_CADRE.full : store.role === "progression" ? "" : store.userName);
   const [presents, setPresents] = useState("");
   const [voixPour, setVoixPour] = useState("");
   const [tousPresents, setTousPresents] = useState(false);
@@ -60,7 +61,11 @@ export default function CourHonneur() {
         label: decision === "reconnue" ? `Reconnaître l'étape ${step.name}` : "Enregistrer l'ajournement",
         disabled: !ready,
         onClick: save,
-        note: !check.ok ? check.raison : decision === "reconnue" ? (next ? `${j.prenom} passera à l'étape ${next.name}.` : "C'est la dernière étape de la branche.") : undefined,
+        note: !check.ok
+          ? check.raison
+          : !ct.trim()
+            ? "Inscrivez le nom du chef qui signe les observations."
+            : decision === "reconnue" ? (next ? `${j.prenom} passera à l'étape ${next.name}.` : "C'est la dernière étape de la branche.") : undefined,
       }}
     >
       <div className="flex flex-col gap-4 p-4">

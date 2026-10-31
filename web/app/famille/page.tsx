@@ -42,7 +42,7 @@ export default function Famille() {
               <div className="flex flex-col gap-2.5 p-4">
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="text-[19px] font-extrabold">{fullName(j)}</span>
-                  <span className="text-[12px] text-muted">{BRANCHES[j.branche].unit}</span>
+                  <span className="text-[12px] text-muted">{store.unitesNoms[j.branche]}</span>
                 </div>
                 <div className="flex justify-between text-[14px]">
                   <span>{p.step?.name} en cours</span>

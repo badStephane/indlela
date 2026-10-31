@@ -6,7 +6,7 @@ import { AppShell } from "@/components/AppShell";
 import { Bar, List, mix, OutlineButton, rowClass, SEG_SHADES, Segments } from "@/components/ui";
 import { canValidate, useGuard } from "@/lib/access";
 import { useStore, useTroupe, useTroupeSansConsentement } from "@/lib/store";
-import { ceremonies, fullName, GROUPE } from "@/lib/mock";
+import { ceremonies, fullName } from "@/lib/mock";
 import { hasPending, pct, plural, progressOf } from "@/lib/progress";
 import { fmtDayMonth, fmtMeeting } from "@/lib/dates";
 import { jeuneHref } from "@/lib/routes";
@@ -33,7 +33,7 @@ export default function Unite() {
   const addJeunes = () => router.push("/unite/ajouter");
 
   return (
-    <AppShell kicker={GROUPE} title="Troupe Saint-Paul" back={role === "groupe" ? "/groupe" : undefined} banner>
+    <AppShell kicker={store.groupeNom} title={store.unitesNoms.troupe} back={role === "groupe" ? "/groupe" : undefined} banner>
       <div className="flex flex-col gap-3 p-4">
         <div className="flex items-center justify-between gap-2 text-[13px] text-muted">
           <span>Réunion du {fmtMeeting(new Date())}</span>

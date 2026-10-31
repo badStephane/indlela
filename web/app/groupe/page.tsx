@@ -7,11 +7,11 @@ import { Card, Chip, cx, List, mix, OutlineButton, rowClass, SEG_SHADES, Section
 import { useGuard } from "@/lib/access";
 import { useStore, useTroupe } from "@/lib/store";
 import { BRANCHES, BRANCH_COLORS, type BranchCode } from "@/lib/referentiels";
-import { ageOf, ceremonies, fullName, GROUP_OTHER_UNITS, GROUPE } from "@/lib/mock";
+import { ageOf, ceremonies, fullName, GROUP_OTHER_UNITS } from "@/lib/mock";
 import { lastValidationDays, progressOf } from "@/lib/progress";
 import { fmtDayMonth, LONG_MONTHS, fromISODate } from "@/lib/dates";
 import { jeuneHref } from "@/lib/routes";
-import { downloadCsv } from "@/lib/csv";
+import { slug, telechargerExcel } from "@/lib/excel";
 
 const segsOf = (b: BranchCode, counts: number[]): Seg[] =>
   BRANCHES[b].steps.map((s, k) => ({ label: s.name, count: counts[k], color: mix(BRANCH_COLORS[b].acc, SEG_SHADES[k]) }));
@@ -69,17 +69,20 @@ export default function Groupe() {
     },
   ];
 
-  const exportCsv = () => {
+  const exportListes = () => {
     if (offline) return store.showToast("Export impossible hors connexion : il se fait depuis le serveur.");
-    const name = "groupe-grand-dakar-listes.csv";
-    const lines = rows.map(({ j, p }) => [BRANCHES.troupe.unit, j.prenom, j.nom, ageOf(j) ?? "", p.step?.name ?? "", p.done, p.total]);
-    downloadCsv(name, [["unite", "prenom", "nom", "age", "etape", "preuves_validees", "preuves_total"], ...lines]);
-    store.log({ action: "export", table: "jeunes", ligne: name, resume: `Export ${name} (${lines.length} lignes)`, apres: { fichier: name, lignes: lines.length } });
-    store.showToast(`${name} exporté`);
+    const name = `${slug(store.groupeNom)}-listes.xlsx`;
+    const lines = rows.map(({ j, p }) => [store.unitesNoms.troupe, j.prenom, j.nom, ageOf(j), p.step?.name, p.done, p.total]);
+    telechargerExcel(name, [{ nom: "Listes", lignes: [["Unité", "Prénom", "Nom", "Âge", "Étape", "Preuves validées", "Preuves de l'étape"], ...lines], largeurs: [20, 16, 16, 6, 14, 10, 10] }])
+      .then(() => {
+        store.log({ action: "export", table: "jeunes", ligne: name, resume: `Export ${name} (${lines.length} lignes)`, apres: { fichier: name, lignes: lines.length } });
+        store.showToast(`${name} exporté`);
+      })
+      .catch(() => store.showToast("L'export a échoué. Réessayez."));
   };
 
   return (
-    <AppShell kicker={GROUPE} title="Vue groupe">
+    <AppShell kicker={store.groupeNom} title="Vue groupe">
       <div className="flex flex-col gap-[22px] p-4">
         <div className="grid grid-cols-3 gap-2.5 rounded-card border border-line bg-forest px-4 py-[18px] text-white">
           {kpis.map((k) => (
@@ -96,7 +99,7 @@ export default function Groupe() {
               <div className="h-1" style={{ background: BRANCH_COLORS[u.code].acc }} />
               <div className="flex flex-col gap-3 px-4 pb-4 pt-3.5">
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-[18px] font-extrabold">{BRANCHES[u.code].unit}</span>
+                  <span className="text-[18px] font-extrabold">{store.unitesNoms[u.code]}</span>
                   <span className="font-mono text-[12px] text-muted">{u.eff}</span>
                 </div>
                 <Segments segs={u.segs} barHeight={10} labelClass="text-muted" />
@@ -114,7 +117,7 @@ export default function Groupe() {
             <div className="h-1" style={{ background: BRANCH_COLORS.route.acc }} />
             <div className="flex flex-col gap-3 px-4 pb-4 pt-3.5">
               <div className="flex items-baseline justify-between gap-2">
-                <span className="text-[18px] font-extrabold">{BRANCHES.route.unit}</span>
+                <span className="text-[18px] font-extrabold">{store.unitesNoms.route}</span>
                 <span className="font-mono text-[12px] text-muted">
                   {R.effectif} jeunes · {R.cadres} cadres
                 </span>
@@ -147,8 +150,8 @@ export default function Groupe() {
           </List>
         </Section>
 
-        <OutlineButton onClick={exportCsv} className="h-12 bg-surface text-[15px] font-bold">
-          Exporter les listes du groupe (CSV)
+        <OutlineButton onClick={exportListes} className="h-12 bg-surface text-[15px] font-bold">
+          Exporter les listes du groupe (Excel)
         </OutlineButton>
       </div>
     </AppShell>

@@ -4,6 +4,7 @@
 import type { BranchCode } from "./referentiels";
 import { BRANCHES } from "./referentiels";
 import { daysAgo, toISODate } from "./dates";
+import { GROUPE_DEMO, nomUnite } from "./groupe";
 import { fullName, seedJeunes, uuid, type Validation } from "./mock";
 import type { Role } from "./store";
 
@@ -27,6 +28,8 @@ export interface Unite {
   nom: string;
   branche: BranchCode;
   annee: string;
+  /** Compte du chef d'unité, qui tient la liste des jeunes de l'unité. */
+  responsable: string | null;
 }
 
 export type JournalAction =
@@ -58,16 +61,20 @@ export interface JournalEntry {
 export const ROLE_LABELS: Record<Role, string> = {
   cadre: "Cadre",
   groupe: "Chef de groupe",
+  progression: "Responsable progression",
   parent: "Parent",
   admin: "Administrateur",
 };
 
+/** Double authentification obligatoire pour les comptes qui voient tout le groupe ou modifient les référentiels. */
+export const exigeDeuxFA = (role: Role): boolean => role === "admin" || role === "groupe" || role === "progression";
+
 export const ANNEE = "2026-2027";
 
 export const SEED_UNITES: Unite[] = [
-  { id: "meute", nom: "Meute Saint-Paul", branche: "meute", annee: ANNEE },
-  { id: "troupe", nom: "Troupe Saint-Paul", branche: "troupe", annee: ANNEE },
-  { id: "route", nom: "Route Saint-Paul", branche: "route", annee: ANNEE },
+  { id: "meute", nom: nomUnite("meute", GROUPE_DEMO), branche: "meute", annee: ANNEE, responsable: "u-mfaye" },
+  { id: "troupe", nom: nomUnite("troupe", GROUPE_DEMO), branche: "troupe", annee: ANNEE, responsable: "u-iseck" },
+  { id: "route", nom: nomUnite("route", GROUPE_DEMO), branche: "route", annee: ANNEE, responsable: "u-ncoly" },
 ];
 
 const d = (n: number) => toISODate(daysAgo(n));
@@ -80,7 +87,7 @@ const compte = (id: string, nom: string, role: Role, extra: Partial<Compte> = {}
   actif: true,
   unites: [],
   enfants: [],
-  deuxFA: role === "admin" || role === "groupe",
+  deuxFA: exigeDeuxFA(role),
   derniereConnexion: null,
   ...extra,
 });
@@ -89,6 +96,7 @@ export const SEED_COMPTES: Compte[] = [
   compte("u-admin1", "Abdou Karim Sène", "admin", { derniereConnexion: d(0) }),
   compte("u-admin2", "Aïssatou Diallo", "admin", { derniereConnexion: d(3) }),
   compte("u-cg", "Joseph Mendy", "groupe", { derniereConnexion: d(1) }),
+  compte("u-prog", "Adja Thiaw", "progression", { derniereConnexion: d(0) }),
   compte("u-iseck", "Ibrahima Seck", "cadre", { unites: ["troupe"], derniereConnexion: d(0) }),
   compte("u-fmbaye", "Fatou Mbaye", "cadre", { unites: ["troupe"], derniereConnexion: d(5) }),
   compte("u-ldiatta", "Lamine Diatta", "cadre", { unites: ["troupe"], derniereConnexion: d(12) }),
@@ -135,7 +143,7 @@ export function seedJournal(vals: Validation[]): JournalEntry[] {
   const out: JournalEntry[] = [];
   const admin = "Admin A. K. Sène";
   out.push(
-    { id: uuid(), at: at(d(120), 600), user: admin, action: "creation", table: "unites", ligne: "troupe", resume: `Unité Troupe Saint-Paul créée (${ANNEE})`, apres: { nom: "Troupe Saint-Paul", branche: "troupe", annee: ANNEE } },
+    { id: uuid(), at: at(d(120), 600), user: admin, action: "creation", table: "unites", ligne: "troupe", resume: `Unité ${nomUnite("troupe", GROUPE_DEMO)} créée (${ANNEE})`, apres: { nom: nomUnite("troupe", GROUPE_DEMO), branche: "troupe", annee: ANNEE } },
     { id: uuid(), at: at(d(118), 610), user: admin, action: "publication", table: "referentiels", ligne: "meute-v1", resume: "Guide du louvetier · version 1 publiée", apres: { version: 1, actif: true } },
     { id: uuid(), at: at(d(64), 620), user: admin, action: "publication", table: "referentiels", ligne: "troupe-v2", resume: "Carnet de preuves · version 2 publiée", avant: { version: 1 }, apres: { version: 2, actif: true } },
     { id: uuid(), at: at(d(40), 615), user: admin, action: "modification", table: "utilisateurs", ligne: "u-psagna", resume: "Compte de Paul Sagna désactivé", avant: { actif: true }, apres: { actif: false } },

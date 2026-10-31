@@ -27,7 +27,7 @@ export default function Fiche() {
 
   return (
     <AppShell
-      kicker={B.unit}
+      kicker={store.unitesNoms[j.branche]}
       title={fullName(j)}
       back={home}
       branch={j.branche}
@@ -36,7 +36,7 @@ export default function Fiche() {
     >
       <div className="flex flex-col gap-[22px] px-4 pb-6 pt-[18px]">
         <div className="flex flex-col gap-1">
-          <span className="text-[14px] text-muted">{age === null ? B.unit : `${age} ans · ${B.unit}`}</span>
+          <span className="text-[14px] text-muted">{age === null ? store.unitesNoms[j.branche] : `${age} ans · ${store.unitesNoms[j.branche]}`}</span>
           {!cadre && (
             <span className="mt-1.5 self-start rounded-full border border-line bg-surface px-2.5 py-1 text-[12px] font-semibold text-muted">Lecture seule</span>
           )}
@@ -125,7 +125,7 @@ export default function Fiche() {
 
         <Section label="Historique des unités">
           <div className="flex flex-col">
-            {historiqueUnites(j).map((h) => (
+            {historiqueUnites(j, store.unitesNoms).map((h) => (
               <div key={h.unit} className="flex justify-between gap-3 border-b border-line py-1.5 text-[14px]">
                 <span>{h.unit}</span>
                 <span className="font-mono text-[12px] text-muted">{h.period}</span>

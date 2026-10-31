@@ -22,19 +22,24 @@ Le service worker (`public/sw.js`, généré à chaque `npm run build` depuis `s
 | --- | --- | --- |
 | `/connexion` | 1 · Connexion (+ entrées de démo par rôle) | tous |
 | `/unite` | 2 · Accueil de l'unité | cadre, chef de groupe |
-| `/unite/ajouter` | Ajouter des jeunes (un par un ou liste collée), avec leur étape | cadre, chef de groupe |
+| `/unite/ajouter` | Ajouter des jeunes : fichier Excel de l'unité (modèle fourni), liste collée ou un par un, avec leur étape | cadre, chef de groupe |
 | `/unite/epreuves` | Épreuves de l'unité : retirer une épreuve au choix, ajouter les siennes | cadre |
-| `/jeune?id=…` | 3 · Fiche du jeune (lecture seule pour les parents) | cadre, chef de groupe, parent |
-| `/jeune/valider?id=…` | 4 · Validation | cadre, chef de groupe |
-| `/jeune/cour?id=…` | Cour d'honneur : décision, observations, nom du CT ; vote aux 3/4 pour Animateur | cadre, chef de groupe |
+| `/jeune?id=…` | 3 · Fiche du jeune (lecture seule pour les parents) | cadre, chef de groupe, resp. progression, parent |
+| `/jeune/valider?id=…` | 4 · Validation | cadre, chef de groupe, resp. progression |
+| `/jeune/cour?id=…` | Cour d'honneur : décision, observations, nom du CT ; vote aux 3/4 pour Animateur | cadre, chef de groupe, resp. progression |
 | `/unite/tableau-de-bord` | 5 · Tableau de bord | cadre |
 | `/groupe` | 6 · Vue groupe | chef de groupe |
-| `/jeune/carnet?id=…` | 7 · Carnet PDF | cadre, chef de groupe, parent |
+| `/groupe/unites` | Nom du groupe et paroisse (les unités prennent le nom du groupe : « Troupe Troisième Dakar »), responsable et équipe de cadres de chaque unité | chef de groupe, resp. progression |
+| `/progression` | Progression du groupe : chaque unité (jeunes par étape, liste des jeunes), jeunes et cadres à relancer, consentements manquants | resp. progression |
+| `/progression/rapport?annee=…&g=…` | Rapport d'évolution de l'année (par semaine, trimestre ou année), à enregistrer en PDF ; le même rapport s'exporte en Excel depuis `/progression` | resp. progression |
+| `/progression/cours` | Cours d'honneur de toutes les unités : jeunes à présenter, étapes ajournées, décisions récentes | resp. progression |
+| `/progression/epreuves` | Référentiel de chaque branche (brouillon, publication) et épreuves de chaque unité | resp. progression |
+| `/jeune/carnet?id=…` | 7 · Carnet PDF | cadre, chef de groupe, resp. progression, parent |
 | `/famille` | 8 · Espace famille | parent |
 | `/admin/referentiels` | 9 · Référentiels | admin |
 | `/admin/comptes` | 10 · Comptes et unités (consentements, liens parent, affectations) | admin |
 | `/admin/journal` | 11 · Journal, en ajout seul, avec avant / après | admin |
-| `/admin/donnees` | 12 · Import CSV des jeunes, exports, sauvegardes | admin, chef de groupe |
+| `/admin/donnees` | 12 · Import Excel des jeunes (CSV encore accepté), exports Excel, sauvegardes | admin, chef de groupe, resp. progression |
 
 ## États de démo
 

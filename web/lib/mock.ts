@@ -3,6 +3,7 @@
 
 import { BRANCHES, type BranchCode } from "./referentiels";
 import { daysAgo, fromISODate, toISODate } from "./dates";
+import type { NomsUnites } from "./groupe";
 
 export interface Spec {
   name: string;
@@ -53,7 +54,6 @@ export interface Validation {
   updatedAt: string;
 }
 
-export const GROUPE = "Groupe Grand-Dakar";
 
 export const CURRENT_CADRE = { full: "Cdt. Ibrahima Seck", short: "Cdt. I. Seck" };
 const CADRES = [CURRENT_CADRE.short, "Adj. F. Mbaye"];
@@ -62,6 +62,7 @@ const CADRES = [CURRENT_CADRE.short, "Adj. F. Mbaye"];
 export const DEMO_USERS = {
   cadre: { compte: "u-iseck", nom: CURRENT_CADRE.short },
   groupe: { compte: "u-cg", nom: "CG J. Mendy" },
+  progression: { compte: "u-prog", nom: "RP A. Thiaw" },
   parent: { compte: "u-fam-ndiaye", nom: "Famille Ndiaye" },
   admin: { compte: "u-admin1", nom: "Admin A. K. Sène" },
 } as const;
@@ -102,6 +103,12 @@ const SEEDS: Seed[] = [
   { id: "pape", prenom: "Pape", nom: "Seck", age: 12, branche: "troupe", etape: 0, avance: 0.8, last: 3 },
   { id: "ndeye", prenom: "Ndèye", nom: "Thiam", age: 13, branche: "troupe", etape: 1, avance: 0.5, last: 21 },
   { id: "ibou", prenom: "Ibou", nom: "Ndiaye", age: 9, branche: "meute", etape: 1, avance: 0.6, last: 16 },
+  { id: "seynabou", prenom: "Seynabou", nom: "Diouf", age: 10, branche: "meute", etape: 2, avance: 1, last: 6 },
+  { id: "alioune", prenom: "Alioune", nom: "Kane", age: 9, branche: "meute", etape: 1, avance: 1, last: 10 },
+  { id: "binta", prenom: "Binta", nom: "Mané", age: 8, branche: "meute", etape: 0, avance: 0.5, last: 8 },
+  { id: "modou", prenom: "Modou", nom: "Gaye", age: 9, branche: "meute", etape: 1, avance: 0.4, last: 45 },
+  { id: "coumba", prenom: "Coumba", nom: "Ndour", age: 10, branche: "meute", etape: 2, avance: 0.3, last: 11 },
+  { id: "abdou", prenom: "Abdou", nom: "Sylla", age: 8, branche: "meute", etape: 0, avance: 0, last: 0 },
   { id: "souleymane", prenom: "Souleymane", nom: "Kane", age: 12, branche: "troupe", etape: 0, avance: 0, last: 0, sansConsentement: true },
 ];
 
@@ -162,14 +169,14 @@ export const GROUP_OTHER_UNITS = {
   ],
 };
 
-export function historiqueUnites(j: Jeune): { unit: string; period: string }[] {
-  const unit = BRANCHES[j.branche].unit;
+export function historiqueUnites(j: Jeune, noms: NomsUnites): { unit: string; period: string }[] {
+  const unit = noms[j.branche];
   const debut = fromISODate(j.dateEntree).getFullYear();
   const age = ageOf(j);
   if (j.branche !== "troupe" || age === null || age < 13) return [{ unit, period: `depuis sept. ${debut}` }];
   return [
     { unit, period: `depuis sept. ${debut}` },
-    { unit: BRANCHES.meute.unit, period: `${debut - 4} – ${debut}` },
+    { unit: noms.meute, period: `${debut - 4} – ${debut}` },
   ];
 }
 

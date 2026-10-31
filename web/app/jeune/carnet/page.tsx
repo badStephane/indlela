@@ -4,7 +4,7 @@ import { AppShell } from "@/components/AppShell";
 import { useJeuneRoute } from "@/lib/useJeune";
 import { useStore } from "@/lib/store";
 import { BRANCHES, BRANCH_COLORS } from "@/lib/referentiels";
-import { dateRemise, fullName, GROUPE } from "@/lib/mock";
+import { dateRemise, fullName } from "@/lib/mock";
 import { progressOf } from "@/lib/progress";
 import { preuveLabel } from "@/lib/effective";
 import { dateReconnue, historique } from "@/lib/courHonneur";
@@ -58,7 +58,7 @@ export default function Carnet() {
             <span className="text-[11px] uppercase tracking-[0.08em] text-[#6B665C]">Carnet de progression</span>
             <span className="text-[20px] font-bold">{name}</span>
             <span className="text-[12px] text-[#6B665C]">
-              {B.unit} · {GROUPE}
+              {store.unitesNoms[j.branche]} · {store.groupeLibelle}
             </span>
           </div>
           <div className="flex flex-col">

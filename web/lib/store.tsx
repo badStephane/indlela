@@ -9,6 +9,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { del, get, set } from "idb-keyval";
 import { DEMO } from "./demo";
 import { DEMO_USERS, findJeune, fullName, seedJeunes, seedValidations, uuid, type Jeune, type Validation } from "./mock";
+import { GROUPE_DEMO, GROUPE_VIDE, libelleGroupe, nettoyerGroupe, nomGroupe, nomsUnites, renommerUnites, type Groupe, type NomsUnites } from "./groupe";
 import { SEED_COMPTES, SEED_UNITES, seedJournal, type Compte, type JournalEntry, type Unite } from "./admin";
 import { critStatus, isValidated, pendingCount, plural } from "./progress";
 import { toISODate } from "./dates";
@@ -16,11 +17,12 @@ import { BASE_STEPS, EMPTY_ADAPT, domaineOfPreuve, effectiveSteps, preuveLabel, 
 import { REF_TITLES, type BranchCode, type Etape } from "./referentiels";
 import { etapeSuivante, type DecisionInput, type Reconnaissance } from "./courHonneur";
 
-export type Role = "cadre" | "groupe" | "parent" | "admin";
+export type Role = "cadre" | "groupe" | "progression" | "parent" | "admin";
 
 export const ROLE_HOME: Record<Role, string> = {
   cadre: "/unite",
   groupe: "/groupe",
+  progression: "/progression",
   parent: "/famille",
   admin: "/admin/referentiels",
 };
@@ -74,6 +76,8 @@ export interface ValidationEntry {
 
 interface Persisted {
   role: Role | null;
+  /** Désignation et paroisse du groupe (table groupes) ; les unités en prennent le nom. */
+  groupe: Groupe;
   lastTab: string | null;
   jeunes: Jeune[];
   vals: Validation[];
@@ -110,6 +114,14 @@ interface Store extends Persisted {
   setComptes: (fn: (c: Compte[]) => Compte[]) => void;
   setUnites: (fn: (u: Unite[]) => Unite[]) => void;
   setLastBackup: (iso: string) => void;
+  /** « Groupe Troisième Dakar ». */
+  groupeNom: string;
+  /** « Groupe Troisième Dakar · Paroisse Saint-Pierre ». */
+  groupeLibelle: string;
+  /** Nom de l'unité de chaque branche : « Troupe Troisième Dakar ». */
+  unitesNoms: NomsUnites;
+  /** Renomme le groupe ou change sa paroisse ; les unités suivent le nom du groupe. Inscrit au journal. */
+  setGroupe: (g: Groupe) => void;
   log: (...entries: JournalInput[]) => void;
   /** Le téléphone n'arrive plus à enregistrer (mémoire pleine, navigation privée…). */
   storageErr: boolean;
@@ -147,9 +159,9 @@ interface Store extends Persisted {
   discardDraft: (branche: BranchCode) => void;
 }
 
-// v6 : comptes, consentement et journal (fusion avec les écrans admin). Les données de démo antérieures,
-// dont les fiches sans consentement enregistré, ne sont pas reprises.
-const KEY = "carnet-indlela-v6";
+// v8 : rôle « responsable progression », louveteaux de démo, groupe et paroisse, unités
+// nommées d'après le groupe. Les données de démo antérieures ne sont pas reprises.
+const KEY = "carnet-indlela-v8";
 
 const initialRef = (): RefState => ({ published: {}, draft: {}, routeCreated: false });
 
@@ -160,6 +172,7 @@ const initial = (): Persisted => {
   backup.setHours(3, 0, 0, 0);
   return {
   role: null,
+  groupe: DEMO ? GROUPE_DEMO : GROUPE_VIDE,
   lastTab: null,
   jeunes: DEMO ? seedJeunes() : [],
   vals,
@@ -312,6 +325,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [p.ref.published],
   );
   const steps = useMemo(() => effectiveSteps(refSteps, p.adapts), [refSteps, p.adapts]);
+  const unitesNoms = useMemo(() => nomsUnites(p.groupe), [p.groupe]);
   stepsRef.current = steps;
 
   const tapSync = useCallback(() => {
@@ -355,7 +369,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               action: "creation",
               table: "jeunes",
               ligne: n === 1 ? add[0].id : `${n} fiches`,
-              resume: n === 1 ? `Fiche de ${fullName(add[0])} créée` : `${n} fiches créées dans ${add[0].branche === "troupe" ? "Troupe Saint-Paul" : add[0].branche}`,
+              resume: n === 1 ? `Fiche de ${fullName(add[0])} créée` : `${n} fiches créées dans ${nomsUnites(s.groupe)[add[0].branche]}`,
               apres: { fiches: n, sans_consentement: sansConsentement },
             },
           ]),
@@ -486,6 +500,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setComptes: (fn) => setP((s) => ({ ...s, comptes: fn(s.comptes) })),
       setUnites: (fn) => setP((s) => ({ ...s, unites: fn(s.unites) })),
       setLastBackup: (iso) => setP((s) => ({ ...s, lastBackup: iso })),
+      groupeNom: nomGroupe(p.groupe),
+      groupeLibelle: libelleGroupe(p.groupe),
+      unitesNoms,
+      setGroupe: (input) =>
+        setP((s) => {
+          const g = nettoyerGroupe(input);
+          if (!g.nom || (g.nom === s.groupe.nom && g.paroisse === s.groupe.paroisse)) return s;
+          const change: JournalInput = {
+            action: "modification",
+            table: "groupes",
+            ligne: "groupe",
+            resume: `Groupe : ${libelleGroupe(s.groupe)} → ${libelleGroupe(g)}`,
+            avant: { nom: s.groupe.nom, paroisse: s.groupe.paroisse },
+            apres: { nom: g.nom, paroisse: g.paroisse },
+          };
+          return { ...s, groupe: g, unites: renommerUnites(s.unites, s.groupe, g), journal: [...entries(userName, [change]), ...s.journal] };
+        }),
       log,
       offline,
       syncErr,
@@ -586,7 +617,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return { ...s, ref: { ...s.ref, draft: otherDrafts } };
         }),
     }),
-    [p, hydrated, storageErr, offline, syncErr, pending, toast, sheet, steps, refSteps, refVersion, userName, findJeuneById, entries, log, showToast, hideToast, addJeunes, validate, reconnaitre, cancelValidation, tapSync],
+    [p, hydrated, storageErr, offline, syncErr, pending, toast, sheet, steps, refSteps, refVersion, unitesNoms, userName, findJeuneById, entries, log, showToast, hideToast, addJeunes, validate, reconnaitre, cancelValidation, tapSync],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

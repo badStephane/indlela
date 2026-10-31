@@ -6,7 +6,7 @@ import { Card, Chip, cx, List, rowClass, Section } from "@/components/ui";
 import { fieldClass, Segmented, Sheet, SheetActions, sheetBtn } from "@/components/Sheet";
 import { useGuard } from "@/lib/access";
 import { useStore, type Role } from "@/lib/store";
-import { ANNEE, identifiantLibre, ROLE_LABELS, type Compte, type Unite } from "@/lib/admin";
+import { ANNEE, exigeDeuxFA, identifiantLibre, ROLE_LABELS, type Compte, type Unite } from "@/lib/admin";
 import { BRANCHES, BRANCH_COLORS, type BranchCode } from "@/lib/referentiels";
 import { fullName, GROUP_OTHER_UNITS, uuid, type Jeune } from "@/lib/mock";
 import { fmtShort, fmtWhen, toISODate } from "@/lib/dates";
@@ -53,7 +53,7 @@ export default function Comptes() {
     { value: "tous", label: "Tous", match: () => true },
     { value: "cadre", label: "Cadres", match: (c) => c.role === "cadre" },
     { value: "parent", label: "Parents", match: (c) => c.role === "parent" },
-    { value: "encadrement", label: "Groupe", match: (c) => c.role === "admin" || c.role === "groupe" },
+    { value: "encadrement", label: "Groupe", match: (c) => c.role === "admin" || c.role === "groupe" || c.role === "progression" },
   ];
   const shown = comptes.filter(filtres.find((f) => f.value === filtre)!.match);
 
@@ -85,7 +85,7 @@ export default function Comptes() {
                   <span className="flex min-w-0 flex-col">
                     <span className="truncate text-[15px] font-semibold text-ink">{fullName(j)}</span>
                     <span className="text-[12px]">
-                      {BRANCHES[j.branche].unit}
+                      {store.unitesNoms[j.branche]}
                       {j.importe ? " · importé" : ""}
                     </span>
                   </span>
@@ -262,7 +262,7 @@ function CompteSheet({ id, onClose }: { id: string; onClose: () => void }) {
             return (
               <div key={jid} className="flex min-h-11 items-center justify-between gap-2 border-b border-line">
                 <span className="text-[14px]">
-                  {j ? fullName(j) : jid} <span className="text-muted">· {j ? BRANCHES[j.branche].unit : ""}</span>
+                  {j ? fullName(j) : jid} <span className="text-muted">· {j ? store.unitesNoms[j.branche] : ""}</span>
                 </span>
                 <button
                   type="button"
@@ -343,7 +343,7 @@ function NouveauCompteSheet({ onClose }: { onClose: () => void }) {
       actif: true,
       unites: role === "cadre" ? [unite] : [],
       enfants: role === "parent" ? [enfant] : [],
-      deuxFA: role === "admin" || role === "groupe",
+      deuxFA: exigeDeuxFA(role),
       derniereConnexion: null,
     };
     store.setComptes((list) => [...list, c]);
@@ -368,7 +368,7 @@ function NouveauCompteSheet({ onClose }: { onClose: () => void }) {
       <div className="flex flex-col gap-1.5">
         <span className="text-[13px] font-semibold">Rôle</span>
         <div className="grid grid-cols-2 gap-2">
-          {(["cadre", "parent", "groupe", "admin"] as Role[]).map((r) => (
+          {(["cadre", "parent", "groupe", "progression", "admin"] as Role[]).map((r) => (
             <button
               key={r}
               type="button"
@@ -406,7 +406,7 @@ function NouveauCompteSheet({ onClose }: { onClose: () => void }) {
           </select>
         </label>
       )}
-      {(role === "admin" || role === "groupe") && (
+      {exigeDeuxFA(role) && (
         <span className="text-[13px] text-muted text-pretty">La double authentification sera demandée à la première connexion.</span>
       )}
       <SheetActions>
@@ -430,7 +430,7 @@ function NouvelleUniteSheet({ onClose }: { onClose: () => void }) {
 
   const create = () => {
     if (!ready) return;
-    const u: Unite = { id: uuid(), nom: nom.trim(), branche, annee };
+    const u: Unite = { id: uuid(), nom: nom.trim(), branche, annee, responsable: null };
     store.setUnites((list) => [...list, u]);
     store.log({ action: "creation", table: "unites", ligne: u.id, resume: `Unité ${u.nom} créée (${annee})`, apres: { nom: u.nom, branche, annee } });
     store.showToast(`${u.nom} créée · affectez-lui des cadres`);
