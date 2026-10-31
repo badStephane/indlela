@@ -10,6 +10,7 @@ import { BRANCHES } from "@/lib/referentiels";
 import { ageOf, ceremonies, dateRemise, fullName, historiqueUnites, type Jeune } from "@/lib/mock";
 import { critStatus, isValidated, pct, plural, progressOf, type CritStatus, type DomaineProgress, type Progress } from "@/lib/progress";
 import { fmtDayMonth, fmtShort, fmtWhen } from "@/lib/dates";
+import { dateReconnue, historique, type Reconnaissance } from "@/lib/courHonneur";
 
 export default function Fiche() {
   const { ok, j, home } = useJeuneRoute();
@@ -40,7 +41,7 @@ export default function Fiche() {
           )}
         </div>
 
-        <Chemin j={j} p={p} />
+        <Chemin j={j} p={p} recons={store.recons} />
 
         {p.step && (
           <Card className="flex flex-col gap-2.5 p-4">
@@ -64,6 +65,18 @@ export default function Fiche() {
               <span className="rounded-ui bg-acc-soft px-2.5 py-2 text-[13px] font-semibold text-acc-text">
                 Étape réussie · à présenter à la cour d&apos;honneur du {fmtDayMonth(ceremonies().courHonneur)}
               </span>
+            )}
+            {cadre && (
+              <button
+                type="button"
+                onClick={() => router.push(`/jeunes/${j.id}/cour`)}
+                className={cx(
+                  "h-11 rounded-ui text-[14px] font-bold",
+                  p.complete ? "bg-acc text-acc-ink" : "border border-line-strong bg-transparent text-muted",
+                )}
+              >
+                {p.complete ? "Présenter à la cour d'honneur" : "Saisir une décision de cour d'honneur"}
+              </button>
             )}
             {cadre && (
               <label className="mt-1 flex items-center justify-between gap-3 border-t border-line pt-3 text-[13px] text-muted">
@@ -91,6 +104,8 @@ export default function Fiche() {
         {p.step && <Programme j={j} p={p} cadre={cadre} />}
 
         {cadre && p.choixPossibles.length > 0 && <ChoixJeune j={j} p={p} />}
+
+        <CoursHonneur list={historique(store.recons, j.id)} steps={p.steps} />
 
         <Section label="Spécialités et badges">
           {j.specs.length ? (
@@ -127,7 +142,7 @@ export default function Fiche() {
 }
 
 /** Le chemin : étapes franchies, soleil sur l'étape en cours. */
-function Chemin({ j, p }: { j: Jeune; p: Progress }) {
+function Chemin({ j, p, recons }: { j: Jeune; p: Progress; recons: Reconnaissance[] }) {
   return (
     <ol className="m-0 flex list-none flex-col p-0" aria-label="Étapes">
       {p.steps.map((s, k) => {
@@ -135,7 +150,7 @@ function Chemin({ j, p }: { j: Jeune; p: Progress }) {
         const cur = k === p.index;
         const last = k === p.steps.length - 1;
         const dotColor = done ? "var(--acc)" : cur ? "#F2B400" : undefined;
-        const remise = done ? dateRemise(j, k, p.index) : null;
+        const remise = done ? (dateReconnue(recons, j.id, s.id) ?? dateRemise(j, k, p.index)) : null;
         return (
           <li key={s.id} className="flex gap-3.5" aria-current={cur ? "step" : undefined}>
             <div className="flex w-[22px] flex-none flex-col items-center">
@@ -299,6 +314,33 @@ function ChoixJeune({ j, p }: { j: Jeune; p: Progress }) {
           </div>
         </div>
       ))}
+    </Section>
+  );
+}
+
+/** Décisions de la cour d'honneur, comme les encadrés « Observations » du carnet papier. */
+function CoursHonneur({ list, steps }: { list: Reconnaissance[]; steps: Progress["steps"] }) {
+  if (!list.length) return null;
+  return (
+    <Section label="Cours d'honneur">
+      <div className="flex flex-col gap-2">
+        {list.map((r) => (
+          <Card key={r.id} className="flex flex-col gap-1.5 p-3.5">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-[15px] font-bold">{steps.find((s) => s.id === r.etapeId)?.name ?? "Étape"}</span>
+              <span className={cx("rounded-full px-2.5 py-1 text-[12px] font-bold", r.decision === "reconnue" ? "bg-acc-soft text-acc-text" : "bg-wait-bg text-wait-ink")}>
+                {r.decision === "reconnue" ? "Reconnue" : "Ajournée"}
+              </span>
+            </div>
+            <span className="font-mono text-[12px] text-muted">
+              {fmtShort(r.date, true)} · {r.ct}
+              {r.presents ? ` · ${r.voixPour} voix sur ${r.presents}` : ""}
+              {r.pending ? " · en attente de réseau" : ""}
+            </span>
+            {r.observations && <span className="text-[14px] text-ink text-pretty">« {r.observations} »</span>}
+          </Card>
+        ))}
+      </div>
     </Section>
   );
 }

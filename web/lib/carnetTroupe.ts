@@ -289,6 +289,7 @@ const ANIMATEUR: Etape = {
   id: "tr.ani",
   name: "Animateur",
   val: "cour d'honneur avec les animateurs du groupe, tous présents, après avis des parents ; vote secret, 3/4 des voix",
+  vote: { majorite: 0.75 },
   domaines: [
     domaine("tr.ani.brevets", "Brevets exigés", [
       "Acolyte",

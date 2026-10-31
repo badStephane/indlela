@@ -12,6 +12,7 @@ import { critStatus, isValidated, pendingCount, plural } from "./progress";
 import { toISODate } from "./dates";
 import { BASE_STEPS, EMPTY_ADAPT, domaineOfPreuve, effectiveSteps, preuveLabel, type RefSteps, type StepsByBranch, type UnitAdapt } from "./effective";
 import type { BranchCode, Etape } from "./referentiels";
+import { etapeSuivante, type DecisionInput, type Reconnaissance } from "./courHonneur";
 
 export type Role = "cadre" | "groupe" | "parent" | "admin";
 
@@ -54,6 +55,13 @@ export interface NewJeune {
   etapeId: string;
 }
 
+/** Décision de cour d'honneur saisie par le cadre. */
+export interface CourInput extends DecisionInput {
+  date: string;
+  observations: string;
+  ct: string;
+}
+
 /** Une preuve cochée à la validation, avec la façon dont le jeune l'a réussie. */
 export interface ValidationEntry {
   preuveId: string;
@@ -65,6 +73,8 @@ interface Persisted {
   lastTab: string | null;
   jeunes: Jeune[];
   vals: Validation[];
+  /** Décisions de cour d'honneur (étapes reconnues ou ajournées). */
+  recons: Reconnaissance[];
   simOffline: boolean;
   demo: DemoFlags;
   ref: RefState;
@@ -99,6 +109,8 @@ interface Store extends Persisted {
   updateJeune: (id: string, patch: Partial<Pick<Jeune, "etapeId" | "choix">>) => void;
   updateAdapt: (branche: BranchCode, fn: (a: UnitAdapt) => UnitAdapt) => void;
   validate: (j: Jeune, entries: ValidationEntry[], date: string) => void;
+  /** Enregistre la décision de la cour d'honneur ; une étape reconnue fait passer le jeune à la suivante. */
+  reconnaitre: (j: Jeune, input: CourInput) => void;
   openCancelSheet: (validationId: string) => void;
   closeSheet: () => void;
   cancelValidation: (validationId: string) => void;
@@ -111,8 +123,9 @@ interface Store extends Persisted {
   discardDraft: (branche: BranchCode) => void;
 }
 
-// v4 : référentiels versionnés par l'admin (les données de démo antérieures ne sont pas reprises).
-const KEY = "carnet-indlela-v4";
+// v5 : cour d'honneur, et règle de vote portée par l'étape Animateur (les données de démo antérieures,
+// dont les versions publiées sans cette règle, ne sont pas reprises).
+const KEY = "carnet-indlela-v5";
 
 const initialRef = (): RefState => ({ published: {}, draft: {}, routeCreated: false });
 
@@ -121,6 +134,7 @@ const initial = (): Persisted => ({
   lastTab: null,
   jeunes: seedJeunes(),
   vals: seedValidations(),
+  recons: [],
   simOffline: false,
   demo: { emptyUnit: false, syncFails: true },
   ref: initialRef(),
@@ -179,7 +193,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const flush = useCallback(
     (n: number) => {
       const now = new Date().toISOString();
-      setP((s) => ({ ...s, simOffline: false, vals: s.vals.map((v) => (v.pending ? { ...v, pending: false, updatedAt: now } : v)) }));
+      setP((s) => ({
+        ...s,
+        simOffline: false,
+        vals: s.vals.map((v) => (v.pending ? { ...v, pending: false, updatedAt: now } : v)),
+        recons: s.recons.map((r) => (r.pending ? { ...r, pending: false } : r)),
+      }));
       setSyncErr(false);
       showToast(n ? `${n} ${plural(n, "validation synchronisée", "validations synchronisées")}` : "De nouveau en ligne");
     },
@@ -193,7 +212,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const on = () => {
       setNetOnline(true);
       if (!pRef.current.simOffline) {
-        const n = pendingCount(pRef.current.vals);
+        const n = pendingCount(pRef.current.vals) + pRef.current.recons.filter((r) => r.pending).length;
         if (n) flush(n);
       }
     };
@@ -207,7 +226,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [flush]);
 
   const offline = p.simOffline || !netOnline;
-  const pending = pendingCount(p.vals);
+  const pending = pendingCount(p.vals) + p.recons.filter((r) => r.pending).length;
   const refSteps = useMemo<RefSteps>(
     () => ({
       troupe: p.ref.published.troupe?.steps ?? BASE_STEPS.troupe,
@@ -292,6 +311,43 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [offline, showToast, steps],
   );
 
+  const reconnaitre = useCallback(
+    (j: Jeune, input: CourInput) => {
+      const recon: Reconnaissance = {
+        id: uuid(),
+        jeuneId: j.id,
+        etapeId: j.etapeId,
+        date: input.date,
+        decision: input.decision,
+        observations: input.observations.trim().slice(0, 1000),
+        ct: input.ct.trim().slice(0, 80),
+        ...(input.presents !== undefined ? { presents: input.presents, voixPour: input.voixPour } : {}),
+        pending: offline,
+      };
+      const branche = steps[j.branche];
+      const current = branche.find((x) => x.id === j.etapeId);
+      const next = input.decision === "reconnue" ? etapeSuivante(branche, j.etapeId) : undefined;
+      setP((s) => ({
+        ...s,
+        recons: [...s.recons, recon],
+        jeunes: next ? s.jeunes.map((x) => (x.id === j.id ? { ...x, etapeId: next.id } : x)) : s.jeunes,
+      }));
+      const msg =
+        input.decision === "ajournee"
+          ? `${j.prenom} : étape ${current?.name} ajournée`
+          : `${j.prenom} : étape ${current?.name} reconnue${next ? ` · passe ${next.name}` : ""}`;
+      showToast(msg, () => {
+        setP((s) => ({
+          ...s,
+          recons: s.recons.filter((r) => r.id !== recon.id),
+          jeunes: next ? s.jeunes.map((x) => (x.id === j.id ? { ...x, etapeId: j.etapeId } : x)) : s.jeunes,
+        }));
+        showToast("Décision retirée");
+      });
+    },
+    [offline, showToast, steps],
+  );
+
   const cancelValidation = useCallback(
     (id: string) => {
       const today = toISODate(new Date());
@@ -331,6 +387,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       updateJeune: (id, patch) => setP((s) => ({ ...s, jeunes: s.jeunes.map((j) => (j.id === id ? { ...j, ...patch } : j)) })),
       updateAdapt: (branche, fn) => setP((s) => ({ ...s, adapts: { ...s.adapts, [branche]: fn(s.adapts[branche] ?? EMPTY_ADAPT) } })),
       validate,
+      reconnaitre,
       openCancelSheet: (id) => {
         hideToast();
         setSheet(id);
@@ -361,7 +418,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return { ...s, ref: { ...s.ref, draft: otherDrafts } };
         }),
     }),
-    [p, hydrated, offline, syncErr, pending, toast, sheet, steps, refSteps, refVersion, showToast, hideToast, addJeunes, validate, cancelValidation, tapSync],
+    [p, hydrated, offline, syncErr, pending, toast, sheet, steps, refSteps, refVersion, showToast, hideToast, addJeunes, validate, reconnaitre, cancelValidation, tapSync],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

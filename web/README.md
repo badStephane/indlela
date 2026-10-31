@@ -22,6 +22,7 @@ npm run build && npm start
 | `/unite/epreuves` | Épreuves de l'unité : retirer une épreuve au choix, ajouter les siennes | cadre |
 | `/jeunes/[id]` | 3 · Fiche du jeune (lecture seule pour les parents) | cadre, chef de groupe, parent |
 | `/jeunes/[id]/valider` | 4 · Validation | cadre, chef de groupe |
+| `/jeunes/[id]/cour` | Cour d'honneur : décision, observations, nom du CT ; vote aux 3/4 pour Animateur | cadre, chef de groupe |
 | `/unite/tableau-de-bord` | 5 · Tableau de bord | cadre |
 | `/groupe` | 6 · Vue groupe | chef de groupe |
 | `/jeunes/[id]/carnet` | 7 · Carnet PDF | cadre, chef de groupe, parent |

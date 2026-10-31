@@ -7,6 +7,7 @@ import { BRANCHES, BRANCH_COLORS } from "@/lib/referentiels";
 import { dateRemise, fullName, GROUPE } from "@/lib/mock";
 import { progressOf } from "@/lib/progress";
 import { preuveLabel } from "@/lib/effective";
+import { dateReconnue, historique } from "@/lib/courHonneur";
 import { fmtFull, fmtShort } from "@/lib/dates";
 
 // Aperçu du carnet. En production, le PDF est généré par le serveur (même rendu
@@ -64,7 +65,7 @@ export default function Carnet() {
               <div key={s.name} className="flex justify-between gap-2 border-b border-[#EEEAE1] py-1.5 text-[12px]">
                 <span className="font-semibold">{s.name}</span>
                 <span className="font-mono text-[11px] text-[#6B665C]">
-                  {k < p.index ? remiseLabel(dateRemise(j, k, p.index)) : k === p.index ? `en cours · ${p.done}/${p.total}` : "—"}
+                  {k < p.index ? remiseLabel(dateReconnue(store.recons, j.id, s.id) ?? dateRemise(j, k, p.index)) : k === p.index ? `en cours · ${p.done}/${p.total}` : "—"}
                 </span>
               </div>
             ))}
@@ -84,6 +85,21 @@ export default function Carnet() {
               </div>
             ))}
           </div>
+          {historique(store.recons, j.id).some((r) => r.observations) && (
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] uppercase tracking-[0.08em] text-[#6B665C]">Observations de la cour d&apos;honneur</span>
+              {historique(store.recons, j.id)
+                .filter((r) => r.observations)
+                .map((r) => (
+                  <div key={r.id} className="flex flex-col text-[12px]">
+                    <span>{r.observations}</span>
+                    <span className="font-mono text-[11px] text-[#6B665C]">
+                      {p.steps.find((x) => x.id === r.etapeId)?.name} · {fmtShort(r.date, true)} · {r.ct}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          )}
           <div className="flex flex-col gap-1">
             <span className="text-[11px] uppercase tracking-[0.08em] text-[#6B665C]">Spécialités et badges</span>
             <span className="text-[12px]">{j.specs.length ? j.specs.map((s) => `${s.name} (${s.meta})`).join(" ; ") : "Aucune pour l'instant"}</span>

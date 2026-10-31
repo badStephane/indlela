@@ -41,6 +41,8 @@ export interface Etape {
   rule?: string;
   /** Règle calculée, quand l'étape ne se valide pas domaine par domaine. */
   regle?: RegleBrevets;
+  /** Reconnaissance par vote secret de la cour d'honneur (Animateur : 3/4 des voix). */
+  vote?: { majorite: number };
   domaines: Domaine[];
 }
 
