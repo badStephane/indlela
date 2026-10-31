@@ -10,6 +10,7 @@ import { DEMO } from "@/lib/demo";
 const ROLES: [Role, string][] = [
   ["cadre", "Cadre"],
   ["groupe", "Chef de groupe"],
+  ["progression", "Resp. progression"],
   ["parent", "Parent"],
   ["admin", "Admin"],
 ];
