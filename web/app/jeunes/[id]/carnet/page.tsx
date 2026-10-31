@@ -5,7 +5,8 @@ import { useJeuneRoute } from "@/lib/useJeune";
 import { useStore } from "@/lib/store";
 import { BRANCHES, BRANCH_COLORS } from "@/lib/referentiels";
 import { dateRemise, fullName, GROUPE } from "@/lib/mock";
-import { currentStep, doneCount } from "@/lib/progress";
+import { progressOf } from "@/lib/progress";
+import { preuveLabel } from "@/lib/effective";
 import { fmtFull, fmtShort } from "@/lib/dates";
 
 // Aperçu du carnet. En production, le PDF est généré par le serveur (même rendu
@@ -15,12 +16,13 @@ export default function Carnet() {
   const store = useStore();
   if (!ok) return null;
 
-  const { vals, offline } = store;
+  const { vals, offline, steps } = store;
   const B = BRANCHES[j.branche];
-  const step = currentStep(j);
-  const tot = step.crit.length;
-  const d = doneCount(vals, j);
-  const live = vals.filter((v) => v.jeuneId === j.id && v.etape === j.etape && !v.annuleeLe).sort((a, b) => a.critere - b.critere);
+  const p = progressOf(j, steps, vals);
+  const order = p.step?.domaines.flatMap((d) => d.preuves.map((x) => x.id)) ?? [];
+  const live = vals
+    .filter((v) => v.jeuneId === j.id && v.etapeId === p.step?.id && !v.annuleeLe)
+    .sort((a, b) => order.indexOf(a.preuveId) - order.indexOf(b.preuveId));
   const name = fullName(j);
 
   return (
@@ -58,24 +60,27 @@ export default function Carnet() {
             </span>
           </div>
           <div className="flex flex-col">
-            {B.steps.map((s, k) => (
+            {p.steps.map((s, k) => (
               <div key={s.name} className="flex justify-between gap-2 border-b border-[#EEEAE1] py-1.5 text-[12px]">
                 <span className="font-semibold">{s.name}</span>
                 <span className="font-mono text-[11px] text-[#6B665C]">
-                  {k < j.etape ? `remise le ${fmtShort(dateRemise(j, k), true)}` : k === j.etape ? `en cours · ${d}/${tot}` : "—"}
+                  {k < p.index ? remiseLabel(dateRemise(j, k, p.index)) : k === p.index ? `en cours · ${p.done}/${p.total}` : "—"}
                 </span>
               </div>
             ))}
           </div>
           <div className="flex flex-col gap-1">
-            <span className="text-[11px] uppercase tracking-[0.08em] text-[#6B665C]">Critères validés · {step.name}</span>
+            <span className="text-[11px] uppercase tracking-[0.08em] text-[#6B665C]">{p.brevets ? "Brevets obtenus" : "Preuves réussies"} · {p.step?.name}</span>
             {live.map((v) => (
-              <div key={v.id} className="flex justify-between gap-2 text-[12px]">
-                <span>✓ {step.crit[v.critere]}</span>
-                <span className="font-mono text-[11px] text-[#6B665C]">
-                  {v.pending ? "en attente · " : ""}
-                  {fmtShort(v.date)}
-                </span>
+              <div key={v.id} className="flex flex-col text-[12px]">
+                <div className="flex justify-between gap-2">
+                  <span>✓ {preuveLabel(p.steps, v.etapeId, v.preuveId)}</span>
+                  <span className="font-mono text-[11px] text-[#6B665C]">
+                    {v.pending ? "en attente · " : ""}
+                    {fmtShort(v.date)}
+                  </span>
+                </div>
+                {v.commentaire && <span className="pl-3.5 text-[11px] text-[#6B665C]">{v.commentaire}</span>}
               </div>
             ))}
           </div>
@@ -93,4 +98,8 @@ export default function Carnet() {
       </div>
     </AppShell>
   );
+}
+
+function remiseLabel(iso: string | null): string {
+  return iso ? `remise le ${fmtShort(iso, true)}` : "franchie";
 }

@@ -1,15 +1,16 @@
 "use client";
 
 // État de l'application côté téléphone. Tout ce qui doit survivre à un
-// rechargement (validations en attente comprises) est gardé dans IndexedDB.
+// rechargement (jeunes ajoutés, validations en attente comprises) est gardé dans IndexedDB.
 // En production, flush() enverra la file d'attente à Supabase ; ici, la
 // synchronisation est simulée.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { get, set } from "idb-keyval";
-import { CURRENT_CADRE, findJeune, seedValidations, uuid, type Jeune, type Validation } from "./mock";
-import { pendingCount, plural } from "./progress";
+import { CURRENT_CADRE, findJeune, seedJeunes, seedValidations, uuid, type Jeune, type Validation } from "./mock";
+import { critStatus, isValidated, pendingCount, plural } from "./progress";
 import { toISODate } from "./dates";
+import { EMPTY_ADAPT, domaineOfPreuve, effectiveSteps, preuveLabel, type RefEdits, type StepsByBranch, type UnitAdapt } from "./effective";
 import type { BranchCode } from "./referentiels";
 
 export type Role = "cadre" | "groupe" | "parent" | "admin";
@@ -21,11 +22,7 @@ export const ROLE_HOME: Record<Role, string> = {
   admin: "/admin/referentiels",
 };
 
-export interface RefState {
-  /** Critère obligatoire (true) ou optionnel, par clé « branche.etape.critere ». */
-  edits: Record<string, boolean>;
-  /** Critères ajoutés, par clé « branche + etape ». */
-  extra: Record<string, number>;
+export interface RefState extends RefEdits {
   dirty: Partial<Record<BranchCode, boolean>>;
   ver: Record<BranchCode, number>;
   routeCreated: boolean;
@@ -37,13 +34,31 @@ export interface DemoFlags {
   syncFails: boolean;
 }
 
+/** Jeune saisi par le chef d'unité, avant que l'application lui donne un identifiant. */
+export interface NewJeune {
+  prenom: string;
+  nom: string;
+  dateNaissance: string | null;
+  branche: BranchCode;
+  etapeId: string;
+}
+
+/** Une preuve cochée à la validation, avec la façon dont le jeune l'a réussie. */
+export interface ValidationEntry {
+  preuveId: string;
+  commentaire: string;
+}
+
 interface Persisted {
   role: Role | null;
   lastTab: string | null;
+  jeunes: Jeune[];
   vals: Validation[];
   simOffline: boolean;
   demo: DemoFlags;
   ref: RefState;
+  /** Adaptations des épreuves par unité (une unité par branche dans la démo). */
+  adapts: Partial<Record<BranchCode, UnitAdapt>>;
 }
 
 interface Toast {
@@ -59,12 +74,17 @@ interface Store extends Persisted {
   pending: number;
   toast: Toast | null;
   sheet: string | null;
+  /** Épreuves effectives de chaque branche, adaptations de l'unité comprises. */
+  steps: StepsByBranch;
   enter: (role: Role) => void;
   logout: () => void;
   setLastTab: (tab: string) => void;
   showToast: (msg: string, undo?: () => void) => void;
   hideToast: () => void;
-  validate: (j: Jeune, criteres: number[], commentaire: string) => void;
+  addJeunes: (list: NewJeune[]) => void;
+  updateJeune: (id: string, patch: Partial<Pick<Jeune, "etapeId" | "choix">>) => void;
+  updateAdapt: (branche: BranchCode, fn: (a: UnitAdapt) => UnitAdapt) => void;
+  validate: (j: Jeune, entries: ValidationEntry[], date: string) => void;
   openCancelSheet: (validationId: string) => void;
   closeSheet: () => void;
   cancelValidation: (validationId: string) => void;
@@ -73,18 +93,28 @@ interface Store extends Persisted {
   updateRef: (fn: (r: RefState) => RefState) => void;
 }
 
-const KEY = "carnet-indlela-v1";
+// v3 : étape → domaine → preuves, d'après le carnet de preuves (les données de démo antérieures ne sont pas reprises).
+const KEY = "carnet-indlela-v3";
 
-const initialRef = (): RefState => ({ edits: {}, extra: {}, dirty: {}, ver: { troupe: 2, meute: 1, route: 1 }, routeCreated: false });
+const initialRef = (): RefState => ({ edits: {}, dirty: {}, ver: { troupe: 2, meute: 1, route: 1 }, routeCreated: false });
 
 const initial = (): Persisted => ({
   role: null,
   lastTab: null,
+  jeunes: seedJeunes(),
   vals: seedValidations(),
   simOffline: false,
   demo: { emptyUnit: false, syncFails: true },
   ref: initialRef(),
+  adapts: {},
 });
+
+/** Démo « Unité vide » : retire la troupe, ou remet les jeunes de démo qui manquent. */
+function withDemoTroupe(jeunes: Jeune[], empty: boolean): Jeune[] {
+  if (empty) return jeunes.filter((j) => j.branche !== "troupe");
+  const missing = seedJeunes().filter((x) => x.branche === "troupe" && !jeunes.some((j) => j.id === x.id));
+  return [...jeunes, ...missing];
+}
 
 const Ctx = createContext<Store | null>(null);
 
@@ -160,6 +190,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const offline = p.simOffline || !netOnline;
   const pending = pendingCount(p.vals);
+  const steps = useMemo(() => effectiveSteps(p.ref, p.adapts), [p.ref, p.adapts]);
 
   const tapSync = useCallback(() => {
     if (!offline && !syncErr) {
@@ -181,32 +212,50 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     flush(pending);
   }, [offline, syncErr, netOnline, pending, p.demo.syncFails, showToast, flush]);
 
+  const addJeunes = useCallback(
+    (list: NewJeune[]) => {
+      if (!list.length) return;
+      const today = toISODate(new Date());
+      const add: Jeune[] = list.map((x) => ({ ...x, id: uuid(), dateEntree: today, choix: [], specs: [] }));
+      setP((s) => ({ ...s, jeunes: [...s.jeunes, ...add] }));
+      const n = add.length;
+      showToast(n === 1 ? `${add[0].prenom} ${add[0].nom} est dans l'unité` : `${n} jeunes ajoutés à l'unité`);
+    },
+    [showToast],
+  );
+
   const validate = useCallback(
-    (j: Jeune, criteres: number[], commentaire: string) => {
-      if (!criteres.length) return;
+    (j: Jeune, entries: ValidationEntry[], date: string) => {
       const batch = uuid();
-      const now = new Date();
-      const add: Validation[] = criteres.map((critere) => ({
+      const stamp = new Date().toISOString();
+      // Une preuve déjà validée ne l'est pas deux fois (double touche, deux cadres).
+      const fresh = entries.filter((e) => !isValidated(critStatus(pRef.current.vals, j.id, e.preuveId)));
+      if (!fresh.length) return;
+      const step = steps[j.branche].find((x) => x.id === j.etapeId);
+      const add: Validation[] = fresh.map((e) => ({
         id: uuid(),
         jeuneId: j.id,
-        etape: j.etape,
-        critere,
-        date: toISODate(now),
+        etapeId: j.etapeId,
+        domaineId: domaineOfPreuve(step, e.preuveId)?.id ?? "",
+        preuveId: e.preuveId,
+        date,
         validePar: CURRENT_CADRE.short,
-        commentaire: commentaire || undefined,
+        commentaire: e.commentaire || undefined,
         pending: offline,
         annuleeLe: null,
         batch,
-        updatedAt: now.toISOString(),
+        updatedAt: stamp,
       }));
+      // pRef suit l'état rendu : on l'avance tout de suite pour qu'une seconde touche voie ces lignes.
+      pRef.current = { ...pRef.current, vals: [...pRef.current.vals, ...add] };
       setP((s) => ({ ...s, vals: [...s.vals, ...add] }));
       const n = add.length;
-      showToast(`${n} ${plural(n, "critère validé", "critères validés")} pour ${j.prenom}${offline ? " · en attente de réseau" : ""}`, () => {
+      showToast(`${n} ${plural(n, "preuve validée", "preuves validées")} pour ${j.prenom}${offline ? " · en attente de réseau" : ""}`, () => {
         setP((s) => ({ ...s, vals: s.vals.filter((v) => v.batch !== batch) }));
         showToast("Validation retirée");
       });
     },
-    [offline, showToast],
+    [offline, showToast, steps],
   );
 
   const cancelValidation = useCallback(
@@ -232,6 +281,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       pending,
       toast,
       sheet,
+      steps,
       enter: (role) => setP((s) => ({ ...s, role, lastTab: ROLE_HOME[role] })),
       logout: () => {
         setSheet(null);
@@ -241,6 +291,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setLastTab: (tab) => setP((s) => (s.lastTab === tab ? s : { ...s, lastTab: tab })),
       showToast,
       hideToast,
+      addJeunes,
+      updateJeune: (id, patch) => setP((s) => ({ ...s, jeunes: s.jeunes.map((j) => (j.id === id ? { ...j, ...patch } : j)) })),
+      updateAdapt: (branche, fn) => setP((s) => ({ ...s, adapts: { ...s.adapts, [branche]: fn(s.adapts[branche] ?? EMPTY_ADAPT) } })),
       validate,
       openCancelSheet: (id) => {
         hideToast();
@@ -249,10 +302,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       closeSheet: () => setSheet(null),
       cancelValidation,
       tapSync,
-      setDemo: (patch) => setP((s) => ({ ...s, demo: { ...s.demo, ...patch } })),
+      setDemo: (patch) =>
+        setP((s) => ({
+          ...s,
+          demo: { ...s.demo, ...patch },
+          jeunes: patch.emptyUnit === undefined ? s.jeunes : withDemoTroupe(s.jeunes, patch.emptyUnit),
+        })),
       updateRef: (fn) => setP((s) => ({ ...s, ref: fn(s.ref) })),
     }),
-    [p, hydrated, offline, syncErr, pending, toast, sheet, showToast, hideToast, validate, cancelValidation, tapSync],
+    [p, hydrated, offline, syncErr, pending, toast, sheet, steps, showToast, hideToast, addJeunes, validate, cancelValidation, tapSync],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
@@ -264,11 +322,17 @@ export function useStore(): Store {
   return s;
 }
 
-/** Validation ciblée par la feuille d'annulation, avec son jeune. */
+/** Validation ciblée par la feuille d'annulation, avec son jeune et le libellé de l'épreuve. */
 export function useSheetTarget() {
-  const { sheet, vals } = useStore();
+  const { sheet, vals, jeunes, steps } = useStore();
   if (!sheet) return null;
   const v = vals.find((x) => x.id === sheet);
-  const j = v ? findJeune(v.jeuneId) : undefined;
-  return v && j ? { v, j } : null;
+  const j = v ? findJeune(jeunes, v.jeuneId) : undefined;
+  return v && j ? { v, j, label: preuveLabel(steps[j.branche], v.etapeId, v.preuveId) } : null;
+}
+
+/** Jeunes de la troupe : l'unité du cadre dans la démo. */
+export function useTroupe(): Jeune[] {
+  const { jeunes } = useStore();
+  return useMemo(() => jeunes.filter((j) => j.branche === "troupe"), [jeunes]);
 }

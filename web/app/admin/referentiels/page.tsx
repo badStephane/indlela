@@ -6,6 +6,7 @@ import { cx, OutlineButton } from "@/components/ui";
 import { useGuard } from "@/lib/access";
 import { useStore } from "@/lib/store";
 import { BRANCHES, BRANCH_COLORS, REF_TITLES, type BranchCode } from "@/lib/referentiels";
+import { adminDomaines } from "@/lib/effective";
 
 const ORDER: BranchCode[] = ["meute", "troupe", "route"];
 const VALIDATION_COUNTS: Partial<Record<BranchCode, number>> = { troupe: 214, meute: 96 };
@@ -92,14 +93,13 @@ export default function Referentiels() {
                 {rb === "route" ? "Version 1 · brouillon" : `Version ${ver} · active · ${VALIDATION_COUNTS[rb]} validations`}
               </span>
               {rb === "meute" && (
-                <span className="mt-1 text-[13px] text-muted text-pretty">Base proposée : chaque chef de meute peut adapter les critères de son unité.</span>
+                <span className="mt-1 text-[13px] text-muted text-pretty">Base proposée : chaque chef de meute peut adapter les preuves de son unité.</span>
               )}
             </div>
             {RB.steps.length > 0 && (
               <div className="flex flex-col overflow-hidden rounded-card border border-line bg-surface [&>*:last-child]:border-b-0">
                 {RB.steps.map((s, i) => {
-                  const extra = ref.extra[rb + i] ?? 0;
-                  const crits = [...s.crit, ...Array.from({ length: extra }, (_, n) => `Nouveau critère ${n + 1}`)];
+                  const domaines = adminDomaines(s, ref);
                   const isOpen = open === i;
                   return (
                     <div key={s.name} className="flex flex-col border-b border-rule bg-surface">
@@ -115,7 +115,7 @@ export default function Referentiels() {
                         <span className="flex flex-1 flex-col">
                           <span className="text-[16px] font-semibold">{s.name}</span>
                           <span className="text-[12px] text-muted">
-                            {crits.length} critères{s.rule ? " · règle chiffrée" : ""}
+                            {domaines.length} {s.regle ? "séries de brevets" : "domaines"}{s.rule ? " · règle chiffrée" : ""}
                           </span>
                         </span>
                         <span className="text-[16px] text-muted">{isOpen ? "▴" : "▾"}</span>
@@ -123,12 +123,16 @@ export default function Referentiels() {
                       {isOpen && (
                         <div className="flex flex-col gap-0.5 pb-3.5 pl-[52px] pr-3.5">
                           {s.rule && <div className="mb-1.5 rounded-ui border border-line bg-surface px-2.5 py-2 text-[13px]">Règle chiffrée : {s.rule}</div>}
-                          {crits.map((label, ci) => {
-                            const key = `${rb}.${i}.${ci}`;
-                            const ob = key in ref.edits ? ref.edits[key] : !(s.opt ?? []).includes(ci);
+                          {domaines.map(({ id: key, name, obligatoire: ob, preuves, min }) => {
                             return (
-                              <div key={key} className="flex min-h-11 items-center justify-between gap-2 border-b border-line">
-                                <span className="text-[14px]">{label}</span>
+                              <div key={key} className="flex min-h-11 items-center justify-between gap-2 border-b border-line py-1">
+                                <span className="flex flex-col text-[14px]">
+                                  {name}
+                                  <span className="font-mono text-[11px] text-muted">
+                                    {preuves.length} {s.regle ? "brevets" : "preuves"}
+                                    {min ? ` · ${min} au choix` : ""}
+                                  </span>
+                                </span>
                                 <button
                                   type="button"
                                   aria-pressed={ob}
@@ -138,18 +142,11 @@ export default function Referentiels() {
                                     ob ? "border-transparent bg-acc-soft text-acc-text" : "border-line-strong bg-transparent text-muted",
                                   )}
                                 >
-                                  {ob ? "Obligatoire" : "Optionnel"}
+                                  {ob ? "Obligatoire" : "Au choix"}
                                 </button>
                               </div>
                             );
                           })}
-                          <button
-                            type="button"
-                            onClick={() => store.updateRef((r) => ({ ...r, extra: { ...r.extra, [rb + i]: extra + 1 }, dirty: { ...r.dirty, [rb]: true } }))}
-                            className="h-11 bg-transparent p-0 text-left text-[14px] font-bold text-acc-text"
-                          >
-                            + Ajouter un critère
-                          </button>
                         </div>
                       )}
                     </div>

@@ -5,17 +5,17 @@ import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { Card, Chip, EmptyBox, List, rowClass, Section } from "@/components/ui";
 import { useGuard } from "@/lib/access";
-import { useStore } from "@/lib/store";
-import { BRANCHES } from "@/lib/referentiels";
-import { ceremonies, fullName, TROUPE } from "@/lib/mock";
-import { isStepComplete, lastValidationDays } from "@/lib/progress";
+import { useStore, useTroupe } from "@/lib/store";
+import { ceremonies, fullName } from "@/lib/mock";
+import { lastValidationDays, progressOf } from "@/lib/progress";
 import { fmtDayMonth } from "@/lib/dates";
 
 export default function TableauDeBord() {
   const ok = useGuard((r) => r === "cadre");
   const store = useStore();
   const router = useRouter();
-  const { vals } = store;
+  const troupe = useTroupe();
+  const { vals, steps } = store;
 
   useEffect(() => {
     if (ok) store.setLastTab("/unite/tableau-de-bord");
@@ -24,19 +24,20 @@ export default function TableauDeBord() {
 
   if (!ok) return null;
 
-  const steps = BRANCHES.troupe.steps;
-  const bySteps = steps.map((s, k) => ({ name: s.name, count: TROUPE.filter((j) => j.etape === k).length }));
-  const max = Math.max(...bySteps.map((s) => s.count));
-  const stale = TROUPE.map((j) => ({ j, days: lastValidationDays(vals, j) }))
+  const rows = troupe.map((j) => ({ j, p: progressOf(j, steps, vals) }));
+  const bySteps = steps.troupe.map((s, k) => ({ name: s.name, count: rows.filter((r) => r.p.index === k).length }));
+  const max = Math.max(1, ...bySteps.map((s) => s.count));
+  const stale = rows
+    .map((r) => ({ ...r, days: lastValidationDays(vals, r.j) }))
     .filter((o) => o.days >= 30)
     .sort((a, b) => b.days - a.days);
-  const award = TROUPE.filter((j) => isStepComplete(vals, j));
+  const award = rows.filter((r) => r.p.complete);
   const open = (id: string) => () => router.push(`/jeunes/${id}`);
 
   return (
     <AppShell kicker="Troupe Saint-Paul" title="Tableau de bord">
       <div className="flex flex-col gap-6 p-4">
-        {store.demo.emptyUnit ? (
+        {troupe.length === 0 ? (
           <EmptyBox>Le tableau de bord se remplit dès que l&apos;unité compte des jeunes.</EmptyBox>
         ) : (
           <>
@@ -57,11 +58,11 @@ export default function TableauDeBord() {
             <Section label="Sans validation depuis 30 jours" gap="gap-2.5">
               {stale.length ? (
                 <List>
-                  {stale.map(({ j, days }) => (
+                  {stale.map(({ j, p, days }) => (
                     <button key={j.id} type="button" onClick={open(j.id)} className={`${rowClass} min-h-[52px] justify-between gap-3 py-2`}>
                       <span className="flex flex-col">
                         <span className="text-[15px] font-semibold">{fullName(j)}</span>
-                        <span className="text-[12px] text-muted">{steps[j.etape].name}</span>
+                        <span className="text-[12px] text-muted">{p.step?.name}</span>
                       </span>
                       <span className="font-mono text-[13px] font-semibold text-stale">{days === 999 ? "Jamais" : `${days} jours`}</span>
                     </button>
@@ -75,10 +76,10 @@ export default function TableauDeBord() {
             <Section label={`À remettre · cour d'honneur du ${fmtDayMonth(ceremonies().courHonneur)}`} gap="gap-2.5">
               {award.length ? (
                 <List>
-                  {award.map((j) => (
+                  {award.map(({ j, p }) => (
                     <button key={j.id} type="button" onClick={open(j.id)} className={`${rowClass} min-h-[52px] justify-between gap-3 py-2`}>
                       <span className="text-[15px] font-semibold">{fullName(j)}</span>
-                      <Chip className="bg-acc-soft text-acc-text">{steps[j.etape].name}</Chip>
+                      <Chip className="bg-acc-soft text-acc-text">{p.step?.name}</Chip>
                     </button>
                   ))}
                 </List>

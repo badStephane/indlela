@@ -7,8 +7,8 @@ import { Bar, Card, OutlineButton } from "@/components/ui";
 import { useGuard } from "@/lib/access";
 import { useStore } from "@/lib/store";
 import { BRANCHES, BRANCH_COLORS } from "@/lib/referentiels";
-import { FAMILLE, findJeune, fullName } from "@/lib/mock";
-import { currentStep, doneCount, lastValidationDays, pct } from "@/lib/progress";
+import { FAMILLE, fullName } from "@/lib/mock";
+import { lastValidationDays, pct, progressOf } from "@/lib/progress";
 import { daysAgo, fmtShort, toISODate } from "@/lib/dates";
 
 export default function Famille() {
@@ -23,14 +23,15 @@ export default function Famille() {
 
   if (!ok) return null;
 
+  const kids = store.jeunes.filter((j) => FAMILLE.kids.includes(j.id));
+
   return (
     <AppShell kicker="Espace famille" title={FAMILLE.name}>
       <div className="flex flex-col gap-4 px-4 py-[18px]">
         <p className="m-0 text-[14px] text-muted text-pretty">Vous suivez la progression de vos enfants en lecture seule. Les cadres font les validations.</p>
-        {FAMILLE.kids.map((id) => {
-          const j = findJeune(id)!;
-          const step = currentStep(j);
-          const d = doneCount(store.vals, j);
+        {kids.map((j) => {
+          const id = j.id;
+          const p = progressOf(j, store.steps, store.vals);
           const l = lastValidationDays(store.vals, j);
           const acc = BRANCH_COLORS[j.branche].acc;
           return (
@@ -42,12 +43,12 @@ export default function Famille() {
                   <span className="text-[12px] text-muted">{BRANCHES[j.branche].unit}</span>
                 </div>
                 <div className="flex justify-between text-[14px]">
-                  <span>{step.name} en cours</span>
+                  <span>{p.step?.name} en cours</span>
                   <span className="font-mono text-muted">
-                    {d}/{step.crit.length}
+                    {p.done}/{p.total}
                   </span>
                 </div>
-                <Bar value={pct(d, step.crit.length)} height={8} color={acc} />
+                <Bar value={pct(p.done, p.total)} height={8} color={acc} />
                 <span className="text-[13px] text-muted">
                   Dernière validation : {l === 0 ? "aujourd'hui" : l === 999 ? "aucune" : fmtShort(toISODate(daysAgo(l)))}
                 </span>

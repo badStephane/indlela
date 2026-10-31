@@ -1,8 +1,9 @@
-import { ALL_JEUNES } from "@/lib/mock";
+import { seedJeunes } from "@/lib/mock";
 
-// Pages des fiches générées d'avance : elles s'ouvrent aussi hors connexion.
+// Fiches des jeunes de démo générées d'avance. Un jeune ajouté par le chef d'unité
+// n'existe que sur le téléphone : sa page est rendue à la demande (dynamicParams).
 export function generateStaticParams() {
-  return ALL_JEUNES.map((j) => ({ id: j.id }));
+  return seedJeunes().map((j) => ({ id: j.id }));
 }
 
 export const dynamicParams = true;
