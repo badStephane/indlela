@@ -8,7 +8,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { del, get, set } from "idb-keyval";
 import { DEMO } from "./demo";
-import { DEMO_USERS, findJeune, fullName, seedJeunes, seedValidations, uuid, type Jeune, type Validation } from "./mock";
+import { DEMO_USERS, findJeune, fullName, GROUPE, seedJeunes, seedValidations, uuid, type Jeune, type Validation } from "./mock";
 import { SEED_COMPTES, SEED_UNITES, seedJournal, type Compte, type JournalEntry, type Unite } from "./admin";
 import { critStatus, isValidated, pendingCount, plural } from "./progress";
 import { toISODate } from "./dates";
@@ -16,11 +16,12 @@ import { BASE_STEPS, EMPTY_ADAPT, domaineOfPreuve, effectiveSteps, preuveLabel, 
 import { REF_TITLES, type BranchCode, type Etape } from "./referentiels";
 import { etapeSuivante, type DecisionInput, type Reconnaissance } from "./courHonneur";
 
-export type Role = "cadre" | "groupe" | "parent" | "admin";
+export type Role = "cadre" | "groupe" | "progression" | "parent" | "admin";
 
 export const ROLE_HOME: Record<Role, string> = {
   cadre: "/unite",
   groupe: "/groupe",
+  progression: "/progression",
   parent: "/famille",
   admin: "/admin/referentiels",
 };
@@ -74,6 +75,8 @@ export interface ValidationEntry {
 
 interface Persisted {
   role: Role | null;
+  /** Nom du groupe affiché partout (table groupes). */
+  groupeNom: string;
   lastTab: string | null;
   jeunes: Jeune[];
   vals: Validation[];
@@ -110,6 +113,8 @@ interface Store extends Persisted {
   setComptes: (fn: (c: Compte[]) => Compte[]) => void;
   setUnites: (fn: (u: Unite[]) => Unite[]) => void;
   setLastBackup: (iso: string) => void;
+  /** Renomme le groupe ; le changement est inscrit au journal. */
+  setGroupeNom: (nom: string) => void;
   log: (...entries: JournalInput[]) => void;
   /** Le téléphone n'arrive plus à enregistrer (mémoire pleine, navigation privée…). */
   storageErr: boolean;
@@ -147,9 +152,11 @@ interface Store extends Persisted {
   discardDraft: (branche: BranchCode) => void;
 }
 
-// v6 : comptes, consentement et journal (fusion avec les écrans admin). Les données de démo antérieures,
-// dont les fiches sans consentement enregistré, ne sont pas reprises.
-const KEY = "carnet-indlela-v6";
+// v7 : rôle « responsable progression » (nouveau compte) et louveteaux de démo dans la meute.
+// Les données de démo antérieures ne sont pas reprises.
+const KEY = "carnet-indlela-v7";
+
+export const MAX_GROUPE_NOM = 80;
 
 const initialRef = (): RefState => ({ published: {}, draft: {}, routeCreated: false });
 
@@ -160,6 +167,7 @@ const initial = (): Persisted => {
   backup.setHours(3, 0, 0, 0);
   return {
   role: null,
+  groupeNom: GROUPE,
   lastTab: null,
   jeunes: DEMO ? seedJeunes() : [],
   vals,
@@ -174,6 +182,11 @@ const initial = (): Persisted => {
   adapts: {},
   };
 };
+
+/** Données enregistrées avant l'ajout du responsable d'unité : on reprend celui de l'installation. */
+function avecResponsables(unites: Unite[]): Unite[] {
+  return unites.map((u) => (u.responsable === undefined ? { ...u, responsable: SEED_UNITES.find((x) => x.id === u.id)?.responsable ?? null } : u));
+}
 
 /** Démo « Unité vide » : retire la troupe, ou remet les jeunes de démo qui manquent. */
 function withDemoTroupe(jeunes: Jeune[], empty: boolean): Jeune[] {
@@ -203,7 +216,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .then((saved) => {
         if (!alive || !saved) return;
         const base = initial();
-        setP({ ...base, ...saved, journal: saved.journal ?? base.journal, ref: { ...initialRef(), ...saved.ref } });
+        setP({ ...base, ...saved, journal: saved.journal ?? base.journal, ref: { ...initialRef(), ...saved.ref }, unites: avecResponsables(saved.unites ?? base.unites) });
       })
       .catch(() => alive && setStorageErr(true))
       .finally(() => alive && setHydrated(true));
@@ -486,6 +499,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setComptes: (fn) => setP((s) => ({ ...s, comptes: fn(s.comptes) })),
       setUnites: (fn) => setP((s) => ({ ...s, unites: fn(s.unites) })),
       setLastBackup: (iso) => setP((s) => ({ ...s, lastBackup: iso })),
+      setGroupeNom: (nom) =>
+        setP((s) => {
+          const clean = nom.trim().slice(0, MAX_GROUPE_NOM);
+          if (!clean || clean === s.groupeNom) return s;
+          const change: JournalInput = { action: "modification", table: "groupes", ligne: "groupe", resume: `Groupe renommé : ${s.groupeNom} → ${clean}`, avant: { nom: s.groupeNom }, apres: { nom: clean } };
+          return { ...s, groupeNom: clean, journal: [...entries(userName, [change]), ...s.journal] };
+        }),
       log,
       offline,
       syncErr,

@@ -27,6 +27,8 @@ export interface Unite {
   nom: string;
   branche: BranchCode;
   annee: string;
+  /** Compte du chef d'unité, qui tient la liste des jeunes de l'unité. */
+  responsable: string | null;
 }
 
 export type JournalAction =
@@ -58,16 +60,20 @@ export interface JournalEntry {
 export const ROLE_LABELS: Record<Role, string> = {
   cadre: "Cadre",
   groupe: "Chef de groupe",
+  progression: "Responsable progression",
   parent: "Parent",
   admin: "Administrateur",
 };
 
+/** Double authentification obligatoire pour les comptes qui voient tout le groupe ou modifient les référentiels. */
+export const exigeDeuxFA = (role: Role): boolean => role === "admin" || role === "groupe" || role === "progression";
+
 export const ANNEE = "2026-2027";
 
 export const SEED_UNITES: Unite[] = [
-  { id: "meute", nom: "Meute Saint-Paul", branche: "meute", annee: ANNEE },
-  { id: "troupe", nom: "Troupe Saint-Paul", branche: "troupe", annee: ANNEE },
-  { id: "route", nom: "Route Saint-Paul", branche: "route", annee: ANNEE },
+  { id: "meute", nom: "Meute Saint-Paul", branche: "meute", annee: ANNEE, responsable: "u-mfaye" },
+  { id: "troupe", nom: "Troupe Saint-Paul", branche: "troupe", annee: ANNEE, responsable: "u-iseck" },
+  { id: "route", nom: "Route Saint-Paul", branche: "route", annee: ANNEE, responsable: "u-ncoly" },
 ];
 
 const d = (n: number) => toISODate(daysAgo(n));
@@ -80,7 +86,7 @@ const compte = (id: string, nom: string, role: Role, extra: Partial<Compte> = {}
   actif: true,
   unites: [],
   enfants: [],
-  deuxFA: role === "admin" || role === "groupe",
+  deuxFA: exigeDeuxFA(role),
   derniereConnexion: null,
   ...extra,
 });
@@ -89,6 +95,7 @@ export const SEED_COMPTES: Compte[] = [
   compte("u-admin1", "Abdou Karim Sène", "admin", { derniereConnexion: d(0) }),
   compte("u-admin2", "Aïssatou Diallo", "admin", { derniereConnexion: d(3) }),
   compte("u-cg", "Joseph Mendy", "groupe", { derniereConnexion: d(1) }),
+  compte("u-prog", "Adja Thiaw", "progression", { derniereConnexion: d(0) }),
   compte("u-iseck", "Ibrahima Seck", "cadre", { unites: ["troupe"], derniereConnexion: d(0) }),
   compte("u-fmbaye", "Fatou Mbaye", "cadre", { unites: ["troupe"], derniereConnexion: d(5) }),
   compte("u-ldiatta", "Lamine Diatta", "cadre", { unites: ["troupe"], derniereConnexion: d(12) }),

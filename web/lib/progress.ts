@@ -115,9 +115,9 @@ function brevetProgress(base: Base, regle: { min: number; series: number }, j: J
 }
 
 /** Jours depuis la dernière validation active (999 si aucune). */
-export function lastValidationDays(vals: Validation[], j: Jeune): number {
+export function lastValidationDays(vals: Validation[], j: Jeune, now: Date = new Date()): number {
   const live = vals.filter((v) => v.jeuneId === j.id && !v.annuleeLe);
-  return live.length ? Math.min(...live.map((v) => daysSince(v.date))) : 999;
+  return live.length ? Math.min(...live.map((v) => daysSince(v.date, now))) : 999;
 }
 
 export function hasPending(vals: Validation[], j: Jeune): boolean {

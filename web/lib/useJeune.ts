@@ -11,6 +11,6 @@ export function useJeuneRoute(extra: (role: Role) => boolean = () => true) {
   const { role, jeunes, compte } = useStore();
   const j = findJeune(jeunes, id);
   const ok = useGuard((r) => canSeeJeune(r, j, compte) && extra(r));
-  const home = role === "parent" ? "/famille" : role === "groupe" ? "/groupe" : "/unite";
+  const home = role === "parent" ? "/famille" : role === "groupe" ? "/groupe" : role === "progression" ? "/progression" : "/unite";
   return { ok: ok && !!j, j: j!, home };
 }
