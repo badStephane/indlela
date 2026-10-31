@@ -11,6 +11,7 @@ import { ageOf, ceremonies, fullName, GROUP_OTHER_UNITS, GROUPE } from "@/lib/mo
 import { lastValidationDays, progressOf } from "@/lib/progress";
 import { fmtDayMonth, LONG_MONTHS, fromISODate } from "@/lib/dates";
 import { jeuneHref } from "@/lib/routes";
+import { downloadCsv } from "@/lib/csv";
 
 const segsOf = (b: BranchCode, counts: number[]): Seg[] =>
   BRANCHES[b].steps.map((s, k) => ({ label: s.name, count: counts[k], color: mix(BRANCH_COLORS[b].acc, SEG_SHADES[k]) }));
@@ -58,7 +59,7 @@ export default function Groupe() {
     },
     {
       code: "troupe" as const,
-      eff: `${troupe.length} jeunes · 3 cadres`,
+      eff: `${troupe.length} jeunes · ${store.comptes.filter((c) => c.role === "cadre" && c.actif && c.unites.includes("troupe")).length} cadres`,
       segs: segsOf("troupe", troupeCounts),
       recent: `${troupe.length - stale.length} sur ${troupe.length} validés ce mois`,
       stale: stale.length ? `${stale.length} sans validation` : "À jour",
@@ -70,18 +71,11 @@ export default function Groupe() {
 
   const exportCsv = () => {
     if (offline) return store.showToast("Export impossible hors connexion : il se fait depuis le serveur.");
-    const lines = [["unite", "prenom", "nom", "age", "etape", "epreuves_validees", "epreuves_total"]];
-    for (const { j, p } of rows) {
-      lines.push([BRANCHES.troupe.unit, j.prenom, j.nom, String(ageOf(j) ?? ""), p.step?.name ?? "", String(p.done), String(p.total)]);
-    }
-    const csv = lines.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(";")).join("\r\n");
-    const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "groupe-grand-dakar-listes.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-    store.showToast("groupe-grand-dakar-listes.csv exporté");
+    const name = "groupe-grand-dakar-listes.csv";
+    const lines = rows.map(({ j, p }) => [BRANCHES.troupe.unit, j.prenom, j.nom, ageOf(j) ?? "", p.step?.name ?? "", p.done, p.total]);
+    downloadCsv(name, [["unite", "prenom", "nom", "age", "etape", "preuves_validees", "preuves_total"], ...lines]);
+    store.log({ action: "export", table: "jeunes", ligne: name, resume: `Export ${name} (${lines.length} lignes)`, apres: { fichier: name, lignes: lines.length } });
+    store.showToast(`${name} exporté`);
   };
 
   return (

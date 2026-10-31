@@ -122,7 +122,7 @@ export default function Valider() {
             className="h-11 rounded-ui border border-line-strong bg-surface px-3 text-[15px] font-normal text-ink outline-none focus:border-ink"
           />
         </label>
-        <span className="font-mono text-[13px] text-muted">Validé par {CURRENT_CADRE.full}</span>
+        <span className="font-mono text-[13px] text-muted">Validé par {store.role === "cadre" ? CURRENT_CADRE.full : store.userName}</span>
       </div>
     </AppShell>
   );

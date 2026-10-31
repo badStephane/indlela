@@ -14,6 +14,8 @@ const jeune = (patch: Partial<Jeune> = {}): Jeune => ({
   etapeId: "tr.eng",
   choix: [],
   specs: [],
+  consentementLe: "2025-09-20",
+  statut: "actif",
   ...patch,
 });
 

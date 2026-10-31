@@ -24,7 +24,7 @@ export default function CourHonneur() {
   const [decision, setDecision] = useState<Decision>("reconnue");
   const [date, setDate] = useState(today);
   const [observations, setObservations] = useState("");
-  const [ct, setCt] = useState(CURRENT_CADRE.full);
+  const [ct, setCt] = useState(store.role === "cadre" ? CURRENT_CADRE.full : store.userName);
   const [presents, setPresents] = useState("");
   const [voixPour, setVoixPour] = useState("");
   const [tousPresents, setTousPresents] = useState(false);

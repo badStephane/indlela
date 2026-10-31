@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { Bar, List, mix, OutlineButton, rowClass, SEG_SHADES, Segments } from "@/components/ui";
 import { canValidate, useGuard } from "@/lib/access";
-import { useStore, useTroupe } from "@/lib/store";
+import { useStore, useTroupe, useTroupeSansConsentement } from "@/lib/store";
 import { ceremonies, fullName, GROUPE } from "@/lib/mock";
 import { hasPending, pct, plural, progressOf } from "@/lib/progress";
 import { fmtDayMonth, fmtMeeting } from "@/lib/dates";
@@ -16,6 +16,7 @@ export default function Unite() {
   const store = useStore();
   const router = useRouter();
   const troupe = useTroupe();
+  const enAttente = useTroupeSansConsentement();
   const { vals, role, steps } = store;
 
   useEffect(() => {
@@ -40,6 +41,13 @@ export default function Unite() {
             {troupe.length} {plural(troupe.length, "jeune", "jeunes")}
           </span>
         </div>
+
+        {enAttente.length > 0 && (
+          <div className="rounded-ui bg-wait-bg px-3.5 py-2.5 text-[13px] text-wait-ink text-pretty">
+            {enAttente.length > 1 ? `${enAttente.length} fiches attendent` : "1 fiche attend"} le consentement des parents ({enAttente.map((j) => j.prenom).join(", ")}).{" "}
+            {enAttente.length > 1 ? "Elles apparaîtront" : "Elle apparaîtra"} ici dès que l&apos;admin l&apos;aura enregistré.
+          </div>
+        )}
 
         {troupe.length > 0 && (
           <div className="flex flex-col gap-4 rounded-card border border-line bg-forest px-4 pb-4 pt-[18px] text-white">

@@ -7,7 +7,7 @@ import { Bar, Card, OutlineButton } from "@/components/ui";
 import { useGuard } from "@/lib/access";
 import { useStore } from "@/lib/store";
 import { BRANCHES, BRANCH_COLORS } from "@/lib/referentiels";
-import { FAMILLE, fullName } from "@/lib/mock";
+import { fullName } from "@/lib/mock";
 import { lastValidationDays, pct, progressOf } from "@/lib/progress";
 import { daysAgo, fmtShort, toISODate } from "@/lib/dates";
 import { jeuneHref } from "@/lib/routes";
@@ -24,10 +24,11 @@ export default function Famille() {
 
   if (!ok) return null;
 
-  const kids = store.jeunes.filter((j) => FAMILLE.kids.includes(j.id));
+  const enfants = store.compte?.enfants ?? [];
+  const kids = store.jeunes.filter((j) => enfants.includes(j.id) && !!j.consentementLe);
 
   return (
-    <AppShell kicker="Espace famille" title={FAMILLE.name}>
+    <AppShell kicker="Espace famille" title={store.compte?.nom ?? "Famille"}>
       <div className="flex flex-col gap-4 px-4 py-[18px]">
         <p className="m-0 text-[14px] text-muted text-pretty">Vous suivez la progression de vos enfants en lecture seule. Les cadres font les validations.</p>
         {kids.map((j) => {

@@ -83,7 +83,13 @@ export default function Referentiels() {
             <span className="text-[14px] text-muted text-pretty">
               La route arrive en V2. Le document officiel est demandé aux cadres de la branche. Vous pouvez préparer un référentiel vide en attendant.
             </span>
-            <OutlineButton onClick={() => store.updateRef((r) => ({ ...r, routeCreated: true }))} className="h-11 bg-transparent px-4 text-[14px]">
+            <OutlineButton
+              onClick={() => {
+                store.updateRef((r) => ({ ...r, routeCreated: true }));
+                store.log({ action: "creation", table: "referentiels", ligne: "route-v1", resume: "Référentiel de la route créé (vide, version 1)", apres: { version: 1, actif: false } });
+              }}
+              className="h-11 bg-transparent px-4 text-[14px]"
+            >
               Créer un référentiel vide
             </OutlineButton>
           </div>

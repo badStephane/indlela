@@ -28,6 +28,7 @@ export default function AjouterJeunes() {
   const steps = store.steps.troupe;
   const [mode, setMode] = useState<Mode>("liste");
   const [etapeId, setEtapeId] = useState(steps[0]?.id ?? "");
+  const [consentement, setConsentement] = useState(false);
 
   // Un jeune
   const [prenom, setPrenom] = useState("");
@@ -50,6 +51,7 @@ export default function AjouterJeunes() {
     dateNaissance,
     branche: "troupe",
     etapeId: etape,
+    consentementLe: consentement ? today : null,
   });
 
   let foot: FootAction;
@@ -102,6 +104,16 @@ export default function AjouterJeunes() {
         </div>
 
         <EtapeSelect steps={steps} value={etapeId} onChange={setEtapeId} label={mode === "un" ? "Étape du jeune" : "Étape pour tous"} />
+        <label className="flex min-h-11 items-start gap-3 rounded-card border border-line bg-surface px-3.5 py-2.5 text-[14px]">
+          <input type="checkbox" checked={consentement} onChange={(e) => setConsentement(e.target.checked)} className="mt-0.5 h-5 w-5 flex-none accent-[var(--acc)]" />
+          <span className="flex flex-col gap-0.5">
+            <span className="font-semibold">Consentement des parents reçu</span>
+            <span className="text-[13px] text-muted text-pretty">
+              {mode === "un" ? "Formulaire signé." : "Formulaires signés pour tous les jeunes de la liste."} Sans consentement, la fiche reste inactive jusqu&apos;à ce que l&apos;admin
+              l&apos;enregistre.
+            </span>
+          </span>
+        </label>
 
         {mode === "un" ? (
           <div className="flex flex-col gap-3.5">

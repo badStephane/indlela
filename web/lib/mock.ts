@@ -23,6 +23,11 @@ export interface Jeune {
   /** Domaines au choix et brevets retenus pour ce jeune (identifiants). */
   choix: string[];
   specs: Spec[];
+  /** Date ISO du consentement des parents : aucune fiche active ni accès parent sans lui. */
+  consentementLe: string | null;
+  statut: "actif" | "sorti";
+  /** Fiche créée par un import CSV. */
+  importe?: boolean;
 }
 
 export interface Validation {
@@ -53,6 +58,14 @@ export const GROUPE = "Groupe Grand-Dakar";
 export const CURRENT_CADRE = { full: "Cdt. Ibrahima Seck", short: "Cdt. I. Seck" };
 const CADRES = [CURRENT_CADRE.short, "Adj. F. Mbaye"];
 
+/** Compte connecté pour chaque rôle de démo, et nom inscrit au journal. */
+export const DEMO_USERS = {
+  cadre: { compte: "u-iseck", nom: CURRENT_CADRE.short },
+  groupe: { compte: "u-cg", nom: "CG J. Mendy" },
+  parent: { compte: "u-fam-ndiaye", nom: "Famille Ndiaye" },
+  admin: { compte: "u-admin1", nom: "Admin A. K. Sène" },
+} as const;
+
 /**
  * Données de démo d'un jeune : âge, étape, avancement (part des preuves obligatoires réussies,
  * ou brevets obtenus pour Technicien) et ancienneté de la dernière validation.
@@ -69,6 +82,8 @@ interface Seed {
   last: number;
   specs?: Spec[];
   choix?: string[];
+  /** Inscrit, mais consentement des parents pas encore reçu : fiche inactive. */
+  sansConsentement?: boolean;
 }
 
 const s = (name: string, meta: string): Spec => ({ name, meta });
@@ -87,7 +102,10 @@ const SEEDS: Seed[] = [
   { id: "pape", prenom: "Pape", nom: "Seck", age: 12, branche: "troupe", etape: 0, avance: 0.8, last: 3 },
   { id: "ndeye", prenom: "Ndèye", nom: "Thiam", age: 13, branche: "troupe", etape: 1, avance: 0.5, last: 21 },
   { id: "ibou", prenom: "Ibou", nom: "Ndiaye", age: 9, branche: "meute", etape: 1, avance: 0.6, last: 16 },
+  { id: "souleymane", prenom: "Souleymane", nom: "Kane", age: 12, branche: "troupe", etape: 0, avance: 0, last: 0, sansConsentement: true },
 ];
+
+const CONSENTEMENT_DEMO = "2025-09-20";
 
 const SEED_BY_ID = new Map(SEEDS.map((x) => [x.id, x]));
 
@@ -106,6 +124,8 @@ function jeuneFromSeed(x: Seed, now: Date): Jeune {
     etapeId: BRANCHES[x.branche].steps[x.etape].id,
     choix: x.choix ?? [],
     specs: x.specs ?? [],
+    consentementLe: x.sansConsentement ? null : CONSENTEMENT_DEMO,
+    statut: "actif",
   };
 }
 
@@ -125,9 +145,6 @@ export function ageOf(j: Jeune, now: Date = new Date()): number | null {
   const birthdayPassed = now.getMonth() > b.getMonth() || (now.getMonth() === b.getMonth() && now.getDate() >= b.getDate());
   return now.getFullYear() - b.getFullYear() - (birthdayPassed ? 0 : 1);
 }
-
-/** Enfants liés au compte famille de démo (table liens_parent). */
-export const FAMILLE = { name: "Famille Ndiaye", kids: ["awa", "ibou"] };
 
 /** Prochaines cérémonies, relatives à aujourd'hui pour la démo. */
 export function ceremonies(now: Date = new Date()) {

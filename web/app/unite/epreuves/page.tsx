@@ -14,7 +14,7 @@ import type { DomaineUnite, EtapeUnite, UnitAdapt } from "@/lib/effective";
 const BRANCHE = "troupe";
 const MAX_LABEL = 120;
 
-type Update = (fn: (a: UnitAdapt) => UnitAdapt) => void;
+type Update = (fn: (a: UnitAdapt) => UnitAdapt, resume?: string) => void;
 
 export default function EpreuvesUnite() {
   const ok = useGuard((r) => r === "cadre");
@@ -29,7 +29,7 @@ export default function EpreuvesUnite() {
   if (!ok) return null;
 
   const steps = store.steps[BRANCHE];
-  const update: Update = (fn) => store.updateAdapt(BRANCHE, fn);
+  const update: Update = (fn, resume) => store.updateAdapt(BRANCHE, fn, resume);
 
   return (
     <AppShell kicker="Troupe Saint-Paul" title="Épreuves de l'unité">
@@ -76,15 +76,23 @@ function EtapeBloc({ step, isOpen, onOpen, update }: { step: EtapeUnite; isOpen:
 function DomaineRow({ d, brevets, update }: { d: DomaineUnite; brevets: boolean; update: Update }) {
   const store = useStore();
   const [label, setLabel] = useState("");
-  const toggleRetire = () => update((a) => ({ ...a, retirees: a.retirees.includes(d.id) ? a.retirees.filter((x) => x !== d.id) : [...a.retirees, d.id] }));
+  const toggleRetire = () =>
+    update(
+      (a) => ({ ...a, retirees: a.retirees.includes(d.id) ? a.retirees.filter((x) => x !== d.id) : [...a.retirees, d.id] }),
+      `Domaine « ${d.name} » ${d.retire ? "proposé de nouveau" : "retiré"} pour l'unité`,
+    );
   const add = () => {
     const text = label.trim().slice(0, MAX_LABEL);
     if (!text) return;
-    update((a) => ({ ...a, ajoutees: { ...a.ajoutees, [d.id]: [...(a.ajoutees[d.id] ?? []), { id: `u.${uuid()}`, label: text }] } }));
+    update((a) => ({ ...a, ajoutees: { ...a.ajoutees, [d.id]: [...(a.ajoutees[d.id] ?? []), { id: `u.${uuid()}`, label: text }] } }), `Preuve « ${text} » ajoutée à ${d.name}`);
     setLabel("");
     store.showToast(`« ${text} » ajoutée à ${d.name}`);
   };
-  const removeAdded = (id: string) => update((a) => ({ ...a, ajoutees: { ...a.ajoutees, [d.id]: (a.ajoutees[d.id] ?? []).filter((x) => x.id !== id) } }));
+  const removeAdded = (id: string) =>
+    update(
+      (a) => ({ ...a, ajoutees: { ...a.ajoutees, [d.id]: (a.ajoutees[d.id] ?? []).filter((x) => x.id !== id) } }),
+      `Preuve « ${d.preuves.find((x) => x.id === id)?.label ?? ""} » retirée de ${d.name}`,
+    );
   const propres = d.preuves.filter((x) => x.unite);
 
   return (
