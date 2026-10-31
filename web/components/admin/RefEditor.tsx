@@ -85,7 +85,7 @@ export function EtapeEditor({ step, index, edit, isOpen, onOpen }: { step: Etape
   return (
     <div className="flex flex-col border-b border-rule bg-surface">
       <button type="button" aria-expanded={isOpen} onClick={onOpen} className="flex min-h-14 w-full items-center gap-3 bg-transparent px-3.5 py-2 text-left text-inherit">
-        <span className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full bg-acc-soft font-mono text-[13px] font-bold text-acc-text">{index + 1}</span>
+        <span className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full bg-acc-soft num text-[13px] font-bold text-acc-text">{index + 1}</span>
         <span className="flex flex-1 flex-col">
           <span className="text-[16px] font-semibold">{step.name}</span>
           <span className="text-[12px] text-muted">
@@ -137,7 +137,7 @@ function DomaineEditor({ d, brevets, edit, first, last }: { d: Domaine; brevets:
       <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 px-3 py-1.5">
         <span className="flex min-w-0 flex-col">
           <span className={cx("text-[14px] font-semibold", d.archive && "line-through")}>{d.name}</span>
-          <span className="font-mono text-[11px] text-muted">
+          <span className="num text-[11px] text-muted">
             {actives} {actives > 1 ? unit[1] : unit[0]}
             {d.min ? ` · ${d.min} au choix` : ""}
             {d.archive ? " · archivé" : d.obligatoire ? " · obligatoire" : " · au choix"}

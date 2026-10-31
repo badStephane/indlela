@@ -122,7 +122,7 @@ export default function Valider() {
             className="h-11 rounded-ui border border-line-strong bg-surface px-3 text-[15px] font-normal text-ink outline-none focus:border-ink"
           />
         </label>
-        <span className="font-mono text-[13px] text-muted">Validé par {store.role === "cadre" ? CURRENT_CADRE.full : store.userName}</span>
+        <span className="num text-[13px] text-muted">Validé par {store.role === "cadre" ? CURRENT_CADRE.full : store.userName}</span>
       </div>
     </AppShell>
   );
@@ -143,10 +143,10 @@ function GroupeBloc({ g, sel, vals, jeuneId, onToggle, onToggleAll, onComment }:
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="font-mono text-[11px] font-medium uppercase tracking-[0.1em] text-muted">
+        <h2 className="m-0 text-[15px] font-bold text-ink">
           {g.name}
-          {g.consigne ? ` · ${g.consigne}` : ""}
-        </span>
+          {g.consigne && <span className="font-normal text-muted"> · {g.consigne}</span>}
+        </h2>
         {onToggleAll && g.preuves.length > 1 && !g.consigne && (
           <button type="button" onClick={onToggleAll} className="h-8 bg-transparent px-1 text-[13px] font-bold text-acc-text">
             {allOn ? "Tout décocher" : "Tout cocher"}
@@ -171,7 +171,7 @@ function GroupeBloc({ g, sel, vals, jeuneId, onToggle, onToggleAll, onComment }:
                 </span>
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="text-[15px] font-semibold text-pretty">{x.label}</span>
-                  {r.st === "cancelled" && <span className="font-mono text-[12px] text-err-ink">Annulée le {fmtShort(r.v.annuleeLe!)}</span>}
+                  {r.st === "cancelled" && <span className="num text-[12px] text-err-ink">Annulée le {fmtShort(r.v.annuleeLe!)}</span>}
                 </span>
               </button>
               {on && (

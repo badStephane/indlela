@@ -4,12 +4,13 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { RapportCard } from "@/components/progression/RapportCard";
-import { Bar, Card, cx, List, mix, rowClass, SEG_SHADES, Section, Segments } from "@/components/ui";
+import { Card, cx, List, rowClass, Section } from "@/components/ui";
+import { SentierEffectif, SentierJeune } from "@/components/Sentier";
 import { useGuard } from "@/lib/access";
 import { useStore } from "@/lib/store";
 import { BRANCHES, BRANCH_COLORS, type BranchCode } from "@/lib/referentiels";
 import { fullName, type Jeune } from "@/lib/mock";
-import { pct, plural, progressOf } from "@/lib/progress";
+import { plural, progressOf } from "@/lib/progress";
 import { jeuneHref } from "@/lib/routes";
 import {
   cadresInactifs,
@@ -54,8 +55,8 @@ export default function Progression() {
   ];
 
   return (
-    <AppShell kicker={store.groupeNom} title="Progression du groupe">
-      <div className="flex flex-col gap-[22px] p-4 lg:mx-auto lg:w-full lg:max-w-[960px]">
+    <AppShell kicker={store.groupeNom} title="Progression du groupe" wide>
+      <div className="flex flex-col gap-[22px] p-4">
         <div className="grid grid-cols-3 gap-2.5 rounded-card border border-line bg-forest px-4 py-[18px] text-white">
           {kpis.map((k) => (
             <div key={k.l} className="flex min-w-0 flex-col gap-1.5">
@@ -66,7 +67,7 @@ export default function Progression() {
         </div>
 
         <Section label="Unités du groupe" gap="gap-2.5">
-          <div className="grid gap-2.5 lg:grid-cols-3">
+          <div className="grid gap-2.5 lg:grid-cols-[repeat(auto-fit,minmax(300px,1fr))]">
             {ORDER.map((b) => (
               <UniteCard key={b} branche={b} relances={relances} />
             ))}
@@ -94,7 +95,7 @@ export default function Progression() {
                     <span className="text-[15px] font-semibold">{compte.nom}</span>
                     <span className="text-[12px] text-muted">{compte.unites.map((u) => store.unitesNoms[u as BranchCode] ?? u).join(", ") || "Aucune unité"}</span>
                   </span>
-                  <span className="flex-none font-mono text-[13px] font-semibold text-stale">{jours === null ? "Jamais connecté" : `${jours} jours`}</span>
+                  <span className="flex-none num text-[13px] font-semibold text-stale">{jours === null ? "Jamais connecté" : `${jours} jours`}</span>
                 </div>
               ))}
             </List>
@@ -133,15 +134,15 @@ function UniteCard({ branche, relances }: { branche: BranchCode; relances: Jeune
   const responsable = comptes.find((c) => c.id === responsableId)?.nom;
   const enRetard = relances.filter((x) => x.j.branche === branche).length;
   const counts = parEtape(jeunes, steps, branche);
-  const segs = steps[branche].map((s, k) => ({ label: s.name, count: counts[k], color: mix(color, SEG_SHADES[k] ?? 100) }));
+  const etapes = steps[branche].map((s, k) => ({ label: s.name, count: counts[k] }));
 
   return (
     <Card className="flex flex-col overflow-hidden">
       <div className="h-1" style={{ background: color }} />
       <div className="flex flex-col gap-3 px-4 pb-4 pt-3.5">
         <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
-          <span className="whitespace-nowrap text-[18px] font-extrabold">{store.unitesNoms[branche]}</span>
-          <span className="flex-none font-mono text-[12px] text-muted">
+          <span className="text-[18px] font-extrabold">{store.unitesNoms[branche]}</span>
+          <span className="flex-none num text-[12px] text-muted">
             {membres.length} {plural(membres.length, "jeune", "jeunes")} · {nbCadres} {plural(nbCadres, "cadre", "cadres")}
           </span>
         </div>
@@ -152,7 +153,7 @@ function UniteCard({ branche, relances }: { branche: BranchCode; relances: Jeune
           <span className="text-[14px] text-muted text-pretty">Aucun jeune actif dans l&apos;unité.</span>
         ) : (
           <>
-            <Segments segs={segs} barHeight={10} labelClass="text-muted" />
+            <SentierEffectif etapes={etapes} accent={color} />
             <div className="flex justify-between gap-2 text-[13px]">
               <span className="text-muted">
                 {membres.length - enRetard} sur {membres.length} à jour
@@ -185,7 +186,14 @@ function JeuneLigne({ j, progress, color, onOpen }: { j: Jeune; progress: Return
           {progress.step?.name} · {progress.done}/{progress.total}
         </span>
       </span>
-      <Bar value={pct(progress.done, progress.total)} color={color} className="w-16 flex-none" />
+      <SentierJeune
+        total={progress.steps.length}
+        index={progress.index}
+        part={progress.total ? progress.done / progress.total : 0}
+        accent={color}
+        label={`${progress.step?.name ?? ""}, ${progress.done} sur ${progress.total}`}
+        className="w-28 flex-none"
+      />
     </button>
   );
 }
@@ -204,7 +212,7 @@ function JeunesARelancer({ list }: { list: JeuneARelancer[] }) {
               {store.unitesNoms[j.branche]} · {steps[j.branche].find((s) => s.id === j.etapeId)?.name}
             </span>
           </span>
-          <span className="flex-none font-mono text-[13px] font-semibold text-stale">{jours === null ? "Jamais" : `${jours} jours`}</span>
+          <span className="flex-none num text-[13px] font-semibold text-stale">{jours === null ? "Jamais" : `${jours} jours`}</span>
         </button>
       ))}
     </List>

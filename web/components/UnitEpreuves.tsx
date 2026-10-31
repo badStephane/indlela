@@ -97,7 +97,7 @@ function DomaineRow({ d, brevets, update }: { d: DomaineUnite; brevets: boolean;
       <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 px-3 py-1.5">
         <span className="flex min-w-0 flex-col">
           <span className={cx("text-[14px] font-semibold", d.retire && "text-muted line-through")}>{d.name}</span>
-          <span className="font-mono text-[11px] text-muted">
+          <span className="num text-[11px] text-muted">
             {d.preuves.length} {brevets ? plural(d.preuves.length, "brevet", "brevets") : plural(d.preuves.length, "preuve", "preuves")}
             {d.min ? ` · ${d.min} au choix` : ""}
             {propres.length ? ` · ${propres.length} de l'unité` : ""}
@@ -124,7 +124,7 @@ function DomaineRow({ d, brevets, update }: { d: DomaineUnite; brevets: boolean;
           <div key={x.id} className="flex items-start justify-between gap-2 py-1 text-[13px]">
             <span className="text-pretty">
               {x.label}
-              {x.unite && <span className="font-mono text-[11px] text-acc-text"> · unité</span>}
+              {x.unite && <span className="num text-[11px] text-acc-text"> · unité</span>}
             </span>
             {x.unite && (
               <button type="button" onClick={() => removeAdded(x.id)} aria-label={`Retirer ${x.label}`} className="h-7 flex-none bg-transparent px-1 text-[16px] text-muted">

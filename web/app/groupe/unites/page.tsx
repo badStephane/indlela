@@ -148,7 +148,7 @@ function UniteCard({ u }: { u: Unite }) {
       <div className="flex flex-col gap-3.5 px-4 pb-4 pt-3.5">
         <div className="flex flex-wrap items-baseline justify-between gap-x-2">
           <span className="text-[18px] font-extrabold">{u.nom}</span>
-          <span className="font-mono text-[12px] text-muted">
+          <span className="num text-[12px] text-muted">
             {nbJeunes} {plural(nbJeunes, "jeune", "jeunes")} · {u.annee}
           </span>
         </div>

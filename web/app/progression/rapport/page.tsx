@@ -67,10 +67,10 @@ function RapportEvolution() {
           <div className="flex items-center justify-between border-b-2 border-[#1F1D19] pb-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.svg" alt="Indlela" className="h-[18px] w-auto" />
-            <span className="font-mono text-[11px] text-[#6B665C]">{store.groupeLibelle.toUpperCase()}</span>
+            <span className="num text-[11px] text-[#6B665C]">{store.groupeLibelle.toUpperCase()}</span>
           </div>
           <div className="flex flex-col gap-0.5">
-            <span className="text-[11px] uppercase tracking-[0.08em] text-[#6B665C]">Rapport d&apos;évolution de la progression</span>
+            <span className="text-[13px] font-bold text-[#1F1D19]">Rapport d&apos;évolution de la progression</span>
             <span className="text-[20px] font-bold">Année scoute {r.annee.label}</span>
             <span className="text-[12px] text-[#6B665C]">
               {GRANULARITES.find((x) => x.value === g)!.label} · arrêté au {fmtDayMonth(r.arrete, true)}
@@ -102,7 +102,7 @@ function Titre({ children, color }: { children: ReactNode; color?: string }) {
   );
 }
 
-const th = "px-1.5 py-1 text-left text-[10px] font-semibold uppercase tracking-[0.04em] text-[#6B665C]";
+const th = "px-1.5 py-1 text-left text-[11px] font-semibold text-[#6B665C]";
 const td = "px-1.5 py-1 text-[12px] tabular-nums";
 
 function Tableau({ titres, lignes, nums = [] }: { titres: string[]; lignes: ReactNode[][]; nums?: number[] }) {

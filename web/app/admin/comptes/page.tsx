@@ -186,7 +186,7 @@ function UniteCard({ u, comptes, effectif }: { u: Unite; comptes: Compte[]; effe
       <div className="flex flex-col gap-2 px-4 pb-4 pt-3.5">
         <div className="flex items-baseline justify-between gap-2">
           <span className="text-[18px] font-extrabold">{u.nom}</span>
-          <span className="font-mono text-[12px] text-muted">
+          <span className="num text-[12px] text-muted">
             {effectif} {plural(effectif, "jeune", "jeunes")} · {cadres.length} {plural(cadres.length, "cadre", "cadres")}
           </span>
         </div>
@@ -223,7 +223,7 @@ function CompteSheet({ id, onClose }: { id: string; onClose: () => void }) {
   return (
     <Sheet title={c.nom} onClose={onClose}>
       <div className="flex flex-col gap-0.5 rounded-ui bg-paper px-3 py-2.5">
-        <span className="font-mono text-[13px]">{c.identifiant}</span>
+        <span className="num text-[13px]">{c.identifiant}</span>
         <span className="text-[13px] text-muted">
           {ROLE_LABELS[c.role]} · {c.actif ? "actif" : "inactif"} · dernière connexion : {c.derniereConnexion ? fmtWhen(c.derniereConnexion).toLowerCase() : "jamais"}
         </span>
@@ -364,7 +364,7 @@ function NouveauCompteSheet({ onClose }: { onClose: () => void }) {
         Prénom et nom
         <input value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Ex. Mame Diarra Sy" className={fieldClass} autoFocus />
       </label>
-      {identifiant && <span className="-mt-1 font-mono text-[12px] text-muted">identifiant : {identifiant}</span>}
+      {identifiant && <span className="-mt-1 num text-[12px] text-muted">identifiant : {identifiant}</span>}
       <div className="flex flex-col gap-1.5">
         <span className="text-[13px] font-semibold">Rôle</span>
         <div className="grid grid-cols-2 gap-2">

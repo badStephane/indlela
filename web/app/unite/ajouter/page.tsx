@@ -177,7 +177,7 @@ export default function AjouterJeunes() {
             ) : (
               <>
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="truncate font-mono text-[13px] text-muted">{fichier.nom}</span>
+                  <span className="truncate num text-[13px] text-muted">{fichier.nom}</span>
                   <button type="button" onClick={() => fileRef.current?.click()} className="flex-none bg-transparent text-[13px] font-bold text-acc-text">
                     Changer de fichier
                   </button>

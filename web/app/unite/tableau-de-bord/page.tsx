@@ -50,7 +50,7 @@ export default function TableauDeBord() {
                     <span className="h-3 overflow-hidden rounded-[6px] bg-track">
                       <span className="block h-full bg-acc" style={{ width: `${Math.round((s.count / max) * 100)}%` }} />
                     </span>
-                    <span className="text-right font-mono text-[14px] font-semibold">{s.count}</span>
+                    <span className="text-right num text-[14px] font-semibold">{s.count}</span>
                   </div>
                 ))}
               </Card>
@@ -65,7 +65,7 @@ export default function TableauDeBord() {
                         <span className="text-[15px] font-semibold">{fullName(j)}</span>
                         <span className="text-[12px] text-muted">{p.step?.name}</span>
                       </span>
-                      <span className="font-mono text-[13px] font-semibold text-stale">{days === 999 ? "Jamais" : `${days} jours`}</span>
+                      <span className="num text-[13px] font-semibold text-stale">{days === 999 ? "Jamais" : `${days} jours`}</span>
                     </button>
                   ))}
                 </List>
