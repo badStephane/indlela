@@ -3,7 +3,8 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
-import { Card, Chip, cx, List, mix, OutlineButton, rowClass, SEG_SHADES, Section, Segments, type Seg } from "@/components/ui";
+import { Card, Chip, cx, List, OutlineButton, rowClass, Section } from "@/components/ui";
+import { SentierEffectif } from "@/components/Sentier";
 import { useGuard } from "@/lib/access";
 import { useStore, useTroupe } from "@/lib/store";
 import { BRANCHES, BRANCH_COLORS, type BranchCode } from "@/lib/referentiels";
@@ -13,8 +14,7 @@ import { fmtDayMonth, LONG_MONTHS, fromISODate } from "@/lib/dates";
 import { jeuneHref } from "@/lib/routes";
 import { slug, telechargerExcel } from "@/lib/excel";
 
-const segsOf = (b: BranchCode, counts: number[]): Seg[] =>
-  BRANCHES[b].steps.map((s, k) => ({ label: s.name, count: counts[k], color: mix(BRANCH_COLORS[b].acc, SEG_SHADES[k]) }));
+const segsOf = (b: BranchCode, counts: number[]) => BRANCHES[b].steps.map((s, k) => ({ label: s.name, count: counts[k] }));
 
 export default function Groupe() {
   const ok = useGuard((r) => r === "groupe");
@@ -100,9 +100,9 @@ export default function Groupe() {
               <div className="flex flex-col gap-3 px-4 pb-4 pt-3.5">
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="text-[18px] font-extrabold">{store.unitesNoms[u.code]}</span>
-                  <span className="font-mono text-[12px] text-muted">{u.eff}</span>
+                  <span className="num text-[12px] text-muted">{u.eff}</span>
                 </div>
-                <Segments segs={u.segs} barHeight={10} labelClass="text-muted" />
+                <SentierEffectif etapes={u.segs} accent={BRANCH_COLORS[u.code].acc} />
                 <div className="flex justify-between gap-2 text-[13px]">
                   <span className="text-muted">{u.recent}</span>
                   <span className={cx("font-bold", u.staleOn ? "text-stale-strong" : "text-muted")}>{u.stale}</span>
@@ -118,7 +118,7 @@ export default function Groupe() {
             <div className="flex flex-col gap-3 px-4 pb-4 pt-3.5">
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-[18px] font-extrabold">{store.unitesNoms.route}</span>
-                <span className="font-mono text-[12px] text-muted">
+                <span className="num text-[12px] text-muted">
                   {R.effectif} jeunes · {R.cadres} cadres
                 </span>
               </div>

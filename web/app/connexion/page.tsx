@@ -86,7 +86,7 @@ export default function Connexion() {
         </form>
         {DEMO && (
         <div className="mt-auto flex flex-col gap-2.5 border-t border-line pt-4">
-          <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted">Démo · entrer comme</span>
+          <span className="text-[13px] font-bold text-muted">Démo : entrer comme</span>
           <div className="grid grid-cols-2 gap-2">
             {ROLES.map(([r, label]) => (
               <button key={r} type="button" onClick={() => enter(r)} className="h-11 rounded-ui border border-line bg-surface text-[14px] font-semibold text-ink">

@@ -3,12 +3,13 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
-import { Bar, Card, OutlineButton } from "@/components/ui";
+import { Card, OutlineButton } from "@/components/ui";
+import { SentierJeune } from "@/components/Sentier";
 import { useGuard } from "@/lib/access";
 import { useStore } from "@/lib/store";
 import { BRANCHES, BRANCH_COLORS } from "@/lib/referentiels";
 import { fullName } from "@/lib/mock";
-import { lastValidationDays, pct, progressOf } from "@/lib/progress";
+import { lastValidationDays, progressOf } from "@/lib/progress";
 import { daysAgo, fmtShort, toISODate } from "@/lib/dates";
 import { jeuneHref } from "@/lib/routes";
 
@@ -46,11 +47,11 @@ export default function Famille() {
                 </div>
                 <div className="flex justify-between text-[14px]">
                   <span>{p.step?.name} en cours</span>
-                  <span className="font-mono text-muted">
+                  <span className="num text-muted">
                     {p.done}/{p.total}
                   </span>
                 </div>
-                <Bar value={pct(p.done, p.total)} height={8} color={acc} />
+                <SentierJeune total={p.steps.length} index={p.index} part={p.total ? p.done / p.total : 0} accent={acc} label={`${p.step?.name ?? ""}, ${p.done} sur ${p.total}`} />
                 <span className="text-[13px] text-muted">
                   Dernière validation : {l === 0 ? "aujourd'hui" : l === 999 ? "aucune" : fmtShort(toISODate(daysAgo(l)))}
                 </span>

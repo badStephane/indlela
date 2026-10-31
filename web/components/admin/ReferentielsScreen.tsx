@@ -106,7 +106,7 @@ export function ReferentielsScreen({ kicker, title, withUnits = false }: Referen
           <>
             <div className="flex flex-col gap-0.5">
               <span className="text-[17px] font-bold">{REF_TITLES[rb]}</span>
-              <span className="font-mono text-[13px] text-muted">
+              <span className="num text-[13px] text-muted">
                 Version {ver} · publiée · {nbValidations} {plural(nbValidations, "validation", "validations")}
               </span>
               {rb === "meute" && <span className="mt-1 text-[13px] text-muted text-pretty">Base proposée : chaque chef de meute peut adapter les preuves de son unité.</span>}

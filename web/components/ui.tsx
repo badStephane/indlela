@@ -1,16 +1,18 @@
 import type { ReactNode } from "react";
 
-export const mix = (color: string, n: number) => `color-mix(in srgb, ${color} ${n}%, transparent)`;
+/** Teinte opaque : la couleur mêlée de blanc, lisible sur fond clair comme sur le vert forêt. */
+export const mix = (color: string, n: number) => `color-mix(in srgb, ${color} ${n}%, white)`;
 
-/** Teintes des segments d'étapes : 40, 60, 80, 100 %. */
-export const SEG_SHADES = [40, 60, 80, 100];
+/** Teintes des segments d'étapes, de la plus claire à la couleur pleine. */
+export const SEG_SHADES = [38, 58, 78, 100];
 
 export function cx(...c: (string | false | null | undefined)[]) {
   return c.filter(Boolean).join(" ");
 }
 
+/** Titre de section : une phrase courte, en clair, au-dessus de son contenu. */
 export function SectionLabel({ children }: { children: ReactNode }) {
-  return <span className="font-mono text-[11px] font-medium uppercase tracking-[0.1em] text-muted">{children}</span>;
+  return <h2 className="m-0 text-[15px] font-bold tracking-[-0.005em] text-ink">{children}</h2>;
 }
 
 export function Section({ label, children, gap = "gap-2" }: { label: ReactNode; children: ReactNode; gap?: string }) {
@@ -54,7 +56,7 @@ export function Segments({ segs, barHeight, labelClass }: { segs: Seg[]; barHeig
       {segs.map((g) => (
         <div key={g.label} className="flex min-w-0 flex-col" style={{ flex: `${Math.max(g.count, 1.6)} 1 0`, gap: barHeight === 12 ? 6 : 5 }}>
           <span className="rounded-[6px]" style={{ height: barHeight, background: g.color }} />
-          <span className="font-mono text-[13px] font-bold leading-none">{g.count}</span>
+          <span className="num text-[15px] font-extrabold leading-none">{g.count}</span>
           <span className={cx("truncate text-[11px] leading-[1.1]", labelClass)}>{g.label}</span>
         </div>
       ))}

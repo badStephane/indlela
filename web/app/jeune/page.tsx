@@ -49,7 +49,7 @@ export default function Fiche() {
             <SectionLabel>Étape en cours</SectionLabel>
             <div className="flex items-baseline justify-between gap-2">
               <span className="text-[22px] font-extrabold tracking-[-0.01em]">{p.step.name}</span>
-              <span className="font-mono text-[14px] font-semibold text-acc-text">
+              <span className="num text-[14px] font-semibold text-acc-text">
                 {p.done} / {p.total}
               </span>
             </div>
@@ -114,7 +114,7 @@ export default function Fiche() {
               {j.specs.map((sp) => (
                 <div key={sp.name} className="flex flex-col gap-0.5 rounded-full border border-line bg-surface px-3 py-2">
                   <span className="text-[14px] font-semibold">{sp.name}</span>
-                  <span className="font-mono text-[12px] text-muted">{sp.meta}</span>
+                  <span className="num text-[12px] text-muted">{sp.meta}</span>
                 </div>
               ))}
             </div>
@@ -128,7 +128,7 @@ export default function Fiche() {
             {historiqueUnites(j, store.unitesNoms).map((h) => (
               <div key={h.unit} className="flex justify-between gap-3 border-b border-line py-1.5 text-[14px]">
                 <span>{h.unit}</span>
-                <span className="font-mono text-[12px] text-muted">{h.period}</span>
+                <span className="num text-[12px] text-muted">{h.period}</span>
               </div>
             ))}
           </div>
@@ -166,7 +166,7 @@ function Chemin({ j, p, recons }: { j: Jeune; p: Progress; recons: Reconnaissanc
             </div>
             <div className="flex min-w-0 flex-col gap-px pb-3.5">
               <span className={cx(cur ? "text-[18px] font-extrabold" : "text-[15px] font-medium", k > p.index ? "text-muted" : "text-ink")}>{s.name}</span>
-              <span className="font-mono text-[12px] text-muted">
+              <span className="num text-[12px] text-muted">
                 {done ? (remise ? `Remise le ${fmtShort(remise, true)}` : "Franchie") : cur ? `En cours · ${p.done}/${p.total}` : "À venir"}
               </span>
             </div>
@@ -208,7 +208,7 @@ function DomaineBloc({ j, d, cadre, brevets }: { j: Jeune; d: DomaineProgress; c
       <summary className="flex min-h-12 cursor-pointer list-none items-center gap-3 px-3.5 py-2">
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="text-[15px] font-bold">{d.domaine.name}</span>
-          <span className="font-mono text-[12px] text-muted">
+          <span className="num text-[12px] text-muted">
             {brevets ? `${d.validated} / ${d.preuves.length} ${plural(d.preuves.length, "brevet", "brevets")}` : `${Math.min(d.validated, d.required)} / ${d.required}${consigne}`}
           </span>
         </span>
@@ -260,7 +260,7 @@ function PreuveRow({ label, r, cadre, unite }: { label: string; r: CritStatus; c
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className={cx("text-[14px] font-medium text-pretty", r.st === "cancelled" ? "text-muted" : "text-ink")}>{label}</span>
-        <span className={cx("font-mono text-[12px]", metaCls)}>{meta}</span>
+        <span className={cx("num text-[12px]", metaCls)}>{meta}</span>
         {comment && <span className="text-[13px] text-ink text-pretty">« {comment} »</span>}
       </span>
       {tappable && (
@@ -333,7 +333,7 @@ function CoursHonneur({ list, steps }: { list: Reconnaissance[]; steps: Progress
                 {r.decision === "reconnue" ? "Reconnue" : "Ajournée"}
               </span>
             </div>
-            <span className="font-mono text-[12px] text-muted">
+            <span className="num text-[12px] text-muted">
               {fmtShort(r.date, true)} · {r.ct}
               {r.presents ? ` · ${r.voixPour} voix sur ${r.presents}` : ""}
               {r.pending ? " · en attente de réseau" : ""}

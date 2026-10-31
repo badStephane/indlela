@@ -118,7 +118,7 @@ export default function Journal() {
                       onClick={() => setOpen(expanded ? null : e.id)}
                       className="flex w-full items-start gap-3 bg-transparent px-3.5 py-2.5 text-left text-inherit"
                     >
-                      <span className="w-[42px] flex-none pt-0.5 font-mono text-[12px] text-muted">{time(e.at)}</span>
+                      <span className="w-[42px] flex-none pt-0.5 num text-[12px] text-muted">{time(e.at)}</span>
                       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <span className="text-[14px] font-medium text-pretty">{e.resume}</span>
                         <span className="flex items-center gap-1.5 text-[12px] text-muted">
@@ -130,11 +130,11 @@ export default function Journal() {
                     </button>
                     {expanded && (
                       <div className="flex flex-col gap-2 px-3.5 pb-3.5 pl-[68px]">
-                        <span className="break-all font-mono text-[11px] text-muted">
+                        <span className="break-all num text-[11px] text-muted">
                           {e.table} · {e.ligne}
                         </span>
                         {keys.length > 0 && (
-                          <div className="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)] gap-x-3 gap-y-1 rounded-ui bg-paper px-3 py-2.5 font-mono text-[11px]">
+                          <div className="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)] gap-x-3 gap-y-1 rounded-ui bg-paper px-3 py-2.5 num text-[11px]">
                             <span className="text-muted">champ</span>
                             <span className="text-muted">avant</span>
                             <span className="text-muted">après</span>

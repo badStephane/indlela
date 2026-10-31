@@ -9,22 +9,27 @@ import { fmtWhen } from "@/lib/dates";
 import { plural } from "@/lib/progress";
 import { cx } from "./ui";
 import { ConfirmSheet } from "./ConfirmSheet";
+import { Sheet } from "./Sheet";
 import { DEMO } from "@/lib/demo";
+import { ROLE_LABELS } from "@/lib/admin";
 
-const TABS: Record<Role, [string, string][]> = {
+/** Onglet : adresse, nom, et nom court pour la barre du téléphone. */
+type Tab = [href: string, label: string, court?: string];
+
+const TABS: Record<Role, Tab[]> = {
   cadre: [
     ["/unite", "Unité"],
     ["/unite/epreuves", "Épreuves"],
-    ["/unite/tableau-de-bord", "Tableau de bord"],
+    ["/unite/tableau-de-bord", "Tableau de bord", "Suivi"],
   ],
   groupe: [
-    ["/groupe", "Vue groupe"],
+    ["/groupe", "Vue groupe", "Groupe"],
     ["/groupe/unites", "Unités"],
     ["/admin/donnees", "Données"],
   ],
   progression: [
     ["/progression", "Progression"],
-    ["/progression/cours", "Cours d'honneur"],
+    ["/progression/cours", "Cours d'honneur", "Cours"],
     ["/progression/epreuves", "Épreuves"],
     ["/groupe/unites", "Unités"],
     ["/admin/donnees", "Données"],
@@ -37,6 +42,24 @@ const TABS: Record<Role, [string, string][]> = {
     ["/admin/donnees", "Données"],
   ],
 };
+
+const initiales = (nom: string) =>
+  nom
+    .replace(/^(Cdt|Adj|CG|RP|Admin|Famille)\.?\s+/i, "")
+    .split(/[\s.]+/)
+    .filter(Boolean)
+    .map((w) => w[0])
+    .slice(-2)
+    .join("")
+    .toUpperCase();
+
+function Chevron() {
+  return (
+    <svg aria-hidden width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 5l-7 7 7 7" />
+    </svg>
+  );
+}
 
 export interface FootAction {
   label: string;
@@ -78,6 +101,7 @@ export function AppShell({
   branch = "troupe",
   banner = false,
   foot,
+  wide = false,
   children,
 }: {
   kicker: string;
@@ -87,6 +111,8 @@ export function AppShell({
   branch?: BranchCode;
   banner?: boolean;
   foot?: FootAction;
+  /** Sur ordinateur, le contenu prend plus de largeur (écrans en deux colonnes). */
+  wide?: boolean;
   children: ReactNode;
 }) {
   const store = useStore();
@@ -105,8 +131,9 @@ export function AppShell({
     : "Hors connexion. Vos validations restent sur le téléphone et partiront au retour du réseau.";
 
   const tabs = role ? TABS[role] : [];
-  // Cinq boutons tiennent sur 360 px en resserrant le texte.
-  const tabText = tabs.length >= 4 ? "flex-auto px-1 text-[12px]" : "flex-1 text-[13px]";
+  // Cinq onglets tiennent sur 360 px avec leur nom court.
+  const tabText = tabs.length >= 4 ? "flex-1 px-0.5 text-[12px]" : "flex-1 text-[13px]";
+  const [compte, setCompte] = useState(false);
   const openTab = (href: string) => {
     store.setLastTab(href);
     router.push(href);
@@ -131,8 +158,8 @@ export function AppShell({
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="no-print flex min-h-[62px] flex-none items-center gap-1.5 bg-paper px-3 pb-2.5 pt-[max(10px,env(safe-area-inset-top))] text-ink lg:min-h-[72px] lg:border-b lg:border-line lg:px-6 lg:pb-3 lg:pt-3">
           {back !== undefined && (
-            <button type="button" onClick={goBack} aria-label="Retour" className="-ml-1.5 h-11 w-11 flex-none bg-transparent text-[28px] leading-none text-inherit">
-              ‹
+            <button type="button" onClick={goBack} aria-label="Retour" className="-ml-2 flex h-11 w-11 flex-none items-center justify-center rounded-full bg-transparent text-inherit hover:bg-track">
+              <Chevron />
             </button>
           )}
           <div className="flex min-w-0 flex-1 flex-col pl-1">
@@ -146,8 +173,19 @@ export function AppShell({
             className={cx("flex h-10 flex-none items-center gap-[7px] rounded-full px-3 text-[12px] font-bold", sync.cls)}
           >
             <span className={cx("h-2 w-2 rounded-full", sync.dot)} />
-            {sync.label}
+            {/* En ligne, le point suffit sur téléphone : le titre garde la place. */}
+            <span className={cx(!offline && !syncErr && "sr-only sm:not-sr-only")}>{sync.label}</span>
           </button>
+          {role && (
+            <button
+              type="button"
+              onClick={() => setCompte(true)}
+              aria-label={`Compte de ${store.userName}`}
+              className="num flex h-10 w-10 flex-none items-center justify-center rounded-full bg-forest text-[13px] font-bold text-white lg:hidden"
+            >
+              {initiales(store.userName)}
+            </button>
+          )}
         </header>
 
         {store.storageErr && (
@@ -159,12 +197,12 @@ export function AppShell({
 
         <main className="min-h-0 flex-1 overflow-y-auto">
           {/* Sur téléphone, le contenu reste l'enfant direct de main ; sur ordinateur, il est centré. */}
-          <div className="contents lg:mx-auto lg:block lg:w-full lg:max-w-[760px] lg:py-4">{children}</div>
+          <div className={cx("contents lg:mx-auto lg:block lg:w-full lg:py-4", wide ? "lg:max-w-[1120px] lg:px-2" : "lg:max-w-[760px]")}>{children}</div>
         </main>
 
         {foot && (
           <div className="no-print flex flex-none border-t border-line bg-surface px-4 pb-3 pt-2.5 lg:px-6">
-            <div className="flex w-full flex-col gap-1.5 lg:mx-auto lg:max-w-[760px] lg:flex-row lg:items-center lg:justify-end lg:gap-4 lg:px-4">
+            <div className={cx("flex w-full flex-col gap-1.5 lg:mx-auto lg:flex-row lg:items-center lg:justify-end lg:gap-4 lg:px-4", wide ? "lg:max-w-[1120px]" : "lg:max-w-[760px]")}>
               {foot.note && <span className="text-center text-[12px] text-muted text-pretty lg:flex-1 lg:text-left lg:text-[13px]">{foot.note}</span>}
               <button
                 type="button"
@@ -182,7 +220,7 @@ export function AppShell({
         )}
 
         <nav aria-label="Navigation" className="no-print flex flex-none border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden">
-          {tabs.map(([href, label]) => {
+          {tabs.map(([href, label, court]) => {
             const on = lastTab === href;
             return (
               <button
@@ -190,16 +228,33 @@ export function AppShell({
                 type="button"
                 onClick={() => openTab(href)}
                 aria-current={on ? "page" : undefined}
-                className={cx("h-[58px] min-w-0 truncate border-t-[3px] bg-transparent font-bold", tabText, on ? "border-acc text-ink" : "border-transparent text-muted")}
+                aria-label={court ? label : undefined}
+                className={cx("relative h-[58px] min-w-0 truncate bg-transparent font-bold", tabText, on ? "text-ink" : "text-muted")}
               >
-                {label}
+                {court ?? label}
+                {on && <span aria-hidden className="absolute left-1/2 top-[7px] h-[5px] w-[5px] -translate-x-1/2 rounded-full bg-sun" />}
               </button>
             );
           })}
-          <button type="button" onClick={quit} className={cx("h-[58px] min-w-0 truncate border-t-[3px] border-transparent bg-transparent font-bold text-muted", tabText)}>
-            Quitter
-          </button>
         </nav>
+
+        {compte && (
+          <Sheet title={store.userName} onClose={() => setCompte(false)}>
+            <span className="-mt-2 text-[14px] text-muted">
+              {role && ROLE_LABELS[role]} · {store.groupeNom}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setCompte(false);
+                quit();
+              }}
+              className="h-12 rounded-ui border border-line-strong bg-transparent text-[15px] font-bold text-ink"
+            >
+              Se déconnecter
+            </button>
+          </Sheet>
+        )}
 
         <CancelSheet />
         {confirmQuit && (
@@ -248,12 +303,16 @@ export function AppShell({
 }
 
 /** Navigation latérale, à partir de 1024 px ; remplace la barre d'onglets du bas. */
-function SideNav({ tabs, current, onOpen, onQuit }: { tabs: [string, string][]; current: string | null; onOpen: (href: string) => void; onQuit: () => void }) {
+function SideNav({ tabs, current, onOpen, onQuit }: { tabs: Tab[]; current: string | null; onOpen: (href: string) => void; onQuit: () => void }) {
+  const store = useStore();
   return (
-    <nav aria-label="Navigation principale" className="no-print hidden w-[248px] flex-none flex-col gap-6 border-r border-line bg-surface px-4 py-6 lg:flex">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/logo.svg" alt="Indlela" className="h-[30px] w-auto self-start" />
-      <div className="flex flex-col gap-1">
+    <nav aria-label="Navigation principale" className="no-print hidden w-[252px] flex-none flex-col gap-7 border-r border-line bg-surface px-4 py-6 lg:flex">
+      <div className="flex flex-col gap-2 px-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.svg" alt="Indlela" className="h-[28px] w-auto self-start" />
+        <span className="text-[13px] leading-snug text-muted text-pretty">{store.groupeLibelle}</span>
+      </div>
+      <div className="flex flex-col gap-0.5">
         {tabs.map(([href, label]) => {
           const on = current === href;
           return (
@@ -262,16 +321,29 @@ function SideNav({ tabs, current, onOpen, onQuit }: { tabs: [string, string][]; 
               type="button"
               onClick={() => onOpen(href)}
               aria-current={on ? "page" : undefined}
-              className={cx("h-11 rounded-ui px-3 text-left text-[15px] font-bold", on ? "bg-acc-soft text-acc-text" : "bg-transparent text-muted hover:bg-paper hover:text-ink")}
+              className={cx(
+                "flex h-11 items-center gap-2.5 rounded-ui px-3 text-left text-[15px] font-bold",
+                on ? "bg-acc-soft text-acc-text" : "bg-transparent text-muted hover:bg-paper hover:text-ink",
+              )}
             >
+              <span aria-hidden className={cx("h-[7px] w-[7px] flex-none rounded-full", on ? "bg-sun" : "bg-transparent")} />
               {label}
             </button>
           );
         })}
       </div>
-      <button type="button" onClick={onQuit} className="mt-auto h-11 rounded-ui px-3 text-left text-[15px] font-bold text-muted hover:bg-paper hover:text-ink">
-        Quitter
-      </button>
+      {store.role && (
+        <div className="mt-auto flex items-center gap-2.5 border-t border-line px-1 pt-4">
+          <span className="num flex h-9 w-9 flex-none items-center justify-center rounded-full bg-forest text-[12px] font-bold text-white">{initiales(store.userName)}</span>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate text-[14px] font-bold">{store.userName}</span>
+            <span className="text-[12px] leading-tight text-muted">{ROLE_LABELS[store.role]}</span>
+          </span>
+          <button type="button" onClick={onQuit} className="h-9 flex-none rounded-ui px-2 text-[13px] font-bold text-muted hover:bg-paper hover:text-ink">
+            Quitter
+          </button>
+        </div>
+      )}
     </nav>
   );
 }
@@ -292,7 +364,7 @@ function CancelSheet() {
     >
       <div className="flex flex-col gap-0.5 rounded-ui bg-paper px-3 py-2.5">
         <span className="text-[15px] font-semibold">{label}</span>
-        <span className="font-mono text-[12px] text-muted">
+        <span className="num text-[12px] text-muted">
           {when === "Aujourd'hui" ? when : `Validé le ${when}`} · {v.validePar}
         </span>
       </div>

@@ -52,10 +52,10 @@ export default function Carnet() {
           <div className="flex items-center justify-between pb-2.5" style={{ borderBottom: `2px solid ${BRANCH_COLORS[j.branche].acc}` }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.svg" alt="Indlela" className="h-[18px] w-auto" />
-            <span className="font-mono text-[11px] text-[#6B665C]">{B.name.toUpperCase()}</span>
+            <span className="num text-[11px] text-[#6B665C]">{B.name.toUpperCase()}</span>
           </div>
           <div className="flex flex-col gap-0.5">
-            <span className="text-[11px] uppercase tracking-[0.08em] text-[#6B665C]">Carnet de progression</span>
+            <span className="text-[13px] font-bold text-[#1F1D19]">Carnet de progression</span>
             <span className="text-[20px] font-bold">{name}</span>
             <span className="text-[12px] text-[#6B665C]">
               {store.unitesNoms[j.branche]} · {store.groupeLibelle}
@@ -65,19 +65,19 @@ export default function Carnet() {
             {p.steps.map((s, k) => (
               <div key={s.name} className="flex justify-between gap-2 border-b border-[#EEEAE1] py-1.5 text-[12px]">
                 <span className="font-semibold">{s.name}</span>
-                <span className="font-mono text-[11px] text-[#6B665C]">
+                <span className="num text-[11px] text-[#6B665C]">
                   {k < p.index ? remiseLabel(dateReconnue(store.recons, j.id, s.id) ?? dateRemise(j, k, p.index)) : k === p.index ? `en cours · ${p.done}/${p.total}` : "—"}
                 </span>
               </div>
             ))}
           </div>
           <div className="flex flex-col gap-1">
-            <span className="text-[11px] uppercase tracking-[0.08em] text-[#6B665C]">{p.brevets ? "Brevets obtenus" : "Preuves réussies"} · {p.step?.name}</span>
+            <span className="text-[13px] font-bold text-[#1F1D19]">{p.brevets ? "Brevets obtenus" : "Preuves réussies"} · {p.step?.name}</span>
             {live.map((v) => (
               <div key={v.id} className="flex flex-col text-[12px]">
                 <div className="flex justify-between gap-2">
                   <span>✓ {preuveLabel(p.steps, v.etapeId, v.preuveId)}</span>
-                  <span className="font-mono text-[11px] text-[#6B665C]">
+                  <span className="num text-[11px] text-[#6B665C]">
                     {v.pending ? "en attente · " : ""}
                     {fmtShort(v.date)}
                   </span>
@@ -88,13 +88,13 @@ export default function Carnet() {
           </div>
           {historique(store.recons, j.id).some((r) => r.observations) && (
             <div className="flex flex-col gap-1">
-              <span className="text-[11px] uppercase tracking-[0.08em] text-[#6B665C]">Observations de la cour d&apos;honneur</span>
+              <span className="text-[13px] font-bold text-[#1F1D19]">Observations de la cour d&apos;honneur</span>
               {historique(store.recons, j.id)
                 .filter((r) => r.observations)
                 .map((r) => (
                   <div key={r.id} className="flex flex-col text-[12px]">
                     <span>{r.observations}</span>
-                    <span className="font-mono text-[11px] text-[#6B665C]">
+                    <span className="num text-[11px] text-[#6B665C]">
                       {p.steps.find((x) => x.id === r.etapeId)?.name} · {fmtShort(r.date, true)} · {r.ct}
                     </span>
                   </div>
@@ -102,10 +102,10 @@ export default function Carnet() {
             </div>
           )}
           <div className="flex flex-col gap-1">
-            <span className="text-[11px] uppercase tracking-[0.08em] text-[#6B665C]">Spécialités et badges</span>
+            <span className="text-[13px] font-bold text-[#1F1D19]">Spécialités et badges</span>
             <span className="text-[12px]">{j.specs.length ? j.specs.map((s) => `${s.name} (${s.meta})`).join(" ; ") : "Aucune pour l'instant"}</span>
           </div>
-          <span className="border-t border-[#EEEAE1] pt-2 font-mono text-[10px] text-[#6B665C]">Généré le {fmtFull(new Date())} · page 1 / 1</span>
+          <span className="border-t border-[#EEEAE1] pt-2 num text-[10px] text-[#6B665C]">Généré le {fmtFull(new Date())} · page 1 / 1</span>
         </article>
         {offline && (
           <div className="no-print rounded-ui bg-err-bg px-3 py-2.5 text-[14px] text-err-ink text-pretty">

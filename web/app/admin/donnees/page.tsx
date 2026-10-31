@@ -188,7 +188,7 @@ export default function Donnees() {
           {rows && (
             <>
               <div className="flex items-baseline justify-between gap-2">
-                <span className="truncate font-mono text-[13px] text-muted">{fichier}</span>
+                <span className="truncate num text-[13px] text-muted">{fichier}</span>
                 <button
                   type="button"
                   onClick={() => {
@@ -226,7 +226,7 @@ export default function Donnees() {
                       </span>
                       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <span className={cx("truncate text-[15px] font-medium", r.erreur && "text-muted")}>{[r.prenom, r.nom].filter(Boolean).join(" ") || "Sans nom"}</span>
-                        <span className={cx("font-mono text-[12px]", r.erreur ? "text-err-ink" : "text-muted")}>
+                        <span className={cx("num text-[12px]", r.erreur ? "text-err-ink" : "text-muted")}>
                           ligne {r.ligne} · {r.erreur ?? `${r.age} ans · ${store.unitesNoms.troupe}`}
                         </span>
                       </span>
@@ -252,7 +252,7 @@ export default function Donnees() {
                   <span className="text-[15px] font-semibold">{label}</span>
                   <span className="text-[12px] text-muted">{sub}</span>
                 </span>
-                <span className={cx("flex-none font-mono text-[12px] font-semibold", offline ? "text-muted" : "text-acc-text")}>Excel ↓</span>
+                <span className={cx("flex-none num text-[12px] font-semibold", offline ? "text-muted" : "text-acc-text")}>Excel ↓</span>
               </button>
             ))}
           </List>
