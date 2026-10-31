@@ -9,6 +9,7 @@ import { useStore, useTroupe } from "@/lib/store";
 import { ceremonies, fullName, GROUPE } from "@/lib/mock";
 import { hasPending, pct, plural, progressOf } from "@/lib/progress";
 import { fmtDayMonth, fmtMeeting } from "@/lib/dates";
+import { jeuneHref } from "@/lib/routes";
 
 export default function Unite() {
   const ok = useGuard((r) => r === "cadre" || r === "groupe");
@@ -72,7 +73,7 @@ export default function Unite() {
           <>
             <List>
               {rows.map(({ j, p }) => (
-                <button key={j.id} type="button" onClick={() => router.push(`/jeunes/${j.id}`)} className={`${rowClass} min-h-[66px] gap-3 py-2.5`}>
+                <button key={j.id} type="button" onClick={() => router.push(jeuneHref(j.id))} className={`${rowClass} min-h-[66px] gap-3 py-2.5`}>
                   <span className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-acc-soft text-[14px] font-bold text-acc-text">
                     {j.prenom[0] + j.nom[0]}
                   </span>

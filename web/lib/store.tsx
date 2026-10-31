@@ -6,7 +6,8 @@
 // synchronisation est simulée.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { get, set } from "idb-keyval";
+import { del, get, set } from "idb-keyval";
+import { DEMO } from "./demo";
 import { CURRENT_CADRE, findJeune, seedJeunes, seedValidations, uuid, type Jeune, type Validation } from "./mock";
 import { critStatus, isValidated, pendingCount, plural } from "./progress";
 import { toISODate } from "./dates";
@@ -90,6 +91,8 @@ interface Toast {
 
 interface Store extends Persisted {
   hydrated: boolean;
+  /** Le téléphone n'arrive plus à enregistrer (mémoire pleine, navigation privée…). */
+  storageErr: boolean;
   offline: boolean;
   syncErr: boolean;
   pending: number;
@@ -132,8 +135,9 @@ const initialRef = (): RefState => ({ published: {}, draft: {}, routeCreated: fa
 const initial = (): Persisted => ({
   role: null,
   lastTab: null,
-  jeunes: seedJeunes(),
-  vals: seedValidations(),
+  // Hors démo, le téléphone part vide : les données viendront du serveur.
+  jeunes: DEMO ? seedJeunes() : [],
+  vals: DEMO ? seedValidations() : [],
   recons: [],
   simOffline: false,
   demo: { emptyUnit: false, syncFails: true },
@@ -155,6 +159,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const [netOnline, setNetOnline] = useState(true);
   const [syncErr, setSyncErr] = useState(false);
+  const [storageErr, setStorageErr] = useState(false);
   const failedOnce = useRef(false);
   const [toast, setToast] = useState<Toast | null>(null);
   const [sheet, setSheet] = useState<string | null>(null);
@@ -162,11 +167,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let alive = true;
+    // Sans cette demande, le navigateur peut effacer les saisies en attente quand la mémoire manque.
+    navigator.storage?.persist?.().catch(() => undefined);
     get<Persisted>(KEY)
       .then((saved) => {
         if (alive && saved) setP({ ...initial(), ...saved, ref: { ...initialRef(), ...saved.ref } });
       })
-      .catch(() => {})
+      .catch(() => alive && setStorageErr(true))
       .finally(() => alive && setHydrated(true));
     setNetOnline(navigator.onLine);
     return () => {
@@ -175,7 +182,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (hydrated) set(KEY, p).catch(() => {});
+    if (!hydrated) return;
+    set(KEY, p)
+      .then(() => setStorageErr(false))
+      .catch(() => setStorageErr(true));
   }, [p, hydrated]);
 
   const showToast = useCallback((msg: string, undo?: () => void) => {
@@ -246,6 +256,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const steps = useMemo(() => effectiveSteps(refSteps, p.adapts), [refSteps, p.adapts]);
 
   const tapSync = useCallback(() => {
+    if (!DEMO && !offline && !syncErr) {
+      if (pending) flush(pending);
+      else showToast("Tout est envoyé.");
+      return;
+    }
     if (!offline && !syncErr) {
       setP((s) => ({ ...s, simOffline: true }));
       showToast("Hors connexion : les validations restent sur le téléphone.");
@@ -297,6 +312,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         pending: offline,
         annuleeLe: null,
         batch,
+        refVersion: refVersion[j.branche],
         updatedAt: stamp,
       }));
       // pRef suit l'état rendu : on l'avance tout de suite pour qu'une seconde touche voie ces lignes.
@@ -304,11 +320,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setP((s) => ({ ...s, vals: [...s.vals, ...add] }));
       const n = add.length;
       showToast(`${n} ${plural(n, "preuve validée", "preuves validées")} pour ${j.prenom}${offline ? " · en attente de réseau" : ""}`, () => {
-        setP((s) => ({ ...s, vals: s.vals.filter((v) => v.batch !== batch) }));
+        // Une saisie restée sur le téléphone s'efface ; une saisie déjà envoyée s'annule au journal.
+        const today = toISODate(new Date());
+        const now = new Date().toISOString();
+        setP((s) => ({
+          ...s,
+          vals: s.vals.flatMap((v) =>
+            v.batch !== batch ? [v] : v.pending ? [] : [{ ...v, annuleeLe: today, annuleePar: CURRENT_CADRE.short, updatedAt: now }],
+          ),
+        }));
         showToast("Validation retirée");
       });
+      if (storageErr) showToast("Attention : ce téléphone n'enregistre plus les saisies. Retrouvez du réseau avant de fermer l'application.");
     },
-    [offline, showToast, steps],
+    [offline, showToast, steps, refVersion, storageErr],
   );
 
   const reconnaitre = useCallback(
@@ -366,6 +391,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     () => ({
       ...p,
       hydrated,
+      storageErr,
       offline,
       syncErr,
       pending,
@@ -378,7 +404,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       logout: () => {
         setSheet(null);
         hideToast();
-        setP((s) => ({ ...s, role: null, lastTab: null }));
+        if (DEMO) {
+          setP((s) => ({ ...s, role: null, lastTab: null }));
+          return;
+        }
+        // Hors démo : aucune donnée de mineur ne reste sur un téléphone partagé.
+        del(KEY).catch(() => setStorageErr(true));
+        setP(initial());
       },
       setLastTab: (tab) => setP((s) => (s.lastTab === tab ? s : { ...s, lastTab: tab })),
       showToast,
@@ -418,7 +450,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return { ...s, ref: { ...s.ref, draft: otherDrafts } };
         }),
     }),
-    [p, hydrated, offline, syncErr, pending, toast, sheet, steps, refSteps, refVersion, showToast, hideToast, addJeunes, validate, reconnaitre, cancelValidation, tapSync],
+    [p, hydrated, storageErr, offline, syncErr, pending, toast, sheet, steps, refSteps, refVersion, showToast, hideToast, addJeunes, validate, reconnaitre, cancelValidation, tapSync],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

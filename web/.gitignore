@@ -3,3 +3,5 @@ node_modules
 out
 next-env.d.ts
 *.tsbuildinfo
+# Généré au build par scripts/build-sw.mjs
+public/sw.js

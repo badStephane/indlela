@@ -70,3 +70,32 @@ export function updatePreuve(steps: Etape[], preuveId: string, patch: PreuvePatc
 export function movePreuve(steps: Etape[], preuveId: string, delta: number): Etape[] {
   return mapDomaines(steps, (d) => (d.preuves.some((p) => p.id === preuveId) ? { ...d, preuves: move(d.preuves, preuveId, delta) } : d));
 }
+
+export interface ReglesPatch {
+  /** Majorité du vote secret (0.75 pour 3/4), ou null pour une étape sans vote. */
+  vote?: number | null;
+  /** Étape validée par brevets : nombre de brevets et de séries différentes, ou null. */
+  brevets?: { min: number; series: number } | null;
+}
+
+export function updateEtapeRegles(steps: Etape[], etapeId: string, patch: ReglesPatch): Etape[] {
+  return steps.map((s) => {
+    if (s.id !== etapeId) return s;
+    let next: Etape = s;
+    if (patch.vote !== undefined) {
+      const { vote: _vote, ...rest } = next;
+      next = patch.vote && patch.vote > 0 && patch.vote <= 1 ? { ...rest, vote: { majorite: patch.vote } } : rest;
+    }
+    if (patch.brevets !== undefined) {
+      const { regle: _regle, ...rest } = next;
+      if (patch.brevets) {
+        const min = Math.max(1, Math.round(patch.brevets.min));
+        const series = Math.min(min, Math.max(1, Math.round(patch.brevets.series)));
+        next = { ...rest, regle: { kind: "brevets", min, series } };
+      } else {
+        next = rest;
+      }
+    }
+    return next;
+  });
+}

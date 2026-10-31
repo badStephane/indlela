@@ -11,6 +11,7 @@ import { ceremonies, CURRENT_CADRE, fullName, type Validation } from "@/lib/mock
 import { critStatus, isValidated, plural, progressOf } from "@/lib/progress";
 import type { PreuveUnite } from "@/lib/effective";
 import { fmtDayMonth, fmtShort, toISODate } from "@/lib/dates";
+import { jeuneHref } from "@/lib/routes";
 
 /** Preuves cochées, avec la façon dont le jeune les a réussies. */
 type Selection = Record<string, string>;
@@ -28,7 +29,7 @@ export default function Valider() {
   const [sel, setSel] = useState<Selection>({});
   const [date, setDate] = useState(() => toISODate(new Date()));
   const submitted = useRef(false);
-  const back = useBack(j ? `/jeunes/${j.id}` : "/unite");
+  const back = useBack(j ? jeuneHref(j.id) : "/unite");
   if (!ok) return null;
 
   const { vals, offline, steps } = store;
@@ -71,7 +72,7 @@ export default function Valider() {
     <AppShell
       kicker={`Valider · ${fullName(j)}`}
       title={p.step.name}
-      back={`/jeunes/${j.id}`}
+      back={jeuneHref(j.id)}
       branch={j.branche}
       banner
       foot={{

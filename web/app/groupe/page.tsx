@@ -10,6 +10,7 @@ import { BRANCHES, BRANCH_COLORS, type BranchCode } from "@/lib/referentiels";
 import { ageOf, ceremonies, fullName, GROUP_OTHER_UNITS, GROUPE } from "@/lib/mock";
 import { lastValidationDays, progressOf } from "@/lib/progress";
 import { fmtDayMonth, LONG_MONTHS, fromISODate } from "@/lib/dates";
+import { jeuneHref } from "@/lib/routes";
 
 const segsOf = (b: BranchCode, counts: number[]): Seg[] =>
   BRANCHES[b].steps.map((s, k) => ({ label: s.name, count: counts[k], color: mix(BRANCH_COLORS[b].acc, SEG_SHADES[k]) }));
@@ -132,7 +133,7 @@ export default function Groupe() {
         <Section label={`À remettre · cérémonies de ${moisCeremonies}`} gap="gap-2.5">
           <List>
             {award.map(({ j, p }) => (
-              <button key={j.id} type="button" onClick={() => router.push(`/jeunes/${j.id}`)} className={`${rowClass} min-h-14 justify-between gap-3 py-2`}>
+              <button key={j.id} type="button" onClick={() => router.push(jeuneHref(j.id))} className={`${rowClass} min-h-14 justify-between gap-3 py-2`}>
                 <span className="flex min-w-0 flex-col">
                   <span className="text-[15px] font-semibold">{fullName(j)}</span>
                   <span className="text-[12px] text-muted">Troupe · cour d&apos;honneur du {fmtDayMonth(courHonneur)}</span>

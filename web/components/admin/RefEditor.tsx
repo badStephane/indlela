@@ -7,7 +7,8 @@
 import { useEffect, useState, type KeyboardEvent } from "react";
 import { cx } from "@/components/ui";
 import { uuid } from "@/lib/mock";
-import { MAX_LABEL, addDomaine, addPreuve, moveDomaine, movePreuve, updateDomaine, updateEtape, updatePreuve } from "@/lib/refEditor";
+import { MAX_LABEL, addDomaine, addPreuve, moveDomaine, movePreuve, updateDomaine, updateEtape, updateEtapeRegles, updatePreuve } from "@/lib/refEditor";
+import { MAJORITES } from "@/lib/courHonneur";
 import type { Domaine, Etape, Preuve } from "@/lib/referentiels";
 
 export type Edit = (fn: (steps: Etape[]) => Etape[]) => void;
@@ -107,11 +108,7 @@ export function EtapeEditor({ step, index, edit, isOpen, onOpen }: { step: Etape
               <EditableText label="Règle affichée" allowEmpty value={step.rule ?? ""} onCommit={(rule) => edit((s) => updateEtape(s, step.id, { rule }))} />
             </Field>
           </div>
-          {brevets && (
-            <span className="rounded-ui bg-paper px-3 py-2 text-[13px] text-muted text-pretty">
-              Règle calculée : au moins {step.regle!.min} brevets dans {step.regle!.series} séries. Chaque série est un domaine, chaque brevet une preuve.
-            </span>
-          )}
+          <ReglesEditor step={step} edit={edit} />
           {step.domaines.map((d, i) => (
             <DomaineEditor key={d.id} d={d} brevets={brevets} edit={edit} first={i === 0} last={i === step.domaines.length - 1} />
           ))}
@@ -191,6 +188,50 @@ function PreuveEditor({ x, edit, first, last }: { x: Preuve; edit: Edit; first: 
       <EditableText label={`Libellé : ${x.label}`} value={x.label} onCommit={(label) => edit((s) => updatePreuve(s, x.id, { label }))} className={cx("flex-1", x.archive && "line-through")} />
       <MoveButtons name={x.label} first={first} last={last} onMove={(delta) => edit((s) => movePreuve(s, x.id, delta))} />
       <ArchiveButton archived={x.archive} onToggle={() => edit((s) => updatePreuve(s, x.id, { archive: !x.archive }))} />
+    </div>
+  );
+}
+
+/** Règles de passage de l'étape : vote secret de la cour d'honneur, validation par brevets. */
+function ReglesEditor({ step, edit }: { step: Etape; edit: Edit }) {
+  const regle = step.regle;
+  const setBrevets = (min: number, series: number) => edit((s) => updateEtapeRegles(s, step.id, { brevets: { min, series } }));
+  return (
+    <div className="flex flex-col gap-2.5 rounded-ui bg-paper px-3 py-2.5">
+      <span className="text-[12px] font-semibold text-muted">Règles de passage</span>
+      <label className="flex flex-wrap items-center justify-between gap-2 text-[13px]">
+        Vote secret de la cour d&apos;honneur
+        <select
+          value={step.vote ? String(MAJORITES.find((m) => Math.abs(m.value - step.vote!.majorite) < 0.01)?.value ?? step.vote.majorite) : "0"}
+          onChange={(e) => edit((s) => updateEtapeRegles(s, step.id, { vote: Number(e.target.value) || null }))}
+          className="h-9 rounded-ui border border-line-strong bg-surface px-2 text-[13px] text-ink"
+        >
+          <option value="0">Pas de vote</option>
+          {MAJORITES.map((m) => (
+            <option key={m.label} value={String(m.value)}>
+              {m.label} des voix
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="flex min-h-9 items-center gap-2.5 text-[13px]">
+        <input
+          type="checkbox"
+          checked={!!regle}
+          onChange={(e) => edit((s) => updateEtapeRegles(s, step.id, { brevets: e.target.checked ? { min: 3, series: 2 } : null }))}
+          className="h-4 w-4 accent-[var(--acc)]"
+        />
+        Étape validée par brevets (chaque domaine est une série)
+      </label>
+      {regle && (
+        <div className="flex flex-wrap items-center gap-2 text-[13px]">
+          Au moins
+          <input type="number" min={1} max={20} value={regle.min} onChange={(e) => setBrevets(Number(e.target.value), regle.series)} aria-label="Nombre de brevets" className="h-9 w-16 rounded-ui border border-line-strong bg-surface px-2 text-ink" />
+          brevets, dans
+          <input type="number" min={1} max={regle.min} value={regle.series} onChange={(e) => setBrevets(regle.min, Number(e.target.value))} aria-label="Nombre de séries" className="h-9 w-16 rounded-ui border border-line-strong bg-surface px-2 text-ink" />
+          séries différentes
+        </div>
+      )}
     </div>
   );
 }

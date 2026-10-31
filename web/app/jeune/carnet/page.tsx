@@ -9,6 +9,7 @@ import { progressOf } from "@/lib/progress";
 import { preuveLabel } from "@/lib/effective";
 import { dateReconnue, historique } from "@/lib/courHonneur";
 import { fmtFull, fmtShort } from "@/lib/dates";
+import { jeuneHref } from "@/lib/routes";
 
 // Aperçu du carnet. En production, le PDF est généré par le serveur (même rendu
 // sur tous les téléphones) ; ici, « Télécharger » passe par l'impression du navigateur.
@@ -30,7 +31,7 @@ export default function Carnet() {
     <AppShell
       kicker="Carnet PDF"
       title={name}
-      back={`/jeunes/${j.id}`}
+      back={jeuneHref(j.id)}
       branch={j.branche}
       foot={{
         label: offline ? "Téléchargement indisponible" : "Télécharger le PDF",

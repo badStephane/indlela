@@ -31,6 +31,17 @@ export interface DecisionInput {
   parentsConsultes?: boolean;
 }
 
+/** Majorités proposées à l'admin pour un vote secret. */
+export const MAJORITES = [
+  { value: 0.5, label: "la moitié" },
+  { value: 2 / 3, label: "2/3" },
+  { value: 0.75, label: "3/4" },
+];
+
+export function majoriteLabel(majorite: number): string {
+  return MAJORITES.reduce((best, m) => (Math.abs(m.value - majorite) < Math.abs(best.value - majorite) ? m : best)).label;
+}
+
 /** Les voix pour atteignent la majorité demandée (3/4 : 6 sur 8, 6 sur 7). */
 export function majoriteAtteinte(presents: number, voixPour: number, majorite: number): boolean {
   if (!Number.isInteger(presents) || !Number.isInteger(voixPour) || presents <= 0 || voixPour < 0 || voixPour > presents) return false;
@@ -48,7 +59,7 @@ export function decisionPossible(step: Etape, input: DecisionInput): { ok: true 
   if (!input.tousPresents) return { ok: false, raison: "Tous les membres de la cour d'honneur doivent être présents." };
   if (!input.parentsConsultes) return { ok: false, raison: "L'avis des parents (et des professeurs ou du patron) doit être recueilli." };
   if (!majoriteAtteinte(input.presents ?? 0, input.voixPour ?? 0, step.vote.majorite)) {
-    return { ok: false, raison: `Il faut au moins ${Math.round(step.vote.majorite * 4)}/4 des voix des présents.` };
+    return { ok: false, raison: `Il faut au moins ${majoriteLabel(step.vote.majorite)} des voix des présents.` };
   }
   return { ok: true };
 }

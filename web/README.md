@@ -12,6 +12,10 @@ npm test           # logique de progression et lecture des listes (Vitest)
 npm run build && npm start
 ```
 
+## Hors connexion
+
+Le service worker (`public/sw.js`, généré à chaque `npm run build` depuis `scripts/sw.template.js`) met en cache toutes les pages à l'installation. Les écrans d'un jeune sont des pages fixes (`/jeune?id=…`) : ils s'ouvrent sans réseau pour n'importe quel jeune, même ajouté sur le téléphone. Chaque build porte son numéro de version : la nouvelle version s'installe et remplace l'ancien cache.
+
 ## Écrans
 
 | Route | Écran | Rôle |
@@ -20,12 +24,12 @@ npm run build && npm start
 | `/unite` | 2 · Accueil de l'unité | cadre, chef de groupe |
 | `/unite/ajouter` | Ajouter des jeunes (un par un ou liste collée), avec leur étape | cadre, chef de groupe |
 | `/unite/epreuves` | Épreuves de l'unité : retirer une épreuve au choix, ajouter les siennes | cadre |
-| `/jeunes/[id]` | 3 · Fiche du jeune (lecture seule pour les parents) | cadre, chef de groupe, parent |
-| `/jeunes/[id]/valider` | 4 · Validation | cadre, chef de groupe |
-| `/jeunes/[id]/cour` | Cour d'honneur : décision, observations, nom du CT ; vote aux 3/4 pour Animateur | cadre, chef de groupe |
+| `/jeune?id=…` | 3 · Fiche du jeune (lecture seule pour les parents) | cadre, chef de groupe, parent |
+| `/jeune/valider?id=…` | 4 · Validation | cadre, chef de groupe |
+| `/jeune/cour?id=…` | Cour d'honneur : décision, observations, nom du CT ; vote aux 3/4 pour Animateur | cadre, chef de groupe |
 | `/unite/tableau-de-bord` | 5 · Tableau de bord | cadre |
 | `/groupe` | 6 · Vue groupe | chef de groupe |
-| `/jeunes/[id]/carnet` | 7 · Carnet PDF | cadre, chef de groupe, parent |
+| `/jeune/carnet?id=…` | 7 · Carnet PDF | cadre, chef de groupe, parent |
 | `/famille` | 8 · Espace famille | parent |
 | `/admin/referentiels` | 9 · Référentiels | admin |
 

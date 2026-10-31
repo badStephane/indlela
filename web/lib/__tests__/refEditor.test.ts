@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BRANCHES, type Etape } from "../referentiels";
-import { addDomaine, addEtape, addPreuve, moveDomaine, movePreuve, updateDomaine, updateEtape, updatePreuve } from "../refEditor";
+import { addDomaine, addEtape, addPreuve, moveDomaine, movePreuve, updateDomaine, updateEtape, updateEtapeRegles, updatePreuve } from "../refEditor";
 
 const base = (): Etape[] => BRANCHES.troupe.steps;
 const step = (steps: Etape[], id: string) => steps.find((s) => s.id === id)!;
@@ -62,5 +62,16 @@ describe("éditeur de référentiel", () => {
     expect(step(updateEtape(base(), "tr.vol", { name: "Aspirant" }), "tr.vol").name).toBe("Aspirant");
     const next = addEtape([], "Compagnon", "e1");
     expect(next).toEqual([{ id: "e1", name: "Compagnon", val: "", domaines: [] }]);
+  });
+
+  it("règle le vote secret d'une étape, ou le retire", () => {
+    expect(step(updateEtapeRegles(base(), "tr.eng", { vote: 2 / 3 }), "tr.eng").vote).toEqual({ majorite: 2 / 3 });
+    expect(step(updateEtapeRegles(base(), "tr.ani", { vote: null }), "tr.ani").vote).toBeUndefined();
+  });
+
+  it("règle les brevets demandés, avec au moins 1 brevet et pas plus de séries que de brevets", () => {
+    expect(step(updateEtapeRegles(base(), "tr.tec", { brevets: { min: 4, series: 3 } }), "tr.tec").regle).toEqual({ kind: "brevets", min: 4, series: 3 });
+    expect(step(updateEtapeRegles(base(), "tr.tec", { brevets: { min: 0, series: 5 } }), "tr.tec").regle).toEqual({ kind: "brevets", min: 1, series: 1 });
+    expect(step(updateEtapeRegles(base(), "tr.tec", { brevets: null }), "tr.tec").regle).toBeUndefined();
   });
 });

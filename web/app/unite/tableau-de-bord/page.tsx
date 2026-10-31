@@ -9,6 +9,7 @@ import { useStore, useTroupe } from "@/lib/store";
 import { ceremonies, fullName } from "@/lib/mock";
 import { lastValidationDays, progressOf } from "@/lib/progress";
 import { fmtDayMonth } from "@/lib/dates";
+import { jeuneHref } from "@/lib/routes";
 
 export default function TableauDeBord() {
   const ok = useGuard((r) => r === "cadre");
@@ -32,7 +33,7 @@ export default function TableauDeBord() {
     .filter((o) => o.days >= 30)
     .sort((a, b) => b.days - a.days);
   const award = rows.filter((r) => r.p.complete);
-  const open = (id: string) => () => router.push(`/jeunes/${id}`);
+  const open = (id: string) => () => router.push(jeuneHref(id));
 
   return (
     <AppShell kicker="Troupe Saint-Paul" title="Tableau de bord">

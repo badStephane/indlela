@@ -11,6 +11,7 @@ import { ageOf, ceremonies, dateRemise, fullName, historiqueUnites, type Jeune }
 import { critStatus, isValidated, pct, plural, progressOf, type CritStatus, type DomaineProgress, type Progress } from "@/lib/progress";
 import { fmtDayMonth, fmtShort, fmtWhen } from "@/lib/dates";
 import { dateReconnue, historique, type Reconnaissance } from "@/lib/courHonneur";
+import { jeuneHref } from "@/lib/routes";
 
 export default function Fiche() {
   const { ok, j, home } = useJeuneRoute();
@@ -31,7 +32,7 @@ export default function Fiche() {
       back={home}
       branch={j.branche}
       banner
-      foot={cadre && p.step ? { label: p.brevets ? "Valider des brevets" : "Valider des preuves", onClick: () => router.push(`/jeunes/${j.id}/valider`) } : undefined}
+      foot={cadre && p.step ? { label: p.brevets ? "Valider des brevets" : "Valider des preuves", onClick: () => router.push(jeuneHref(j.id, "valider")) } : undefined}
     >
       <div className="flex flex-col gap-[22px] px-4 pb-6 pt-[18px]">
         <div className="flex flex-col gap-1">
@@ -69,7 +70,7 @@ export default function Fiche() {
             {cadre && (
               <button
                 type="button"
-                onClick={() => router.push(`/jeunes/${j.id}/cour`)}
+                onClick={() => router.push(jeuneHref(j.id, "cour"))}
                 className={cx(
                   "h-11 rounded-ui text-[14px] font-bold",
                   p.complete ? "bg-acc text-acc-ink" : "border border-line-strong bg-transparent text-muted",
@@ -133,7 +134,7 @@ export default function Fiche() {
           </div>
         </Section>
 
-        <OutlineButton onClick={() => router.push(`/jeunes/${j.id}/carnet`)} className="h-12 bg-surface text-[15px]">
+        <OutlineButton onClick={() => router.push(jeuneHref(j.id, "carnet"))} className="h-12 bg-surface text-[15px]">
           Voir le carnet PDF
         </OutlineButton>
       </div>

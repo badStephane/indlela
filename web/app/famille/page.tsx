@@ -10,6 +10,7 @@ import { BRANCHES, BRANCH_COLORS } from "@/lib/referentiels";
 import { FAMILLE, fullName } from "@/lib/mock";
 import { lastValidationDays, pct, progressOf } from "@/lib/progress";
 import { daysAgo, fmtShort, toISODate } from "@/lib/dates";
+import { jeuneHref } from "@/lib/routes";
 
 export default function Famille() {
   const ok = useGuard((r) => r === "parent");
@@ -53,10 +54,10 @@ export default function Famille() {
                   Dernière validation : {l === 0 ? "aujourd'hui" : l === 999 ? "aucune" : fmtShort(toISODate(daysAgo(l)))}
                 </span>
                 <div className="mt-1 grid grid-cols-2 gap-2">
-                  <OutlineButton onClick={() => router.push(`/jeunes/${id}`)} className="h-11 bg-transparent text-[14px]">
+                  <OutlineButton onClick={() => router.push(jeuneHref(id))} className="h-11 bg-transparent text-[14px]">
                     Voir la fiche
                   </OutlineButton>
-                  <OutlineButton onClick={() => router.push(`/jeunes/${id}/carnet`)} className="h-11 bg-transparent text-[14px]">
+                  <OutlineButton onClick={() => router.push(jeuneHref(id, "carnet"))} className="h-11 bg-transparent text-[14px]">
                     Carnet PDF
                   </OutlineButton>
                 </div>

@@ -9,8 +9,9 @@ import { useBack } from "@/lib/nav";
 import { useStore } from "@/lib/store";
 import { CURRENT_CADRE, fullName } from "@/lib/mock";
 import { progressOf } from "@/lib/progress";
-import { decisionPossible, etapeSuivante, majoriteAtteinte, type Decision } from "@/lib/courHonneur";
+import { decisionPossible, etapeSuivante, majoriteAtteinte, majoriteLabel, type Decision } from "@/lib/courHonneur";
 import { toISODate } from "@/lib/dates";
+import { jeuneHref } from "@/lib/routes";
 
 const fieldClass = "h-11 rounded-ui border border-line-strong bg-surface px-3 text-[15px] font-normal text-ink outline-none focus:border-ink";
 const MAX_OBS = 1000;
@@ -29,7 +30,7 @@ export default function CourHonneur() {
   const [tousPresents, setTousPresents] = useState(false);
   const [parentsConsultes, setParentsConsultes] = useState(false);
   const submitted = useRef(false);
-  const back = useBack(j ? `/jeunes/${j.id}` : "/unite");
+  const back = useBack(j ? jeuneHref(j.id) : "/unite");
   if (!ok) return null;
 
   const p = progressOf(j, store.steps, store.vals);
@@ -52,7 +53,7 @@ export default function CourHonneur() {
     <AppShell
       kicker={`Cour d'honneur · ${fullName(j)}`}
       title={step.name}
-      back={`/jeunes/${j.id}`}
+      back={jeuneHref(j.id)}
       branch={j.branche}
       banner
       foot={{
@@ -95,7 +96,7 @@ export default function CourHonneur() {
 
         {vote && (
           <fieldset className="m-0 flex flex-col gap-3 rounded-card border border-line bg-surface p-3.5">
-            <legend className="px-1 text-[13px] font-semibold">Vote secret · {Math.round(vote.majorite * 4)}/4 des voix</legend>
+            <legend className="px-1 text-[13px] font-semibold">Vote secret · {majoriteLabel(vote.majorite)} des voix</legend>
             <div className="grid grid-cols-2 gap-2">
               <label className="flex flex-col gap-1 text-[12px] font-semibold text-muted">
                 Membres présents

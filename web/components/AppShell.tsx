@@ -1,13 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import type { CSSProperties, ReactNode } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import { BRANCH_COLORS, type BranchCode } from "@/lib/referentiels";
 import { useStore, useSheetTarget, type Role } from "@/lib/store";
 import { useBack } from "@/lib/nav";
 import { fmtWhen } from "@/lib/dates";
 import { plural } from "@/lib/progress";
 import { cx } from "./ui";
+import { ConfirmSheet } from "./ConfirmSheet";
+import { DEMO } from "@/lib/demo";
 
 const TABS: Record<Role, [string, string][]> = {
   cadre: [
@@ -91,10 +93,13 @@ export function AppShell({
     store.setLastTab(href);
     router.push(href);
   };
-  const quit = () => {
+  const [confirmQuit, setConfirmQuit] = useState(false);
+  const doQuit = () => {
     store.logout();
     router.replace("/connexion");
   };
+  // Hors démo, quitter efface le téléphone : on prévient si des saisies attendent encore.
+  const quit = () => (!DEMO && pending ? setConfirmQuit(true) : doQuit());
   // Le toast se place au-dessus du pied d'action et de la barre d'onglets (absente sur ordinateur).
   const toastOffsets = {
     "--toast-b": `calc(${foot ? 150 : 72}px + env(safe-area-inset-bottom))`,
@@ -127,6 +132,11 @@ export function AppShell({
           </button>
         </header>
 
+        {store.storageErr && (
+          <div role="alert" className="no-print flex-none bg-err-bg px-4 py-[9px] text-[13px] font-semibold text-err-ink text-pretty lg:px-6">
+            Ce téléphone n&apos;enregistre plus les saisies (mémoire pleine ou navigation privée). Retrouvez du réseau avant de fermer l&apos;application.
+          </div>
+        )}
         {banner && offline && <div className="no-print flex-none bg-wait-bg px-4 py-[9px] text-[13px] text-wait-ink text-pretty lg:px-6">{bannerText}</div>}
 
         <main className="min-h-0 flex-1 overflow-y-auto">
@@ -174,6 +184,23 @@ export function AppShell({
         </nav>
 
         <CancelSheet />
+        {confirmQuit && (
+          <ConfirmSheet
+            title="Quitter sans envoyer ?"
+            cancelLabel="Rester"
+            confirmLabel="Quitter quand même"
+            onCancel={() => setConfirmQuit(false)}
+            onConfirm={() => {
+              setConfirmQuit(false);
+              doQuit();
+            }}
+          >
+            <span className="text-[14px] text-muted text-pretty">
+              {pending} {plural(pending, "saisie n'a pas encore été envoyée", "saisies n'ont pas encore été envoyées")}. En quittant, elles sont effacées de ce
+              téléphone avec le reste du carnet.
+            </span>
+          </ConfirmSheet>
+        )}
 
         {toast && (
           <div
@@ -238,35 +265,22 @@ function CancelSheet() {
   const { v, label } = target;
   const when = fmtWhen(v.date);
   return (
-    <div className="no-print absolute inset-0 z-[5] flex items-end bg-[rgba(15,18,16,.45)] lg:items-center lg:justify-center lg:p-6" onClick={store.closeSheet}>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="sheet-title"
-        onClick={(e) => e.stopPropagation()}
-        className="flex w-full flex-col gap-3 rounded-t-sheet bg-surface px-[18px] pb-[max(22px,env(safe-area-inset-bottom))] pt-5 lg:max-w-[440px] lg:rounded-sheet lg:px-6 lg:pb-6"
-      >
-        <span id="sheet-title" className="text-[19px] font-extrabold">
-          Annuler cette validation ?
+    <ConfirmSheet
+      title="Annuler cette validation ?"
+      cancelLabel="Garder"
+      confirmLabel="Annuler la validation"
+      onCancel={store.closeSheet}
+      onConfirm={() => store.cancelValidation(v.id)}
+    >
+      <div className="flex flex-col gap-0.5 rounded-ui bg-paper px-3 py-2.5">
+        <span className="text-[15px] font-semibold">{label}</span>
+        <span className="font-mono text-[12px] text-muted">
+          {when === "Aujourd'hui" ? when : `Validé le ${when}`} · {v.validePar}
         </span>
-        <div className="flex flex-col gap-0.5 rounded-ui bg-paper px-3 py-2.5">
-          <span className="text-[15px] font-semibold">{label}</span>
-          <span className="font-mono text-[12px] text-muted">
-            {when === "Aujourd'hui" ? when : `Validé le ${when}`} · {v.validePar}
-          </span>
-        </div>
-        <span className="text-[14px] text-muted text-pretty">
-          La validation n&apos;est pas effacée : elle reste dans le journal avec la date d&apos;annulation et votre nom. Le critère redevient à valider.
-        </span>
-        <div className="mt-1 grid grid-cols-2 gap-2">
-          <button type="button" onClick={store.closeSheet} className="h-[50px] rounded-ui border border-line-strong bg-transparent text-[15px] font-bold text-ink">
-            Garder
-          </button>
-          <button type="button" onClick={() => store.cancelValidation(v.id)} className="h-[50px] rounded-ui bg-danger text-[15px] font-bold text-white">
-            Annuler la validation
-          </button>
-        </div>
       </div>
-    </div>
+      <span className="text-[14px] text-muted text-pretty">
+        La validation n&apos;est pas effacée : elle reste dans le journal avec la date d&apos;annulation et votre nom. La preuve redevient à réussir.
+      </span>
+    </ConfirmSheet>
   );
 }

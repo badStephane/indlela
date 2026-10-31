@@ -43,6 +43,8 @@ export interface Validation {
   annuleePar?: string;
   /** Lot de saisie, pour « Annuler » juste après la confirmation. */
   batch?: string;
+  /** Version du référentiel de la branche au moment de la validation. */
+  refVersion?: number;
   updatedAt: string;
 }
 
