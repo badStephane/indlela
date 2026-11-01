@@ -166,10 +166,10 @@ export function Accueil() {
           <div className="flex gap-5 border-l-[3px] border-sun pl-6 sm:pl-10">
             <div>
               <blockquote className="max-w-[30ch] text-[24px] font-bold leading-[1.25] tracking-[-0.01em] text-forest text-pretty sm:text-[34px]">
-                « Notre règle pour l&apos;obtention des badges n&apos;est pas d&apos;atteindre un certain niveau de qualité, mais l&apos;effort fourni par chacun. »
+                « Rester immobile ne sert à rien. Il faut choisir entre progresser ou régresser. Allons donc de l&apos;avant et le sourire aux lèvres. »
               </blockquote>
               <figcaption className="mt-5 text-[15px] text-muted">
-                Robert Baden-Powell, <cite>B.-P.&apos;s Outlook</cite> (traduit de l&apos;anglais)
+                Robert Baden-Powell
               </figcaption>
             </div>
           </div>
