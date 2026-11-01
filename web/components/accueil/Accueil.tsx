@@ -1,5 +1,6 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
+import { Paysage, VignetteCompte, VignetteProtection, VignetteSansReseau } from "./Illustrations";
 
 // Page publique d'Indlela : ce qu'est le carnet, qui y fait quoi, puis la connexion.
 // Le seul geste visuel est le sentier du haut, celui de l'application.
@@ -11,7 +12,8 @@ const AVANCEMENT = 0.5;
 const PROGRESSION: { titre: string; texte: string }[] = [
   {
     titre: "Une étape à la fois",
-    texte: "Volontaire, Engagé, Technicien, Animateur pour la troupe ; Patte tendre, étoiles et brevets pour la meute. Chaque étape a ses domaines et ses preuves, tirés du carnet officiel.",
+    texte:
+      "Volontaire, Engagé, Technicien, Animateur pour la troupe ; Patte tendre, étoiles et brevets pour la meute. Chaque étape a ses domaines et ses preuves, tirés du carnet officiel.",
   },
   {
     titre: "Des preuves validées en réunion",
@@ -35,10 +37,22 @@ const ROLES: { role: string; texte: string }[] = [
   { role: "Administrateur", texte: "Crée les comptes, enregistre les consentements et gère les unités du groupe." },
 ];
 
-const PRATIQUE: { titre: string; texte: string }[] = [
-  { titre: "Fonctionne sans réseau", texte: "Les saisies restent sur le téléphone et partent dès que le réseau revient. L'application s'installe sur l'écran d'accueil." },
-  { titre: "Pas d'inscription", texte: "Chaque compte est créé par l'administrateur du groupe, qui remet l'identifiant et le mot de passe en main propre." },
-  { titre: "Les fiches des jeunes sont protégées", texte: "Chacun ne voit que ce qui le concerne. Les responsables se connectent avec un second facteur." },
+const PRATIQUE: { titre: string; texte: string; Vignette: ComponentType<{ className?: string }> }[] = [
+  {
+    Vignette: VignetteSansReseau,
+    titre: "Fonctionne sans réseau",
+    texte: "Les saisies restent sur le téléphone et partent dès que le réseau revient. L'application s'installe sur l'écran d'accueil.",
+  },
+  {
+    Vignette: VignetteCompte,
+    titre: "Pas d'inscription",
+    texte: "Chaque compte est créé par l'administrateur du groupe, qui remet l'identifiant et le mot de passe en main propre.",
+  },
+  {
+    Vignette: VignetteProtection,
+    titre: "Les fiches des jeunes sont protégées",
+    texte: "Chacun ne voit que ce qui le concerne. Les responsables se connectent avec un second facteur.",
+  },
 ];
 
 function Connexion({ children, clair = false }: { children: ReactNode; clair?: boolean }) {
@@ -62,9 +76,20 @@ function Sentier() {
   const soleil = `${((1 + AVANCEMENT) / (ETAPES_TROUPE.length - 1)) * 100}%`;
   return (
     <figure className="mt-14 sm:mt-20">
-      <div className="relative mx-3 h-6 sm:mx-6" role="img" aria-label="Les étapes de la troupe : Volontaire, Engagé, Technicien, Animateur. Exemple d'un jeune engagé, à mi-chemin du Technicien.">
-        <span aria-hidden className="absolute inset-x-0 top-1/2 h-[3px] -translate-y-1/2 rounded-full [background:repeating-linear-gradient(90deg,rgba(255,255,255,.35)_0_6px,transparent_6px_12px)]" />
-        <span aria-hidden className="absolute left-0 top-1/2 h-[4px] -translate-y-1/2 rounded-full bg-forest-muted motion-safe:animate-[sentier_1.6s_cubic-bezier(.3,.7,.3,1)_.2s_both]" style={{ width: soleil }}>
+      <div
+        className="relative mx-3 h-6 sm:mx-6"
+        role="img"
+        aria-label="Les étapes de la troupe : Volontaire, Engagé, Technicien, Animateur. Exemple d'un jeune engagé, à mi-chemin du Technicien."
+      >
+        <span
+          aria-hidden
+          className="absolute inset-x-0 top-1/2 h-[3px] -translate-y-1/2 rounded-full [background:repeating-linear-gradient(90deg,rgba(255,255,255,.35)_0_6px,transparent_6px_12px)]"
+        />
+        <span
+          aria-hidden
+          className="absolute left-0 top-1/2 h-[4px] -translate-y-1/2 rounded-full bg-forest-muted motion-safe:animate-[sentier_1.6s_cubic-bezier(.3,.7,.3,1)_.2s_both]"
+          style={{ width: soleil }}
+        >
           <span className="absolute right-0 top-1/2 h-6 w-6 -translate-y-1/2 translate-x-1/2 rounded-full bg-sun ring-[6px] ring-sun/25" />
         </span>
         {ETAPES_TROUPE.map((nom, k) => (
@@ -105,13 +130,20 @@ export function Accueil() {
       <main>
         <section className="bg-forest text-white">
           <div className="mx-auto max-w-[1080px] px-5 pb-14 pt-14 sm:px-8 sm:pb-20 sm:pt-24">
-            <h1 className="max-w-[16ch] text-[40px] font-extrabold leading-[1.02] tracking-[-0.03em] text-balance sm:text-[68px]">Le chemin de chaque jeune, étape par étape.</h1>
-            <p className="mt-6 max-w-[58ch] text-[17px] leading-[1.55] text-forest-muted sm:text-[19px]">
-              Indlela est le carnet de progression de votre groupe scout. Les cadres y valident les preuves pendant la réunion, la cour d&apos;honneur y reconnaît les
-              étapes, et les parents suivent la progression de leur enfant.
-            </p>
-            <div className="mt-9">
-              <Connexion clair>Se connecter</Connexion>
+            <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_420px] lg:items-end lg:gap-12">
+              <div>
+                <h1 className="max-w-[16ch] text-[40px] font-extrabold leading-[1.02] tracking-[-0.03em] text-balance sm:text-[68px]">
+                  Le chemin de chaque jeune, étape par étape.
+                </h1>
+                <p className="mt-6 max-w-[58ch] text-[17px] leading-[1.55] text-forest-muted sm:text-[19px]">
+                  Indlela est le carnet de progression de votre groupe scout. Les cadres y valident les preuves pendant la réunion, la cour d&apos;honneur y reconnaît les
+                  étapes, et les parents suivent la progression de leur enfant.
+                </p>
+                <div className="mt-9">
+                  <Connexion clair>Se connecter</Connexion>
+                </div>
+              </div>
+              <Paysage className="mx-auto mt-12 w-full max-w-[420px] lg:mt-0" />
             </div>
             <Sentier />
           </div>
@@ -130,11 +162,26 @@ export function Accueil() {
           </ol>
         </section>
 
+        <figure className="mx-auto max-w-[1080px] px-5 pb-16 sm:px-8 sm:pb-24">
+          <div className="flex gap-5 border-l-[3px] border-sun pl-6 sm:pl-10">
+            <div>
+              <blockquote className="max-w-[30ch] text-[24px] font-bold leading-[1.25] tracking-[-0.01em] text-forest text-pretty sm:text-[34px]">
+                « Notre règle pour l&apos;obtention des badges n&apos;est pas d&apos;atteindre un certain niveau de qualité, mais l&apos;effort fourni par chacun. »
+              </blockquote>
+              <figcaption className="mt-5 text-[15px] text-muted">
+                Robert Baden-Powell, <cite>B.-P.&apos;s Outlook</cite> (traduit de l&apos;anglais)
+              </figcaption>
+            </div>
+          </div>
+        </figure>
+
         <section className="border-y border-line bg-surface">
           <div className="mx-auto grid max-w-[1080px] gap-10 px-5 py-16 sm:px-8 sm:py-24 lg:grid-cols-[minmax(0,320px)_1fr]">
             <div>
               <h2 className="text-[28px] font-extrabold tracking-[-0.02em] sm:text-[36px]">Qui fait quoi</h2>
-              <p className="mt-3 max-w-[36ch] text-[15px] leading-[1.55] text-muted">Chaque compte a ses rôles. Une même personne peut en cumuler plusieurs, sauf un compte parent.</p>
+              <p className="mt-3 max-w-[36ch] text-[15px] leading-[1.55] text-muted">
+                Chaque compte a ses rôles. Une même personne peut en cumuler plusieurs, sauf un compte parent.
+              </p>
             </div>
             <dl className="divide-y divide-line">
               {ROLES.map((r) => (
@@ -150,8 +197,9 @@ export function Accueil() {
         <section className="mx-auto max-w-[1080px] px-5 py-16 sm:px-8 sm:py-24">
           <h2 className="text-[28px] font-extrabold tracking-[-0.02em] sm:text-[36px]">Pensé pour le terrain</h2>
           <div className="mt-10 grid gap-9 sm:grid-cols-3">
-            {PRATIQUE.map((p) => (
+            {PRATIQUE.map(({ Vignette, ...p }) => (
               <div key={p.titre} className="flex flex-col gap-2">
+                <Vignette className="mb-2 h-14 w-14" />
                 <h3 className="text-[19px] font-bold leading-tight">{p.titre}</h3>
                 <p className="text-[15px] leading-[1.55] text-muted">{p.texte}</p>
               </div>
