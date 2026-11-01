@@ -12,6 +12,8 @@ import { createClient } from "@supabase/supabase-js";
 // Mêmes règles que lib/auth.ts.
 const DOMAINE_COMPTES = "comptes.indlela.invalid";
 const IDENTIFIANT_RE = /^[a-z0-9.-]{2,60}$/;
+// Mêmes règles que lib/roles.ts : l'admin peut cumuler les autres rôles d'encadrement.
+const ROLES_EN_PLUS = ["groupe", "progression", "cadre"];
 const BRANCHES = [
   ["meute", "Meute"],
   ["troupe", "Troupe"],
@@ -65,11 +67,18 @@ const nom = await question("Nom et prénom de l'administrateur : ");
 const identifiant = (await question("Identifiant de connexion (ex. prenom.nom) : ")).toLowerCase();
 const motDePasse = await question("Mot de passe (10 caractères, lettres et chiffres) : ", true);
 const confirmation = await question("Mot de passe, encore une fois : ", true);
+const autres = (await question(`Autres rôles de ce compte (${ROLES_EN_PLUS.join(", ")}), séparés par des virgules, ou Entrée pour aucun : `))
+  .toLowerCase()
+  .split(",")
+  .map((r) => r.trim())
+  .filter(Boolean);
 
 if (!nomGroupe || !nom) arreter("Le nom du groupe et celui de l'administrateur sont obligatoires.");
 if (!IDENTIFIANT_RE.test(identifiant)) arreter("Identifiant invalide : lettres minuscules, chiffres, points ou tirets.");
 if (motDePasse.length < 10 || !/[a-zA-Z]/.test(motDePasse) || !/\d/.test(motDePasse)) arreter("Mot de passe trop faible.");
 if (motDePasse !== confirmation) arreter("Les deux mots de passe diffèrent.");
+if (!autres.every((r) => ROLES_EN_PLUS.includes(r))) arreter(`Rôle inconnu : choisissez parmi ${ROLES_EN_PLUS.join(", ")}.`);
+const roles = ["admin", ...new Set(autres)];
 
 const { data: groupe, error: errGroupe } = await db.from("groupes").insert({ nom: nomGroupe, paroisse }).select("id").single();
 if (errGroupe) arreter(`Groupe non créé : ${errGroupe.message}`);
@@ -81,7 +90,7 @@ if (errUnites) arreter(`Unités non créées : ${errUnites.message}`);
 const { data: cree, error: errUser } = await db.auth.admin.createUser({ email: `${identifiant}@${DOMAINE_COMPTES}`, password: motDePasse, email_confirm: true });
 if (errUser) arreter(`Compte non créé : ${errUser.message}`);
 
-const { error: errFiche } = await db.from("utilisateurs").insert({ id: cree.user.id, groupe_id: groupe.id, nom, identifiant, role: "admin" });
+const { error: errFiche } = await db.from("utilisateurs").insert({ id: cree.user.id, groupe_id: groupe.id, nom, identifiant, roles });
 if (errFiche) {
   await db.auth.admin.deleteUser(cree.user.id);
   arreter(`Fiche du compte non créée : ${errFiche.message}`);
@@ -97,7 +106,7 @@ await db.from("journal").insert({
   resume: `Groupe ${nomGroupe} et premier administrateur (${nom}) créés`,
 });
 
-console.log(`\nC'est prêt. Connectez-vous avec l'identifiant « ${identifiant} ».`);
+console.log(`\nC'est prêt. Connectez-vous avec l'identifiant « ${identifiant} » (rôles : ${roles.join(", ")}).`);
 console.log("À la première connexion, l'application demandera d'associer une application d'authentification.");
 console.log(`Unités créées pour ${annee} : ${BRANCHES.map(([, l]) => `${l} ${nomGroupe}`).join(", ")}.`);
 rl.close();

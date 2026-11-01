@@ -1,6 +1,6 @@
 // Gestion des comptes par l'administrateur du groupe : ce qui demande la clé secrète
 // (créer l'accès, changer un mot de passe, retirer le second facteur d'un téléphone perdu).
-// Le reste (nom, rôle, activation, affectations) passe par la base, sous la RLS.
+// Le reste (nom, rôles, activation, affectations) passe par la base, sous la RLS.
 //
 // Appel : POST /functions/v1/comptes, en-tête Authorization: Bearer <jeton de l'admin>.
 // L'admin doit être actif et connecté avec son second facteur (aal2).
@@ -16,6 +16,15 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const MAX_NOM = 80;
 
 type Role = (typeof ROLES)[number];
+
+/** Mêmes règles que app.roles_valides et web/lib/roles.ts : rôles connus, sans doublon ; parent seul. */
+function lireRoles(v: unknown): Role[] | null {
+  if (!Array.isArray(v) || v.length === 0) return null;
+  if (!v.every((r): r is Role => typeof r === "string" && (ROLES as readonly string[]).includes(r))) return null;
+  if (new Set(v).size !== v.length) return null;
+  if (v.includes("parent") && v.length > 1) return null;
+  return v;
+}
 
 interface Appelant {
   id: string;
@@ -49,8 +58,8 @@ async function appelant(db: SupabaseClient, req: Request): Promise<Appelant | Re
   const { data, error } = await db.auth.getClaims(jeton);
   if (error || !data?.claims?.sub) return echec(401, "Session expirée. Reconnectez-vous.");
   if (data.claims.aal !== "aal2") return echec(403, "Le second facteur est requis pour gérer les comptes.");
-  const { data: u } = await db.from("utilisateurs").select("id, nom, groupe_id, role, actif").eq("id", data.claims.sub).maybeSingle();
-  if (!u || !u.actif || u.role !== "admin") return echec(403, "Seul l'administrateur du groupe gère les comptes.");
+  const { data: u } = await db.from("utilisateurs").select("id, nom, groupe_id, roles, actif").eq("id", data.claims.sub).maybeSingle();
+  if (!u || !u.actif || !Array.isArray(u.roles) || !u.roles.includes("admin")) return echec(403, "Seul l'administrateur du groupe gère les comptes.");
   return { id: u.id, nom: u.nom, groupe_id: u.groupe_id };
 }
 
@@ -79,11 +88,11 @@ async function journaliser(db: SupabaseClient, admin: Appelant, action: "creatio
 async function creer(db: SupabaseClient, admin: Appelant, body: Record<string, unknown>): Promise<Response> {
   const nom = texte(body.nom);
   const identifiant = texte(body.identifiant).toLowerCase();
-  const role = body.role as Role;
+  const roles = lireRoles(body.roles);
   const motDePasse = typeof body.motDePasse === "string" ? body.motDePasse : "";
   if (!nom || nom.length > MAX_NOM) return echec(400, "Le nom est obligatoire (80 caractères au plus).");
   if (!IDENTIFIANT_RE.test(identifiant)) return echec(400, "Identifiant invalide : lettres minuscules, chiffres, points ou tirets.");
-  if (!ROLES.includes(role)) return echec(400, "Rôle inconnu.");
+  if (!roles) return echec(400, "Rôles invalides : au moins un rôle connu ; un compte parent n'a pas d'autre rôle.");
   if (!motDePasseValide(motDePasse)) return echec(400, "Mot de passe trop faible : 10 caractères au moins, avec des lettres et des chiffres.");
 
   const { data: pris } = await db.from("utilisateurs").select("id").eq("identifiant", identifiant).maybeSingle();
@@ -97,14 +106,14 @@ async function creer(db: SupabaseClient, admin: Appelant, body: Record<string, u
     return echec(500, "Le compte n'a pas pu être créé. Réessayez.");
   }
   const id = cree.data.user.id;
-  const { error } = await db.from("utilisateurs").insert({ id, groupe_id: admin.groupe_id, nom, identifiant, role });
+  const { error } = await db.from("utilisateurs").insert({ id, groupe_id: admin.groupe_id, nom, identifiant, roles });
   if (error) {
     // Pas d'accès sans fiche : on retire l'accès créé plutôt que de laisser un compte orphelin.
     await db.auth.admin.deleteUser(id);
     console.error("utilisateurs", error.message);
     return echec(500, "Le compte n'a pas pu être créé. Réessayez.");
   }
-  await journaliser(db, admin, "creation", id, `Compte ${nom} créé (${role})`, { identifiant, role });
+  await journaliser(db, admin, "creation", id, `Compte ${nom} créé (${roles.join(", ")})`, { identifiant, roles });
   return repondre(201, { ok: true, data: { id, identifiant } });
 }
 

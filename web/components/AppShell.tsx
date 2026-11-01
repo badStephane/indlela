@@ -9,6 +9,7 @@ import { fmtWhen } from "@/lib/dates";
 import { plural } from "@/lib/progress";
 import { cx } from "./ui";
 import { ConfirmSheet } from "./ConfirmSheet";
+import { ChangerEspace } from "./ChangerEspace";
 import { Sheet } from "./Sheet";
 import { DEMO } from "@/lib/demo";
 import { ROLE_LABELS } from "@/lib/admin";
@@ -243,6 +244,7 @@ export function AppShell({
             <span className="-mt-2 text-[14px] text-muted">
               {role && ROLE_LABELS[role]} · {store.groupeNom}
             </span>
+            <ChangerEspace onChange={() => setCompte(false)} />
             <button
               type="button"
               onClick={() => {
@@ -333,15 +335,18 @@ function SideNav({ tabs, current, onOpen, onQuit }: { tabs: Tab[]; current: stri
         })}
       </div>
       {store.role && (
-        <div className="mt-auto flex items-center gap-2.5 border-t border-line px-1 pt-4">
-          <span className="num flex h-9 w-9 flex-none items-center justify-center rounded-full bg-forest text-[12px] font-bold text-white">{initiales(store.userName)}</span>
-          <span className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate text-[14px] font-bold">{store.userName}</span>
-            <span className="text-[12px] leading-tight text-muted">{ROLE_LABELS[store.role]}</span>
-          </span>
-          <button type="button" onClick={onQuit} className="h-9 flex-none rounded-ui px-2 text-[13px] font-bold text-muted hover:bg-paper hover:text-ink">
-            Quitter
-          </button>
+        <div className="mt-auto flex flex-col gap-3 border-t border-line pt-4">
+          <ChangerEspace compact />
+          <div className="flex items-center gap-2.5 px-1">
+            <span className="num flex h-9 w-9 flex-none items-center justify-center rounded-full bg-forest text-[12px] font-bold text-white">{initiales(store.userName)}</span>
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="truncate text-[14px] font-bold">{store.userName}</span>
+              <span className="text-[12px] leading-tight text-muted">{ROLE_LABELS[store.role]}</span>
+            </span>
+            <button type="button" onClick={onQuit} className="h-9 flex-none rounded-ui px-2 text-[13px] font-bold text-muted hover:bg-paper hover:text-ink">
+              Quitter
+            </button>
+          </div>
         </div>
       )}
     </nav>

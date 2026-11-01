@@ -10,13 +10,14 @@ import { del, get, set } from "idb-keyval";
 import { DEMO } from "./demo";
 import { DEMO_USERS, findJeune, fullName, seedJeunes, seedValidations, uuid, type Jeune, type Validation } from "./mock";
 import { GROUPE_DEMO, GROUPE_VIDE, libelleGroupe, nettoyerGroupe, nomGroupe, nomsUnites, renommerUnites, type Groupe, type NomsUnites } from "./groupe";
-import { exigeDeuxFA, SEED_COMPTES, SEED_UNITES, seedJournal, type Compte, type JournalEntry, type Unite } from "./admin";
+import { SEED_COMPTES, SEED_UNITES, seedJournal, type Compte, type JournalEntry, type Unite } from "./admin";
 import { critStatus, isValidated, pendingCount, plural } from "./progress";
 import { toISODate } from "./dates";
 import { BASE_STEPS, EMPTY_ADAPT, domaineOfPreuve, effectiveSteps, preuveLabel, type RefSteps, type StepsByBranch, type UnitAdapt } from "./effective";
 import { REF_TITLES, type BranchCode, type Etape } from "./referentiels";
 import { etapeSuivante, type DecisionInput, type Reconnaissance } from "./courHonneur";
 import { deconnecter, type Moi } from "./session";
+import { espaceInitial, exigeDeuxFARoles, normaliserRoles } from "./roles";
 
 export type Role = "cadre" | "groupe" | "progression" | "parent" | "admin";
 
@@ -139,8 +140,10 @@ interface Store extends Persisted {
   refSteps: RefSteps;
   refVersion: Record<BranchCode, number>;
   enter: (role: Role) => void;
-  /** Ouvre la session d'un compte authentifié par le serveur. */
-  connecter: (moi: Moi) => void;
+  /** Ouvre la session d'un compte authentifié par le serveur ; renvoie l'espace ouvert. */
+  connecter: (moi: Moi) => Role;
+  /** Passe à un autre espace parmi les rôles du compte connecté. */
+  changerEspace: (role: Role) => void;
   logout: () => void;
   setLastTab: (tab: string) => void;
   showToast: (msg: string, undo?: () => void) => void;
@@ -202,13 +205,30 @@ const compteDe = (moi: Moi): Compte => ({
   id: moi.id,
   nom: moi.nom,
   identifiant: moi.identifiant,
-  role: moi.role,
+  roles: moi.roles,
   actif: true,
-  unites: [],
-  enfants: [],
-  deuxFA: exigeDeuxFA(moi.role),
+  unites: moi.unites,
+  enfants: moi.enfants,
+  deuxFA: exigeDeuxFARoles(moi.roles),
   derniereConnexion: null,
 });
+
+/** Fiche enregistrée sur le téléphone avant le cumul des rôles : l'ancien champ role devient roles. */
+function normaliserCompte(c: Compte): Compte {
+  const { role: _ancien, ...reste } = c as Compte & { role?: unknown };
+  return { ...reste, roles: normaliserRoles(c) };
+}
+
+/**
+ * Session enregistrée avant le cumul des rôles ou le chargement des unités : sans rôle lisible,
+ * on la ferme ; sans unités, le compte n'ouvre aucune fiche tant qu'il ne s'est pas reconnecté.
+ */
+function normaliserMoi(m: Moi): Moi | null {
+  const roles = normaliserRoles(m);
+  if (roles.length === 0) return null;
+  const { role: _ancien, ...reste } = m as Moi & { role?: unknown };
+  return { ...reste, roles, unites: m.unites ?? [], enfants: m.enfants ?? [], unitesGroupe: m.unitesGroupe ?? [] };
+}
 
 /** Démo « Unité vide » : retire la troupe, ou remet les jeunes de démo qui manquent. */
 function withDemoTroupe(jeunes: Jeune[], empty: boolean): Jeune[] {
@@ -238,7 +258,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .then((saved) => {
         if (!alive || !saved) return;
         const base = initial();
-        setP({ ...base, ...saved, journal: saved.journal ?? base.journal, ref: { ...initialRef(), ...saved.ref } });
+        setP({
+          ...base,
+          ...saved,
+          comptes: (saved.comptes ?? base.comptes).map(normaliserCompte),
+          moi: saved.moi ? normaliserMoi(saved.moi) : null,
+          journal: saved.journal ?? base.journal,
+          ref: { ...initialRef(), ...saved.ref },
+        });
       })
       .catch(() => alive && setStorageErr(true))
       .finally(() => alive && setHydrated(true));
@@ -549,7 +576,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       refSteps,
       refVersion,
       enter: (role) => setP((s) => ({ ...s, role, moi: null, lastTab: ROLE_HOME[role] })),
-      connecter: (moi) => setP((s) => ({ ...s, role: moi.role, moi, groupe: moi.groupe, lastTab: ROLE_HOME[moi.role] })),
+      connecter: (moi) => {
+        // Le même compte retrouve l'espace qu'il avait ouvert ; sinon, le terrain d'abord.
+        const role = espaceInitial(moi.roles, p.moi?.id === moi.id ? p.role : null);
+        setP((s) => ({
+          ...s,
+          role,
+          moi,
+          groupe: moi.groupe,
+          unites: moi.unitesGroupe.length > 0 ? moi.unitesGroupe : s.unites,
+          lastTab: ROLE_HOME[role],
+        }));
+        return role;
+      },
+      changerEspace: (role) => setP((s) => (s.moi?.roles.includes(role) ? { ...s, role, lastTab: ROLE_HOME[role] } : s)),
       logout: () => {
         setSheet(null);
         hideToast();

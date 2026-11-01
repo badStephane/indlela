@@ -8,6 +8,7 @@ import { versComptes, versUnites, type LigneAffectation, type LigneLien, type Li
 import type { Compte, JournalEntry, Unite } from "./admin";
 import type { Moi } from "./session";
 import type { Role } from "./store";
+import { libelleRoles, lireRoles } from "./roles";
 
 export type Resultat<T> = { ok: true; data: T } | { ok: false; erreur: string };
 
@@ -34,7 +35,7 @@ export async function chargerComptes(): Promise<Resultat<{ comptes: Compte[]; un
   if (!supabase) return NON_CONFIGURE;
   try {
     const [u, a, l, un] = await Promise.all([
-      supabase.from("utilisateurs").select("id, nom, identifiant, role, actif, derniere_connexion").order("nom"),
+      supabase.from("utilisateurs").select("id, nom, identifiant, roles, actif, derniere_connexion").order("nom"),
       supabase.from("affectations_cadres").select("utilisateur_id, unite_id"),
       supabase.from("liens_parent").select("utilisateur_id, jeune_id"),
       supabase.from("unites").select("id, nom, branche, annee, responsable_id").order("branche"),
@@ -52,7 +53,7 @@ export async function chargerComptes(): Promise<Resultat<{ comptes: Compte[]; un
   }
 }
 
-export const creerCompte = (input: { nom: string; identifiant: string; role: Role; motDePasse: string }) =>
+export const creerCompte = (input: { nom: string; identifiant: string; roles: Role[]; motDePasse: string }) =>
   fonction<{ id: string; identifiant: string }>({ action: "creer", ...input });
 
 export const changerMotDePasse = (id: string, motDePasse: string) => fonction<{ id: string }>({ action: "mot-de-passe", id, motDePasse });
@@ -92,6 +93,21 @@ export function changerActif(moi: Moi, c: Compte, actif: boolean): Promise<Resul
     resume: `Compte de ${c.nom} ${actif ? "réactivé" : "désactivé"}`,
     avant: { actif: !actif },
     apres: { actif },
+  });
+}
+
+/** Rôles d'un autre compte (la base refuse que l'admin change les siens). */
+export function changerRoles(moi: Moi, c: Compte, roles: Role[]): Promise<Resultat<null>> {
+  if (!supabase) return Promise.resolve(NON_CONFIGURE);
+  if (c.id === moi.id) return Promise.resolve(echec("Vos propres rôles se changent depuis un autre compte administrateur."));
+  if (!lireRoles(roles)) return Promise.resolve(echec("Rôles invalides : un compte parent n'a pas d'autre rôle."));
+  return ecrire(moi, supabase.from("utilisateurs").update({ roles }).eq("id", c.id), {
+    action: "modification",
+    table: "utilisateurs",
+    ligne: c.id,
+    resume: `Rôles de ${c.nom} : ${libelleRoles(roles)}`,
+    avant: { roles: libelleRoles(c.roles) },
+    apres: { roles: libelleRoles(roles) },
   });
 }
 

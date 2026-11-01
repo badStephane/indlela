@@ -73,13 +73,13 @@ groupe_id = g[0]["id"]
 admin_id_txt, admin_mdp = f"admin.{SUFFIXE}", "adminessai2026"
 s, u = appel("POST", "/auth/v1/admin/users", {"email": f"{admin_id_txt}@{DOMAINE}", "password": admin_mdp, "email_confirm": True}, cle=SERVICE)
 admin_id = u["id"]
-appel("POST", "/rest/v1/utilisateurs", {"id": admin_id, "groupe_id": groupe_id, "nom": "Admin Essai", "identifiant": admin_id_txt, "role": "admin"}, cle=SERVICE)
+appel("POST", "/rest/v1/utilisateurs", {"id": admin_id, "groupe_id": groupe_id, "nom": "Admin Essai", "identifiant": admin_id_txt, "roles": ["admin"]}, cle=SERVICE)
 
 # ─── Sans second facteur : refus ──────────────────────────────────────────────
 s, sess = connexion(admin_id_txt, admin_mdp)
 verifier(s == 200, "l'admin se connecte avec identifiant et mot de passe", sess)
 aal1 = sess["access_token"]
-s, r = comptes(aal1, {"action": "creer", "nom": "X", "identifiant": f"x.{SUFFIXE}", "role": "cadre", "motDePasse": "motdepasse123"})
+s, r = comptes(aal1, {"action": "creer", "nom": "X", "identifiant": f"x.{SUFFIXE}", "roles": ["cadre"], "motDePasse": "motdepasse123"})
 verifier(s == 403, "sans second facteur, la fonction refuse", r)
 s, r = appel("GET", "/rest/v1/groupes?select=nom", jeton=aal1)
 verifier(s == 200 and r == [], "sans second facteur, la base ne montre rien à l'admin", r)
@@ -99,21 +99,25 @@ verifier(s == 200 and len(r) == 1, "avec le second facteur, l'admin voit son gro
 
 # ─── Création de comptes ──────────────────────────────────────────────────────
 cadre_txt = f"cadre.{SUFFIXE}"
-s, r = comptes(aal2, {"action": "creer", "nom": "Cadre Essai", "identifiant": cadre_txt, "role": "cadre", "motDePasse": "cadreessai2026"})
+s, r = comptes(aal2, {"action": "creer", "nom": "Cadre Essai", "identifiant": cadre_txt, "roles": ["cadre"], "motDePasse": "cadreessai2026"})
 verifier(s == 201 and r["ok"], "l'admin crée un compte de cadre", r)
 cadre_id = r["data"]["id"] if r and r.get("ok") else ""
-s, r = comptes(aal2, {"action": "creer", "nom": "Doublon", "identifiant": cadre_txt, "role": "cadre", "motDePasse": "cadreessai2026"})
+s, r = comptes(aal2, {"action": "creer", "nom": "Doublon", "identifiant": cadre_txt, "roles": ["cadre"], "motDePasse": "cadreessai2026"})
 verifier(s == 409, "un identifiant déjà pris est refusé", r)
-s, r = comptes(aal2, {"action": "creer", "nom": "Faible", "identifiant": f"faible.{SUFFIXE}", "role": "cadre", "motDePasse": "court"})
+s, r = comptes(aal2, {"action": "creer", "nom": "Faible", "identifiant": f"faible.{SUFFIXE}", "roles": ["cadre"], "motDePasse": "court"})
 verifier(s == 400, "un mot de passe faible est refusé", r)
-s, r = comptes(aal2, {"action": "creer", "nom": "Rôle", "identifiant": f"role.{SUFFIXE}", "role": "superadmin", "motDePasse": "motdepasse123"})
+s, r = comptes(aal2, {"action": "creer", "nom": "Rôle", "identifiant": f"role.{SUFFIXE}", "roles": ["superadmin"], "motDePasse": "motdepasse123"})
 verifier(s == 400, "un rôle inconnu est refusé", r)
+s, r = comptes(aal2, {"action": "creer", "nom": "Admin Progression", "identifiant": f"cumul.{SUFFIXE}", "roles": ["admin", "progression"], "motDePasse": "motdepasse123"})
+verifier(s == 201 and r["ok"], "l'admin crée un compte qui cumule admin et progression", r)
+s, r = comptes(aal2, {"action": "creer", "nom": "Parent Cadre", "identifiant": f"mixte.{SUFFIXE}", "roles": ["parent", "cadre"], "motDePasse": "motdepasse123"})
+verifier(s == 400, "un compte parent ne cumule aucun autre rôle", r)
 
 s, sc = connexion(cadre_txt, "cadreessai2026")
 verifier(s == 200, "le cadre se connecte avec le mot de passe remis", sc)
-s, r = appel("GET", "/rest/v1/utilisateurs?select=role,groupe_id", jeton=sc["access_token"])
-verifier(s == 200 and r == [{"role": "cadre", "groupe_id": groupe_id}], "le cadre est rattaché au groupe de l'admin", r)
-s, r = comptes(sc["access_token"], {"action": "creer", "nom": "Y", "identifiant": f"y.{SUFFIXE}", "role": "admin", "motDePasse": "motdepasse123"})
+s, r = appel("GET", "/rest/v1/utilisateurs?select=roles,groupe_id", jeton=sc["access_token"])
+verifier(s == 200 and r == [{"roles": ["cadre"], "groupe_id": groupe_id}], "le cadre est rattaché au groupe de l'admin", r)
+s, r = comptes(sc["access_token"], {"action": "creer", "nom": "Y", "identifiant": f"y.{SUFFIXE}", "roles": ["admin"], "motDePasse": "motdepasse123"})
 verifier(s == 403, "un cadre ne peut pas créer de compte", r)
 
 # ─── Mot de passe, journal, second facteur ────────────────────────────────────
@@ -124,7 +128,7 @@ verifier(connexion(cadre_txt, "nouveaumdp2026")[0] == 200, "le nouveau mot de pa
 s, r = comptes(aal2, {"action": "mot-de-passe", "id": str(uuid.uuid4()), "motDePasse": "nouveaumdp2026"})
 verifier(s == 404, "un compte hors du groupe est introuvable", r)
 s, r = appel("GET", f"/rest/v1/journal?select=resume,utilisateur_nom&groupe_id=eq.{groupe_id}&order=at", jeton=aal2)
-verifier(s == 200 and [x["resume"] for x in r] == ["Compte Cadre Essai créé (cadre)", "Mot de passe de Cadre Essai réinitialisé"], "le journal garde la création et le changement", r)
+verifier(s == 200 and [x["resume"] for x in r] == ["Compte Cadre Essai créé (cadre)", "Compte Admin Progression créé (admin, progression)", "Mot de passe de Cadre Essai réinitialisé"], "le journal garde les créations et le changement", r)
 s, r = comptes(aal2, {"action": "retirer-second-facteur", "id": admin_id})
 verifier(s == 200 and r["data"]["retires"] == 1, "le second facteur d'un téléphone perdu se retire", r)
 

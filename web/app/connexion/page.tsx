@@ -41,8 +41,7 @@ export default function Connexion() {
     if (r.etape === "erreur") return setErr(r.message);
     setErr(null);
     if (r.etape === "ok") {
-      store.connecter(r.moi);
-      router.replace(ROLE_HOME[r.moi.role]);
+      router.replace(ROLE_HOME[store.connecter(r.moi)]);
       return;
     }
     // Un code faux renvoie une erreur : l'écran (et son QR code) reste affiché.
