@@ -103,3 +103,10 @@
     background: #fff !important;
   }
 }
+
+/* Page d'accueil : le soleil parcourt le sentier jusqu'à sa place (une seule fois, au chargement). */
+@keyframes sentier {
+  from {
+    width: 0;
+  }
+}
