@@ -129,7 +129,7 @@ function UniteCard({ branche, relances }: { branche: BranchCode; relances: Jeune
   const B = BRANCHES[branche];
   const color = BRANCH_COLORS[branche].acc;
   const membres = jeunes.filter((j) => j.branche === branche && estActif(j));
-  const nbCadres = comptes.filter((c) => c.role === "cadre" && c.actif && c.unites.includes(branche)).length;
+  const nbCadres = comptes.filter((c) => c.roles.includes("cadre") && c.actif && c.unites.includes(branche)).length;
   const responsableId = store.unites.find((u) => u.branche === branche)?.responsable;
   const responsable = comptes.find((c) => c.id === responsableId)?.nom;
   const enRetard = relances.filter((x) => x.j.branche === branche).length;

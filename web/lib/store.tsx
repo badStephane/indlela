@@ -16,6 +16,11 @@ import { toISODate } from "./dates";
 import { BASE_STEPS, EMPTY_ADAPT, domaineOfPreuve, effectiveSteps, preuveLabel, type RefSteps, type StepsByBranch, type UnitAdapt } from "./effective";
 import { REF_TITLES, type BranchCode, type Etape } from "./referentiels";
 import { etapeSuivante, type DecisionInput, type Reconnaissance } from "./courHonneur";
+import { deconnecter, type Moi } from "./session";
+import { espaceInitial, exigeDeuxFARoles, normaliserRoles } from "./roles";
+import { supabase } from "./supabase";
+import { aEnvoyer, nbAEnvoyer, SYNCHRO_VIDE, type Synchro } from "./sync/plan";
+import { useSynchro } from "./sync/useSynchro";
 
 export type Role = "cadre" | "groupe" | "progression" | "parent" | "admin";
 
@@ -76,6 +81,8 @@ export interface ValidationEntry {
 
 interface Persisted {
   role: Role | null;
+  /** Compte connecté par le serveur ; null en démo (« entrer comme »). */
+  moi: Moi | null;
   /** Désignation et paroisse du groupe (table groupes) ; les unités en prennent le nom. */
   groupe: Groupe;
   lastTab: string | null;
@@ -93,6 +100,8 @@ interface Persisted {
   ref: RefState;
   /** Adaptations des épreuves par unité (une unité par branche dans la démo). */
   adapts: Partial<Record<BranchCode, UnitAdapt>>;
+  /** Empreinte de la dernière version reçue du serveur, pour savoir ce qui reste à envoyer. */
+  synchro: Synchro;
 }
 
 interface Toast {
@@ -136,6 +145,10 @@ interface Store extends Persisted {
   refSteps: RefSteps;
   refVersion: Record<BranchCode, number>;
   enter: (role: Role) => void;
+  /** Ouvre la session d'un compte authentifié par le serveur ; renvoie l'espace ouvert. */
+  connecter: (moi: Moi) => Role;
+  /** Passe à un autre espace parmi les rôles du compte connecté. */
+  changerEspace: (role: Role) => void;
   logout: () => void;
   setLastTab: (tab: string) => void;
   showToast: (msg: string, undo?: () => void) => void;
@@ -172,6 +185,7 @@ const initial = (): Persisted => {
   backup.setHours(3, 0, 0, 0);
   return {
   role: null,
+  moi: null,
   groupe: DEMO ? GROUPE_DEMO : GROUPE_VIDE,
   lastTab: null,
   jeunes: DEMO ? seedJeunes() : [],
@@ -185,8 +199,42 @@ const initial = (): Persisted => {
   demo: { emptyUnit: false, syncFails: true },
   ref: initialRef(),
   adapts: {},
+  synchro: SYNCHRO_VIDE,
   };
 };
+
+/** Nom inscrit au journal et sur les validations : le compte connecté, ou le personnage de démo. */
+const nomDe = (s: Persisted): string => s.moi?.nom ?? (s.role ? DEMO_USERS[s.role].nom : "");
+
+/** Fiche de compte du connecté, en attendant que la liste des comptes vienne du serveur. */
+const compteDe = (moi: Moi): Compte => ({
+  id: moi.id,
+  nom: moi.nom,
+  identifiant: moi.identifiant,
+  roles: moi.roles,
+  actif: true,
+  unites: moi.unites,
+  enfants: moi.enfants,
+  deuxFA: exigeDeuxFARoles(moi.roles),
+  derniereConnexion: null,
+});
+
+/** Fiche enregistrée sur le téléphone avant le cumul des rôles : l'ancien champ role devient roles. */
+function normaliserCompte(c: Compte): Compte {
+  const { role: _ancien, ...reste } = c as Compte & { role?: unknown };
+  return { ...reste, roles: normaliserRoles(c) };
+}
+
+/**
+ * Session enregistrée avant le cumul des rôles ou le chargement des unités : sans rôle lisible,
+ * on la ferme ; sans unités, le compte n'ouvre aucune fiche tant qu'il ne s'est pas reconnecté.
+ */
+function normaliserMoi(m: Moi): Moi | null {
+  const roles = normaliserRoles(m);
+  if (roles.length === 0) return null;
+  const { role: _ancien, ...reste } = m as Moi & { role?: unknown };
+  return { ...reste, roles, unites: m.unites ?? [], enfants: m.enfants ?? [], unitesGroupe: m.unitesGroupe ?? [] };
+}
 
 /** Démo « Unité vide » : retire la troupe, ou remet les jeunes de démo qui manquent. */
 function withDemoTroupe(jeunes: Jeune[], empty: boolean): Jeune[] {
@@ -216,7 +264,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .then((saved) => {
         if (!alive || !saved) return;
         const base = initial();
-        setP({ ...base, ...saved, journal: saved.journal ?? base.journal, ref: { ...initialRef(), ...saved.ref } });
+        setP({
+          ...base,
+          ...saved,
+          comptes: (saved.comptes ?? base.comptes).map(normaliserCompte),
+          moi: saved.moi ? normaliserMoi(saved.moi) : null,
+          journal: saved.journal ?? base.journal,
+          ref: { ...initialRef(), ...saved.ref },
+          synchro: saved.synchro ?? SYNCHRO_VIDE,
+        });
       })
       .catch(() => alive && setStorageErr(true))
       .finally(() => alive && setHydrated(true));
@@ -245,7 +301,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
   useEffect(() => () => clearTimeout(timer.current), []);
 
-  const userName = p.role ? DEMO_USERS[p.role].nom : "";
+  const userName = nomDe(p);
   const findJeuneById = useCallback((id: string | undefined | null) => findJeune(p.jeunes, id), [p.jeunes]);
 
   /** Le journal n'enregistre que ce que le serveur a reçu : une saisie hors connexion y entre à la synchronisation. */
@@ -254,7 +310,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return list.map((e) => ({ ...e, id: uuid(), at, user }));
   }, []);
   const log = useCallback(
-    (...list: JournalInput[]) => setP((s) => ({ ...s, journal: [...entries(s.role ? DEMO_USERS[s.role].nom : "", list), ...s.journal] })),
+    (...list: JournalInput[]) => setP((s) => ({ ...s, journal: [...entries(nomDe(s), list), ...s.journal] })),
     [entries],
   );
 
@@ -276,7 +332,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           simOffline: false,
           vals: s.vals.map((v) => (v.pending ? { ...v, pending: false, updatedAt: now } : v)),
           recons: s.recons.map((r) => (r.pending ? { ...r, pending: false } : r)),
-          journal: [...entries(s.role ? DEMO_USERS[s.role].nom : "", [...logged, ...reconsLogged]), ...s.journal],
+          journal: [...entries(nomDe(s), [...logged, ...reconsLogged]), ...s.journal],
         };
       });
       setSyncErr(false);
@@ -292,7 +348,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const on = () => {
       setNetOnline(true);
-      if (!pRef.current.simOffline) {
+      // Connecté au serveur, la synchronisation repart d'elle-même (useSynchro) ; la démo simule l'envoi.
+      if (!pRef.current.simOffline && !(supabase && pRef.current.moi)) {
         const n = pendingCount(pRef.current.vals) + pRef.current.recons.filter((r) => r.pending).length;
         if (n) flush(n);
       }
@@ -307,7 +364,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [flush]);
 
   const offline = p.simOffline || !netOnline;
-  const pending = pendingCount(p.vals) + p.recons.filter((r) => r.pending).length;
+  const serveurActif = !!supabase && !!p.moi;
+  const nAEnvoyerServeur = useMemo(
+    () => (serveurActif ? nbAEnvoyer(aEnvoyer({ jeunes: p.jeunes, vals: p.vals, recons: p.recons }, p.synchro)) : 0),
+    [serveurActif, p.jeunes, p.vals, p.recons, p.synchro],
+  );
+  const pending = serveurActif ? nAEnvoyerServeur : pendingCount(p.vals) + p.recons.filter((r) => r.pending).length;
+  const synchroniser = useSynchro({
+    etatRef: pRef,
+    setEtat: setP,
+    pret: hydrated,
+    enLigne: !offline,
+    nAEnvoyer: nAEnvoyerServeur,
+    signataire: userName,
+    onEtat: (erreur) => setSyncErr(!!erreur),
+    notifier: showToast,
+  });
   const refSteps = useMemo<RefSteps>(
     () => ({
       troupe: p.ref.published.troupe?.steps ?? BASE_STEPS.troupe,
@@ -329,6 +401,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   stepsRef.current = steps;
 
   const tapSync = useCallback(() => {
+    if (serveurActif) {
+      if (offline) showToast("Pas de réseau : les saisies restent sur le téléphone et partiront au retour du réseau.");
+      else void synchroniser(true);
+      return;
+    }
     if (!DEMO && !offline && !syncErr) {
       if (pending) flush(pending);
       else showToast("Tout est envoyé.");
@@ -351,7 +428,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return;
     }
     flush(pending);
-  }, [offline, syncErr, netOnline, pending, p.demo.syncFails, showToast, flush]);
+  }, [serveurActif, synchroniser, offline, syncErr, netOnline, pending, p.demo.syncFails, showToast, flush]);
 
   const addJeunes = useCallback(
     (list: NewJeune[]) => {
@@ -364,7 +441,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ...s,
         jeunes: [...s.jeunes, ...add],
         journal: [
-          ...entries(s.role ? DEMO_USERS[s.role].nom : "", [
+          ...entries(nomDe(s), [
             {
               action: "creation",
               table: "jeunes",
@@ -398,7 +475,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         date,
         validePar: userName,
         commentaire: e.commentaire || undefined,
-        pending: offline,
+        // Connecté au serveur, toute saisie attend sa confirmation d'envoi.
+        pending: offline || serveurActif,
         annuleeLe: null,
         batch,
         refVersion: refVersion[j.branche],
@@ -428,7 +506,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       });
       if (storageErr) showToast("Attention : ce téléphone n'enregistre plus les saisies. Retrouvez du réseau avant de fermer l'application.");
     },
-    [offline, showToast, steps, refVersion, storageErr, userName, entries],
+    [offline, serveurActif, showToast, steps, refVersion, storageErr, userName, entries],
   );
 
   const reconnaitre = useCallback(
@@ -442,7 +520,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         observations: input.observations.trim().slice(0, 1000),
         ct: input.ct.trim().slice(0, 80),
         ...(input.presents !== undefined ? { presents: input.presents, voixPour: input.voixPour } : {}),
-        pending: offline,
+        pending: offline || serveurActif,
       };
       const branche = steps[j.branche];
       const current = branche.find((x) => x.id === j.etapeId);
@@ -466,7 +544,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         showToast("Décision retirée");
       });
     },
-    [offline, showToast, steps, userName, entries],
+    [offline, serveurActif, showToast, steps, userName, entries],
   );
 
   const cancelValidation = useCallback(
@@ -494,7 +572,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       hydrated,
       storageErr,
       userName,
-      compte: p.role ? p.comptes.find((c) => c.id === DEMO_USERS[p.role!].compte) : undefined,
+      compte: p.moi ? (p.comptes.find((c) => c.id === p.moi!.id) ?? compteDe(p.moi)) : p.role ? p.comptes.find((c) => c.id === DEMO_USERS[p.role!].compte) : undefined,
       findJeune: findJeuneById,
       setJeunes: (fn) => setP((s) => ({ ...s, jeunes: fn(s.jeunes) })),
       setComptes: (fn) => setP((s) => ({ ...s, comptes: fn(s.comptes) })),
@@ -526,12 +604,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       steps,
       refSteps,
       refVersion,
-      enter: (role) => setP((s) => ({ ...s, role, lastTab: ROLE_HOME[role] })),
+      enter: (role) => setP((s) => ({ ...s, role, moi: null, lastTab: ROLE_HOME[role] })),
+      connecter: (moi) => {
+        // Le même compte retrouve l'espace qu'il avait ouvert ; sinon, le terrain d'abord.
+        const role = espaceInitial(moi.roles, p.moi?.id === moi.id ? p.role : null);
+        setP((s) => ({
+          ...s,
+          role,
+          moi,
+          groupe: moi.groupe,
+          unites: moi.unitesGroupe.length > 0 ? moi.unitesGroupe : s.unites,
+          lastTab: ROLE_HOME[role],
+        }));
+        return role;
+      },
+      changerEspace: (role) => setP((s) => (s.moi?.roles.includes(role) ? { ...s, role, lastTab: ROLE_HOME[role] } : s)),
       logout: () => {
         setSheet(null);
         hideToast();
-        if (DEMO) {
-          setP((s) => ({ ...s, role: null, lastTab: null }));
+        void deconnecter();
+        // Un compte du serveur ne laisse rien derrière lui ; la démo garde ses données d'exemple.
+        if (DEMO && !p.moi) {
+          setP((s) => ({ ...s, role: null, moi: null, lastTab: null }));
           return;
         }
         // Hors démo : aucune donnée de mineur ne reste sur un téléphone partagé.

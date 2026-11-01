@@ -4,7 +4,7 @@
 
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(45);
+select plan(52);
 
 -- ─── Données de test (en superutilisateur) ───────────────────────────────────
 
@@ -17,21 +17,23 @@ insert into auth.users (id, instance_id, aud, role, email) values
   ('10000000-0000-0000-0000-000000000006', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'parent@a.test'),
   ('10000000-0000-0000-0000-000000000007', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'inactif@a.test'),
   ('10000000-0000-0000-0000-000000000008', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'sansrole@a.test'),
-  ('10000000-0000-0000-0000-000000000009', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'cg@b.test');
+  ('10000000-0000-0000-0000-000000000009', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'cg@b.test'),
+  ('10000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'admin.prog@a.test');
 
 insert into public.groupes (id, nom, paroisse) values
   ('a0000000-0000-0000-0000-000000000001', 'Troisième Dakar', 'Saint-Pierre'),
   ('a0000000-0000-0000-0000-000000000002', 'Thiès', 'Sainte-Anne');
 
-insert into public.utilisateurs (id, groupe_id, nom, identifiant, role, actif) values
-  ('10000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'Admin A', 'admin.a', 'admin', true),
-  ('10000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000001', 'CG A', 'cg.a', 'groupe', true),
-  ('10000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000001', 'Prog A', 'prog.a', 'progression', true),
-  ('10000000-0000-0000-0000-000000000004', 'a0000000-0000-0000-0000-000000000001', 'Cadre troupe', 'cadre.troupe', 'cadre', true),
-  ('10000000-0000-0000-0000-000000000005', 'a0000000-0000-0000-0000-000000000001', 'Cadre meute', 'cadre.meute', 'cadre', true),
-  ('10000000-0000-0000-0000-000000000006', 'a0000000-0000-0000-0000-000000000001', 'Famille Ndiaye', 'famille.ndiaye', 'parent', true),
-  ('10000000-0000-0000-0000-000000000007', 'a0000000-0000-0000-0000-000000000001', 'Cadre parti', 'cadre.parti', 'cadre', false),
-  ('10000000-0000-0000-0000-000000000009', 'a0000000-0000-0000-0000-000000000002', 'CG B', 'cg.b', 'groupe', true);
+insert into public.utilisateurs (id, groupe_id, nom, identifiant, roles, actif) values
+  ('10000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'Admin A', 'admin.a', array['admin'], true),
+  ('10000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000001', 'CG A', 'cg.a', array['groupe'], true),
+  ('10000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000001', 'Prog A', 'prog.a', array['progression'], true),
+  ('10000000-0000-0000-0000-000000000004', 'a0000000-0000-0000-0000-000000000001', 'Cadre troupe', 'cadre.troupe', array['cadre'], true),
+  ('10000000-0000-0000-0000-000000000005', 'a0000000-0000-0000-0000-000000000001', 'Cadre meute', 'cadre.meute', array['cadre'], true),
+  ('10000000-0000-0000-0000-000000000006', 'a0000000-0000-0000-0000-000000000001', 'Famille Ndiaye', 'famille.ndiaye', array['parent'], true),
+  ('10000000-0000-0000-0000-000000000007', 'a0000000-0000-0000-0000-000000000001', 'Cadre parti', 'cadre.parti', array['cadre'], false),
+  ('10000000-0000-0000-0000-000000000009', 'a0000000-0000-0000-0000-000000000002', 'CG B', 'cg.b', array['groupe'], true),
+  ('10000000-0000-0000-0000-000000000010', 'a0000000-0000-0000-0000-000000000001', 'Admin et progression', 'admin.prog', array['admin', 'progression'], true);
 
 insert into public.unites (id, groupe_id, branche, nom, annee, responsable_id) values
   ('b0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'troupe', 'Troupe Troisième Dakar', '2026-2027', '10000000-0000-0000-0000-000000000004'),
@@ -99,11 +101,11 @@ select is_empty($$ select 1 from public.journal $$, 'cadre : ne lit pas le journ
 select is_empty($$ select 1 from public.referentiels where publie_le is null $$, 'cadre : ne voit pas les brouillons de référentiel');
 select is((select count(*) from public.utilisateurs), 1::bigint, 'cadre : ne lit que son propre compte');
 select throws_ok(
-  $$ insert into public.utilisateurs (id, groupe_id, nom, identifiant, role) values ('10000000-0000-0000-0000-000000000008', 'a0000000-0000-0000-0000-000000000001', 'Moi', 'moi', 'admin') $$,
+  $$ insert into public.utilisateurs (id, groupe_id, nom, identifiant, roles) values ('10000000-0000-0000-0000-000000000008', 'a0000000-0000-0000-0000-000000000001', 'Moi', 'moi', array['admin']) $$,
   '42501', null, 'cadre : ne peut pas créer de compte');
-update public.utilisateurs set role = 'admin' where id = '10000000-0000-0000-0000-000000000004';
+update public.utilisateurs set roles = array['admin', 'cadre'] where id = '10000000-0000-0000-0000-000000000004';
 reset role;
-select is((select role from public.utilisateurs where id = '10000000-0000-0000-0000-000000000004'), 'cadre', 'cadre : ne peut pas changer son propre rôle');
+select is((select roles from public.utilisateurs where id = '10000000-0000-0000-0000-000000000004'), array['cadre'], 'cadre : ne peut pas se donner un rôle');
 
 -- ─── 2. Un parent ne voit aucun autre enfant que les siens ───────────────────
 
@@ -209,14 +211,38 @@ select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-0000000
 select throws_ok(
   $$ insert into public.liens_parent (utilisateur_id, jeune_id) values ('10000000-0000-0000-0000-000000000009', 'c0000000-0000-0000-0000-000000000002') $$,
   '42501', null, 'admin : aucun lien parent vers un compte d''un autre groupe');
-update public.utilisateurs set role = 'groupe' where id = '10000000-0000-0000-0000-000000000001';
+update public.utilisateurs set roles = array['admin', 'groupe'] where id = '10000000-0000-0000-0000-000000000001';
 
 select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000002","role":"authenticated","aal":"aal2"}', true);
 select throws_ok(
   $$ update public.unites set responsable_id = '10000000-0000-0000-0000-000000000009' where id = 'b0000000-0000-0000-0000-000000000001' $$,
   '42501', null, 'chef de groupe : aucun responsable venu d''un autre groupe');
 reset role;
-select is((select role from public.utilisateurs where id = '10000000-0000-0000-0000-000000000001'), 'admin', 'admin : ne change pas son propre rôle');
+select is((select roles from public.utilisateurs where id = '10000000-0000-0000-0000-000000000001'), array['admin'], 'admin : ne change pas ses propres rôles');
+
+-- ─── 7. Rôles cumulés : les droits de chaque rôle s'additionnent ──────────────
+
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000010","role":"authenticated","aal":"aal1"}', true);
+select is_empty($$ select 1 from public.jeunes $$, 'admin et progression sans second facteur : ne lit rien');
+
+select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000010","role":"authenticated","aal":"aal2"}', true);
+select lives_ok(
+  $$ insert into public.validations (jeune_id, etape_id, domaine_id, preuve_id, date, valide_par, valide_par_nom) values ('c0000000-0000-0000-0000-000000000004', 'm.patte', 'm.patte.1', 'm.patte.1.3', '2026-11-01', '10000000-0000-0000-0000-000000000010', 'Admin et progression') $$,
+  'admin et progression : valide comme responsable progression');
+select ok((select count(*) from public.journal) >= 1, 'admin et progression : lit le journal comme admin');
+select lives_ok(
+  $$ update public.utilisateurs set roles = array['cadre', 'groupe'] where id = '10000000-0000-0000-0000-000000000005' $$,
+  'admin et progression : donne plusieurs rôles à un autre compte');
+reset role;
+select is((select roles from public.utilisateurs where id = '10000000-0000-0000-0000-000000000005'), array['cadre', 'groupe'], 'les rôles cumulés sont enregistrés');
+
+select throws_ok(
+  $$ update public.utilisateurs set roles = array['cadre', 'parent'] where id = '10000000-0000-0000-0000-000000000005' $$,
+  '23514', null, 'un compte parent ne cumule aucun autre rôle');
+select throws_ok(
+  $$ update public.utilisateurs set roles = '{}' where id = '10000000-0000-0000-0000-000000000005' $$,
+  '23514', null, 'un compte a au moins un rôle');
 
 select * from finish();
 rollback;
