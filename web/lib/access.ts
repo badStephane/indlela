@@ -5,19 +5,11 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import type { Jeune } from "./mock";
-import type { Compte } from "./admin";
+import { peutVoirJeune } from "./accesJeune";
 import { ROLE_HOME, useStore, type Role } from "./store";
 
-export function canSeeJeune(role: Role | null, j: Jeune | undefined, compte: Compte | undefined): boolean {
-  if (!role || !j || !compte?.actif) return false;
-  // Sans consentement des parents, la fiche reste inactive.
-  if (!j.consentementLe || j.statut !== "actif") return false;
-  if (role === "groupe" || role === "progression") return true;
-  if (role === "cadre") return compte.unites.includes(j.branche);
-  if (role === "parent") return compte.enfants.includes(j.id);
-  return false;
-}
+/** Règle pure dans accesJeune.ts ; `unites` traduit les unités du serveur (UUID) en branches. */
+export const canSeeJeune = peutVoirJeune;
 
 export const canValidate = (role: Role | null) => role === "cadre" || role === "groupe" || role === "progression";
 

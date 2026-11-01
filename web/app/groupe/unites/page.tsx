@@ -112,7 +112,7 @@ export default function GroupeUnites() {
 function UniteCard({ u }: { u: Unite }) {
   const store = useStore();
   const { comptes, offline } = store;
-  const cadres = comptes.filter((c) => c.role === "cadre" && c.actif);
+  const cadres = comptes.filter((c) => c.roles.includes("cadre") && c.actif);
   const equipe = cadres.filter((c) => c.unites.includes(u.id));
   const autres = cadres.filter((c) => !c.unites.includes(u.id));
   const responsable = comptes.find((c) => c.id === u.responsable);

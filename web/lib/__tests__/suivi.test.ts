@@ -54,7 +54,7 @@ const compte = (id: string, patch: Partial<Compte> = {}): Compte => ({
   id,
   nom: id,
   identifiant: id,
-  role: "cadre",
+  roles: ["cadre"],
   actif: true,
   unites: ["troupe"],
   enfants: [],
@@ -99,7 +99,7 @@ describe("cadresInactifs", () => {
       compte("ancien", { derniereConnexion: "2026-10-01" }),
       compte("jamais", { derniereConnexion: null }),
       compte("desactive", { actif: false, derniereConnexion: null }),
-      compte("parent", { role: "parent", derniereConnexion: null }),
+      compte("parent", { roles: ["parent"], derniereConnexion: null }),
     ];
     const out = cadresInactifs(comptes, 21, NOW);
     expect(out.map((x) => x.compte.id)).toEqual(["jamais", "ancien"]);

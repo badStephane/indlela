@@ -49,7 +49,7 @@ export interface CadreInactif {
 /** Cadres actifs sans connexion depuis `seuil` jours, les jamais connectés d'abord. */
 export function cadresInactifs(comptes: Compte[], seuil: number = SEUIL_CADRE_JOURS, now: Date = new Date()): CadreInactif[] {
   return comptes
-    .filter((c) => c.role === "cadre" && c.actif)
+    .filter((c) => c.roles.includes("cadre") && c.actif)
     .map((c) => ({ compte: c, jours: c.derniereConnexion ? daysSince(c.derniereConnexion, now) : null }))
     .filter((x) => x.jours === null || x.jours >= seuil)
     .sort((a, b) => (b.jours ?? JAMAIS) - (a.jours ?? JAMAIS));

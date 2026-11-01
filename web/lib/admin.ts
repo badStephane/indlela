@@ -12,7 +12,8 @@ export interface Compte {
   id: string;
   nom: string;
   identifiant: string;
-  role: Role;
+  /** Rôles cumulés (encadrement), ou parent seul : voir lib/roles.ts. */
+  roles: Role[];
   actif: boolean;
   /** Unités qu'un cadre peut gérer (affectations_cadres). */
   unites: string[];
@@ -83,7 +84,7 @@ const compte = (id: string, nom: string, role: Role, extra: Partial<Compte> = {}
   id,
   nom,
   identifiant: identifiantDe(nom),
-  role,
+  roles: [role],
   actif: true,
   unites: [],
   enfants: [],

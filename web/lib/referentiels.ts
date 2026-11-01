@@ -6,6 +6,9 @@ import { TROUPE_STEPS } from "./carnetTroupe";
 
 export type BranchCode = "meute" | "troupe" | "route";
 
+/** Version du carnet transcrit, avant toute publication par l'admin. */
+export const VERSION_CARNET: Record<BranchCode, number> = { troupe: 2, meute: 1, route: 1 };
+
 export interface Preuve {
   id: string;
   label: string;

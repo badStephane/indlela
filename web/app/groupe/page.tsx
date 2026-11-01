@@ -59,7 +59,7 @@ export default function Groupe() {
     },
     {
       code: "troupe" as const,
-      eff: `${troupe.length} jeunes · ${store.comptes.filter((c) => c.role === "cadre" && c.actif && c.unites.includes("troupe")).length} cadres`,
+      eff: `${troupe.length} jeunes · ${store.comptes.filter((c) => c.roles.includes("cadre") && c.actif && c.unites.includes("troupe")).length} cadres`,
       segs: segsOf("troupe", troupeCounts),
       recent: `${troupe.length - stale.length} sur ${troupe.length} validés ce mois`,
       stale: stale.length ? `${stale.length} sans validation` : "À jour",

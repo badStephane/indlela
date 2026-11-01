@@ -6,16 +6,37 @@ import { Card, Chip, cx, List, rowClass, Section } from "@/components/ui";
 import { fieldClass, Segmented, Sheet, SheetActions, sheetBtn } from "@/components/Sheet";
 import { useGuard } from "@/lib/access";
 import { useStore, type Role } from "@/lib/store";
-import { ANNEE, exigeDeuxFA, identifiantLibre, ROLE_LABELS, type Compte, type Unite } from "@/lib/admin";
+import { ANNEE, identifiantLibre, type Compte, type Unite } from "@/lib/admin";
+import { basculerRole, exigeDeuxFARoles, libelleRoles } from "@/lib/roles";
 import { BRANCHES, BRANCH_COLORS, type BranchCode } from "@/lib/referentiels";
 import { fullName, GROUP_OTHER_UNITS, uuid, type Jeune } from "@/lib/mock";
 import { fmtShort, fmtWhen, toISODate } from "@/lib/dates";
 import { plural } from "@/lib/progress";
+import { supabase } from "@/lib/supabase";
+import { motDePasseValide } from "@/lib/auth";
+import { affecter, changerActif, changerRoles, chargerComptes, creerCompte, creerUnite } from "@/lib/comptesServeur";
+import { AccesCompte } from "@/components/admin/AccesCompte";
+import { ChoixRoles } from "@/components/admin/ChoixRoles";
 
 type Filtre = "tous" | "cadre" | "parent" | "encadrement";
 type SheetState = { kind: "compte"; id: string } | { kind: "nouveau-compte" } | { kind: "nouvelle-unite" } | null;
 
 const ONLINE_ONLY = "Cette action se fait en ligne : retrouvez du réseau.";
+const ENFANTS_PLUS_TARD = "Les enfants se lient une fois les fiches des jeunes synchronisées avec le serveur.";
+
+/** Connecté par le serveur : comptes, unités et affectations sont lus et écrits dans la base. */
+function useServeur() {
+  const store = useStore();
+  return !!supabase && !!store.moi;
+}
+
+/** Recharge comptes et unités depuis le serveur. */
+async function recharger(store: ReturnType<typeof useStore>) {
+  const r = await chargerComptes();
+  if (!r.ok) return store.showToast(r.erreur);
+  store.setComptes(() => r.data.comptes);
+  store.setUnites(() => r.data.unites);
+}
 
 export default function Comptes() {
   const ok = useGuard((r) => r === "admin");
@@ -24,10 +45,13 @@ export default function Comptes() {
   const [filtre, setFiltre] = useState<Filtre>("tous");
   const [sheet, setSheet] = useState<SheetState>(null);
 
+  const serveur = useServeur();
+
   useEffect(() => {
     if (ok) store.setLastTab("/admin/comptes");
+    if (ok && serveur) void recharger(store);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ok]);
+  }, [ok, serveur]);
 
   if (!ok) return null;
 
@@ -51,16 +75,17 @@ export default function Comptes() {
 
   const filtres: { value: Filtre; label: string; match: (c: Compte) => boolean }[] = [
     { value: "tous", label: "Tous", match: () => true },
-    { value: "cadre", label: "Cadres", match: (c) => c.role === "cadre" },
-    { value: "parent", label: "Parents", match: (c) => c.role === "parent" },
-    { value: "encadrement", label: "Groupe", match: (c) => c.role === "admin" || c.role === "groupe" || c.role === "progression" },
+    { value: "cadre", label: "Cadres", match: (c) => c.roles.includes("cadre") },
+    { value: "parent", label: "Parents", match: (c) => c.roles.includes("parent") },
+    { value: "encadrement", label: "Groupe", match: (c) => c.roles.includes("admin") || c.roles.includes("groupe") || c.roles.includes("progression") },
   ];
   const shown = comptes.filter(filtres.find((f) => f.value === filtre)!.match);
 
   const subtitle = (c: Compte) => {
-    if (c.role === "cadre") return `Cadre · ${c.unites.map((u) => unites.find((x) => x.id === u)?.nom ?? u).join(", ") || "aucune unité"}`;
-    if (c.role === "parent") return `Parent · ${c.enfants.map((id) => store.findJeune(id)?.prenom ?? "?").join(", ") || "aucun enfant lié"}`;
-    return ROLE_LABELS[c.role];
+    const roles = libelleRoles(c.roles);
+    if (c.roles.includes("cadre")) return `${roles} · ${c.unites.map((u) => unites.find((x) => x.id === u)?.nom ?? u).join(", ") || "aucune unité"}`;
+    if (c.roles.includes("parent")) return `Parent · ${c.enfants.map((id) => store.findJeune(id)?.prenom ?? "?").join(", ") || "aucun enfant lié"}`;
+    return roles;
   };
 
   const foot: FootAction =
@@ -179,7 +204,7 @@ function effectifDe(u: Unite, jeunes: Jeune[]): number {
 }
 
 function UniteCard({ u, comptes, effectif }: { u: Unite; comptes: Compte[]; effectif: number }) {
-  const cadres = comptes.filter((c) => c.role === "cadre" && c.actif && c.unites.includes(u.id));
+  const cadres = comptes.filter((c) => c.roles.includes("cadre") && c.actif && c.unites.includes(u.id));
   return (
     <Card className="flex flex-col overflow-hidden">
       <div className="h-1" style={{ background: BRANCH_COLORS[u.branche].acc }} />
@@ -202,6 +227,7 @@ function UniteCard({ u, comptes, effectif }: { u: Unite; comptes: Compte[]; effe
 
 function CompteSheet({ id, onClose }: { id: string; onClose: () => void }) {
   const store = useStore();
+  const serveur = useServeur();
   const c = store.comptes.find((x) => x.id === id);
   const [lien, setLien] = useState("");
   if (!c) return null;
@@ -214,10 +240,42 @@ function CompteSheet({ id, onClose }: { id: string; onClose: () => void }) {
     store.log({ action: "modification", table, ligne: c.id, resume, avant, apres });
   };
 
-  const toggleUnite = (u: Unite) => {
+  const toggleUnite = async (u: Unite) => {
     const on = c.unites.includes(u.id);
     const next = on ? c.unites.filter((x) => x !== u.id) : [...c.unites, u.id];
-    change({ unites: next }, `${c.nom} ${on ? "retiré de" : "affecté à"} ${u.nom}`, "affectations_cadres", { unites: c.unites.join(", ") }, { unites: next.join(", ") });
+    if (!(serveur && store.moi)) {
+      return change({ unites: next }, `${c.nom} ${on ? "retiré de" : "affecté à"} ${u.nom}`, "affectations_cadres", { unites: c.unites.join(", ") }, { unites: next.join(", ") });
+    }
+    const r = await affecter(store.moi, c, u, !on);
+    if (!r.ok) return store.showToast(r.erreur);
+    store.setComptes((list) => list.map((x) => (x.id === c.id ? { ...x, unites: next } : x)));
+  };
+
+  const toggleRole = async (r: Role) => {
+    if (store.offline) return store.showToast(ONLINE_ONLY);
+    const next = basculerRole(c.roles, r);
+    if (next.length === c.roles.length && next.every((x) => c.roles.includes(x))) return;
+    if (serveur && store.moi) {
+      const res = await changerRoles(store.moi, c, next);
+      if (!res.ok) return store.showToast(res.erreur);
+      store.setComptes((list) => list.map((x) => (x.id === c.id ? { ...x, roles: next, deuxFA: exigeDeuxFARoles(next) } : x)));
+    } else {
+      change({ roles: next, deuxFA: exigeDeuxFARoles(next) }, `Rôles de ${c.nom} : ${libelleRoles(next)}`, "utilisateurs", { roles: libelleRoles(c.roles) }, { roles: libelleRoles(next) });
+    }
+    const secondFacteurNouveau = exigeDeuxFARoles(next) && !exigeDeuxFARoles(c.roles);
+    store.showToast(`Rôles de ${c.nom} : ${libelleRoles(next)}${secondFacteurNouveau ? " · second facteur demandé à sa prochaine connexion" : ""}`);
+  };
+
+  const toggleActif = async () => {
+    if (store.offline) return store.showToast(ONLINE_ONLY);
+    if (serveur && store.moi) {
+      const r = await changerActif(store.moi, c, !c.actif);
+      if (!r.ok) return store.showToast(r.erreur);
+      store.setComptes((list) => list.map((x) => (x.id === c.id ? { ...x, actif: !c.actif } : x)));
+    } else {
+      change({ actif: !c.actif }, `Compte de ${c.nom} ${c.actif ? "désactivé" : "réactivé"}`, "utilisateurs", { actif: c.actif }, { actif: !c.actif });
+    }
+    store.showToast(c.actif ? `Compte de ${c.nom} désactivé · il ne peut plus se connecter` : `Compte de ${c.nom} réactivé`);
   };
 
   return (
@@ -225,12 +283,15 @@ function CompteSheet({ id, onClose }: { id: string; onClose: () => void }) {
       <div className="flex flex-col gap-0.5 rounded-ui bg-paper px-3 py-2.5">
         <span className="num text-[13px]">{c.identifiant}</span>
         <span className="text-[13px] text-muted">
-          {ROLE_LABELS[c.role]} · {c.actif ? "actif" : "inactif"} · dernière connexion : {c.derniereConnexion ? fmtWhen(c.derniereConnexion).toLowerCase() : "jamais"}
+          {libelleRoles(c.roles)} · {c.actif ? "actif" : "inactif"} · dernière connexion : {c.derniereConnexion ? fmtWhen(c.derniereConnexion).toLowerCase() : "jamais"}
         </span>
         {c.deuxFA && <span className="text-[13px] text-ok-ink">Double authentification activée</span>}
       </div>
 
-      {c.role === "cadre" && (
+      <ChoixRoles roles={c.roles} onToggle={toggleRole} disabled={self || store.offline} />
+      {self && <span className="-mt-2 text-[12px] text-muted text-pretty">Vos propres rôles se changent depuis un autre compte administrateur.</span>}
+
+      {c.roles.includes("cadre") && (
         <div className="flex flex-col gap-2">
           <span className="text-[13px] font-semibold">Unités gérées</span>
           <div className="flex flex-wrap gap-2">
@@ -253,7 +314,8 @@ function CompteSheet({ id, onClose }: { id: string; onClose: () => void }) {
         </div>
       )}
 
-      {c.role === "parent" && (
+      {c.roles.includes("parent") && serveur && <span className="text-[13px] text-muted text-pretty">{ENFANTS_PLUS_TARD}</span>}
+      {c.roles.includes("parent") && !serveur && (
         <div className="flex flex-col gap-2">
           <span className="text-[13px] font-semibold">Enfants liés</span>
           {c.enfants.length === 0 && <span className="text-[14px] text-muted">Aucun enfant lié : ce compte ne voit rien.</span>}
@@ -302,6 +364,7 @@ function CompteSheet({ id, onClose }: { id: string; onClose: () => void }) {
         </div>
       )}
 
+      {serveur && !self && <AccesCompte c={c} />}
       {self && <span className="text-[13px] text-muted">Vous ne pouvez pas désactiver votre propre compte.</span>}
       <SheetActions>
         <button type="button" onClick={onClose} className={sheetBtn.ghost}>
@@ -310,10 +373,7 @@ function CompteSheet({ id, onClose }: { id: string; onClose: () => void }) {
         <button
           type="button"
           disabled={self}
-          onClick={() => {
-            change({ actif: !c.actif }, `Compte de ${c.nom} ${c.actif ? "désactivé" : "réactivé"}`, "utilisateurs", { actif: c.actif }, { actif: !c.actif });
-            if (!store.offline) store.showToast(c.actif ? `Compte de ${c.nom} désactivé · il ne peut plus se connecter` : `Compte de ${c.nom} réactivé`);
-          }}
+          onClick={toggleActif}
           className={c.actif ? sheetBtn.danger : sheetBtn.primary}
         >
           {c.actif ? "Désactiver" : "Réactiver"}
@@ -325,25 +385,50 @@ function CompteSheet({ id, onClose }: { id: string; onClose: () => void }) {
 
 function NouveauCompteSheet({ onClose }: { onClose: () => void }) {
   const store = useStore();
+  const serveur = useServeur();
   const [nom, setNom] = useState("");
-  const [role, setRole] = useState<Role>("cadre");
-  const [unite, setUnite] = useState("troupe");
+  const [roles, setRoles] = useState<Role[]>(["cadre"]);
+  const estParent = roles.includes("parent");
+  const [unite, setUnite] = useState(store.unites.find((u) => u.branche === "troupe")?.id ?? store.unites[0]?.id ?? "");
   const [enfant, setEnfant] = useState("");
+  const [mdp, setMdp] = useState("");
+  const [busy, setBusy] = useState(false);
   const linkable = store.jeunes.filter((j) => j.statut === "actif" && j.consentementLe);
   const identifiant = nom.trim() ? identifiantLibre(nom, store.comptes) : "";
-  const ready = nom.trim().split(/\s+/).length >= 2 && (role !== "parent" || !!enfant);
+  const ready = nom.trim().split(/\s+/).length >= 2 && (serveur ? motDePasseValide(mdp) : !estParent || !!enfant);
+
+  const createServeur = async () => {
+    if (!ready || busy || !store.moi) return;
+    if (store.offline) return store.showToast(ONLINE_ONLY);
+    setBusy(true);
+    const r = await creerCompte({ nom: nom.trim(), identifiant, roles, motDePasse: mdp });
+    if (!r.ok) {
+      setBusy(false);
+      return store.showToast(r.erreur);
+    }
+    const u = store.unites.find((x) => x.id === unite);
+    if (roles.includes("cadre") && u) {
+      const c: Compte = { id: r.data.id, nom: nom.trim(), identifiant, roles, actif: true, unites: [], enfants: [], deuxFA: false, derniereConnexion: null };
+      const a = await affecter(store.moi, c, u, true);
+      if (!a.ok) store.showToast(`Compte créé, mais l'affectation à ${u.nom} a échoué : refaites-la depuis sa fiche.`);
+    }
+    await recharger(store);
+    store.showToast(`Compte créé · identifiant ${r.data.identifiant} et mot de passe à remettre en main propre`);
+    onClose();
+  };
 
   const create = () => {
+    if (serveur) return void createServeur();
     if (!ready) return;
     const c: Compte = {
       id: uuid(),
       nom: nom.trim(),
       identifiant,
-      role,
+      roles,
       actif: true,
-      unites: role === "cadre" ? [unite] : [],
-      enfants: role === "parent" ? [enfant] : [],
-      deuxFA: exigeDeuxFA(role),
+      unites: roles.includes("cadre") ? [unite] : [],
+      enfants: estParent ? [enfant] : [],
+      deuxFA: exigeDeuxFARoles(roles),
       derniereConnexion: null,
     };
     store.setComptes((list) => [...list, c]);
@@ -351,8 +436,8 @@ function NouveauCompteSheet({ onClose }: { onClose: () => void }) {
       action: "creation",
       table: "utilisateurs",
       ligne: c.id,
-      resume: `Compte ${ROLE_LABELS[role].toLowerCase()} créé pour ${c.nom}`,
-      apres: { identifiant, role, unite: c.unites[0] ?? null, enfant: c.enfants[0] ?? null },
+      resume: `Compte ${libelleRoles(roles).toLowerCase()} créé pour ${c.nom}`,
+      apres: { identifiant, roles: libelleRoles(roles), unite: c.unites[0] ?? null, enfant: c.enfants[0] ?? null },
     });
     store.showToast(`Compte créé · identifiant ${identifiant} à remettre en main propre`);
     onClose();
@@ -365,23 +450,8 @@ function NouveauCompteSheet({ onClose }: { onClose: () => void }) {
         <input value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Ex. Mame Diarra Sy" className={fieldClass} autoFocus />
       </label>
       {identifiant && <span className="-mt-1 num text-[12px] text-muted">identifiant : {identifiant}</span>}
-      <div className="flex flex-col gap-1.5">
-        <span className="text-[13px] font-semibold">Rôle</span>
-        <div className="grid grid-cols-2 gap-2">
-          {(["cadre", "parent", "groupe", "progression", "admin"] as Role[]).map((r) => (
-            <button
-              key={r}
-              type="button"
-              aria-pressed={role === r}
-              onClick={() => setRole(r)}
-              className={cx("h-11 rounded-ui border text-[14px] font-semibold", role === r ? "border-ink bg-ink text-white" : "border-line bg-surface text-ink")}
-            >
-              {ROLE_LABELS[r]}
-            </button>
-          ))}
-        </div>
-      </div>
-      {role === "cadre" && (
+      <ChoixRoles roles={roles} onToggle={(r) => setRoles((list) => basculerRole(list, r))} />
+      {roles.includes("cadre") && (
         <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
           Unité gérée
           <select value={unite} onChange={(e) => setUnite(e.target.value)} className={fieldClass}>
@@ -393,7 +463,14 @@ function NouveauCompteSheet({ onClose }: { onClose: () => void }) {
           </select>
         </label>
       )}
-      {role === "parent" && (
+      {serveur && (
+        <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
+          Mot de passe provisoire
+          <input value={mdp} onChange={(e) => setMdp(e.target.value)} autoComplete="new-password" placeholder="10 caractères, lettres et chiffres" className={fieldClass} />
+        </label>
+      )}
+      {estParent && serveur && <span className="text-[13px] text-muted text-pretty">{ENFANTS_PLUS_TARD}</span>}
+      {estParent && !serveur && (
         <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
           Enfant
           <select value={enfant} onChange={(e) => setEnfant(e.target.value)} className={fieldClass}>
@@ -406,15 +483,15 @@ function NouveauCompteSheet({ onClose }: { onClose: () => void }) {
           </select>
         </label>
       )}
-      {exigeDeuxFA(role) && (
+      {exigeDeuxFARoles(roles) && (
         <span className="text-[13px] text-muted text-pretty">La double authentification sera demandée à la première connexion.</span>
       )}
       <SheetActions>
         <button type="button" onClick={onClose} className={sheetBtn.ghost}>
           Annuler
         </button>
-        <button type="button" disabled={!ready} onClick={create} className={sheetBtn.primary}>
-          Créer le compte
+        <button type="button" disabled={!ready || busy} onClick={create} className={sheetBtn.primary}>
+          {busy ? "Création…" : "Créer le compte"}
         </button>
       </SheetActions>
     </Sheet>
@@ -423,13 +500,22 @@ function NouveauCompteSheet({ onClose }: { onClose: () => void }) {
 
 function NouvelleUniteSheet({ onClose }: { onClose: () => void }) {
   const store = useStore();
+  const serveur = useServeur();
   const [nom, setNom] = useState("");
   const [branche, setBranche] = useState<BranchCode>("troupe");
   const [annee, setAnnee] = useState(ANNEE);
   const ready = nom.trim().length >= 3 && /^\d{4}-\d{4}$/.test(annee);
 
-  const create = () => {
+  const create = async () => {
     if (!ready) return;
+    if (serveur && store.moi) {
+      if (store.offline) return store.showToast(ONLINE_ONLY);
+      const r = await creerUnite(store.moi, { nom: nom.trim(), branche, annee });
+      if (!r.ok) return store.showToast(r.erreur);
+      await recharger(store);
+      store.showToast(`${nom.trim()} créée · affectez-lui des cadres`);
+      return onClose();
+    }
     const u: Unite = { id: uuid(), nom: nom.trim(), branche, annee, responsable: null };
     store.setUnites((list) => [...list, u]);
     store.log({ action: "creation", table: "unites", ligne: u.id, resume: `Unité ${u.nom} créée (${annee})`, apres: { nom: u.nom, branche, annee } });
