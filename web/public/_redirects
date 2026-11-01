@@ -1,5 +1,0 @@
-# Anciennes adresses des écrans d'un jeune (/jeunes/:id…), gardées pour les favoris.
-/jeunes/:id/valider /jeune/valider?id=:id 301
-/jeunes/:id/carnet /jeune/carnet?id=:id 301
-/jeunes/:id/cour /jeune/cour?id=:id 301
-/jeunes/:id /jeune?id=:id 301
