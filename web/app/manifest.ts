@@ -1,5 +1,8 @@
 import type { MetadataRoute } from "next";
 
+// Fichier fixe, écrit au build (export statique).
+export const dynamic = "force-static";
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Indlela · Carnet de progression",

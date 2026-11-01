@@ -1,0 +1,14 @@
+# En-têtes servis par Cloudflare avec les fichiers du site.
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+
+# Fichiers versionnés par Next : jamais modifiés, gardés un an.
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Le service worker doit toujours être relu pour qu'une nouvelle version s'installe.
+/sw.js
+  Cache-Control: no-cache

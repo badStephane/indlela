@@ -1,0 +1,13 @@
+// Site statique servi par Cloudflare Workers (fichiers seulement, aucun code serveur).
+// Déployer : npm run deploy (après npx wrangler login). Voir DEPLOIEMENT.md.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "indlela",
+  "compatibility_date": "2026-10-30",
+  "assets": {
+    "directory": "./out",
+    // /jeune sert jeune.html ; une adresse inconnue sert la page 404 de l'application.
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  }
+}
