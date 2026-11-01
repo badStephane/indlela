@@ -10,12 +10,13 @@ import { del, get, set } from "idb-keyval";
 import { DEMO } from "./demo";
 import { DEMO_USERS, findJeune, fullName, seedJeunes, seedValidations, uuid, type Jeune, type Validation } from "./mock";
 import { GROUPE_DEMO, GROUPE_VIDE, libelleGroupe, nettoyerGroupe, nomGroupe, nomsUnites, renommerUnites, type Groupe, type NomsUnites } from "./groupe";
-import { SEED_COMPTES, SEED_UNITES, seedJournal, type Compte, type JournalEntry, type Unite } from "./admin";
+import { exigeDeuxFA, SEED_COMPTES, SEED_UNITES, seedJournal, type Compte, type JournalEntry, type Unite } from "./admin";
 import { critStatus, isValidated, pendingCount, plural } from "./progress";
 import { toISODate } from "./dates";
 import { BASE_STEPS, EMPTY_ADAPT, domaineOfPreuve, effectiveSteps, preuveLabel, type RefSteps, type StepsByBranch, type UnitAdapt } from "./effective";
 import { REF_TITLES, type BranchCode, type Etape } from "./referentiels";
 import { etapeSuivante, type DecisionInput, type Reconnaissance } from "./courHonneur";
+import { deconnecter, type Moi } from "./session";
 
 export type Role = "cadre" | "groupe" | "progression" | "parent" | "admin";
 
@@ -76,6 +77,8 @@ export interface ValidationEntry {
 
 interface Persisted {
   role: Role | null;
+  /** Compte connecté par le serveur ; null en démo (« entrer comme »). */
+  moi: Moi | null;
   /** Désignation et paroisse du groupe (table groupes) ; les unités en prennent le nom. */
   groupe: Groupe;
   lastTab: string | null;
@@ -136,6 +139,8 @@ interface Store extends Persisted {
   refSteps: RefSteps;
   refVersion: Record<BranchCode, number>;
   enter: (role: Role) => void;
+  /** Ouvre la session d'un compte authentifié par le serveur. */
+  connecter: (moi: Moi) => void;
   logout: () => void;
   setLastTab: (tab: string) => void;
   showToast: (msg: string, undo?: () => void) => void;
@@ -172,6 +177,7 @@ const initial = (): Persisted => {
   backup.setHours(3, 0, 0, 0);
   return {
   role: null,
+  moi: null,
   groupe: DEMO ? GROUPE_DEMO : GROUPE_VIDE,
   lastTab: null,
   jeunes: DEMO ? seedJeunes() : [],
@@ -187,6 +193,22 @@ const initial = (): Persisted => {
   adapts: {},
   };
 };
+
+/** Nom inscrit au journal et sur les validations : le compte connecté, ou le personnage de démo. */
+const nomDe = (s: Persisted): string => s.moi?.nom ?? (s.role ? DEMO_USERS[s.role].nom : "");
+
+/** Fiche de compte du connecté, en attendant que la liste des comptes vienne du serveur. */
+const compteDe = (moi: Moi): Compte => ({
+  id: moi.id,
+  nom: moi.nom,
+  identifiant: moi.identifiant,
+  role: moi.role,
+  actif: true,
+  unites: [],
+  enfants: [],
+  deuxFA: exigeDeuxFA(moi.role),
+  derniereConnexion: null,
+});
 
 /** Démo « Unité vide » : retire la troupe, ou remet les jeunes de démo qui manquent. */
 function withDemoTroupe(jeunes: Jeune[], empty: boolean): Jeune[] {
@@ -245,7 +267,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
   useEffect(() => () => clearTimeout(timer.current), []);
 
-  const userName = p.role ? DEMO_USERS[p.role].nom : "";
+  const userName = nomDe(p);
   const findJeuneById = useCallback((id: string | undefined | null) => findJeune(p.jeunes, id), [p.jeunes]);
 
   /** Le journal n'enregistre que ce que le serveur a reçu : une saisie hors connexion y entre à la synchronisation. */
@@ -254,7 +276,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return list.map((e) => ({ ...e, id: uuid(), at, user }));
   }, []);
   const log = useCallback(
-    (...list: JournalInput[]) => setP((s) => ({ ...s, journal: [...entries(s.role ? DEMO_USERS[s.role].nom : "", list), ...s.journal] })),
+    (...list: JournalInput[]) => setP((s) => ({ ...s, journal: [...entries(nomDe(s), list), ...s.journal] })),
     [entries],
   );
 
@@ -276,7 +298,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           simOffline: false,
           vals: s.vals.map((v) => (v.pending ? { ...v, pending: false, updatedAt: now } : v)),
           recons: s.recons.map((r) => (r.pending ? { ...r, pending: false } : r)),
-          journal: [...entries(s.role ? DEMO_USERS[s.role].nom : "", [...logged, ...reconsLogged]), ...s.journal],
+          journal: [...entries(nomDe(s), [...logged, ...reconsLogged]), ...s.journal],
         };
       });
       setSyncErr(false);
@@ -364,7 +386,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ...s,
         jeunes: [...s.jeunes, ...add],
         journal: [
-          ...entries(s.role ? DEMO_USERS[s.role].nom : "", [
+          ...entries(nomDe(s), [
             {
               action: "creation",
               table: "jeunes",
@@ -494,7 +516,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       hydrated,
       storageErr,
       userName,
-      compte: p.role ? p.comptes.find((c) => c.id === DEMO_USERS[p.role!].compte) : undefined,
+      compte: p.moi ? (p.comptes.find((c) => c.id === p.moi!.id) ?? compteDe(p.moi)) : p.role ? p.comptes.find((c) => c.id === DEMO_USERS[p.role!].compte) : undefined,
       findJeune: findJeuneById,
       setJeunes: (fn) => setP((s) => ({ ...s, jeunes: fn(s.jeunes) })),
       setComptes: (fn) => setP((s) => ({ ...s, comptes: fn(s.comptes) })),
@@ -526,12 +548,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       steps,
       refSteps,
       refVersion,
-      enter: (role) => setP((s) => ({ ...s, role, lastTab: ROLE_HOME[role] })),
+      enter: (role) => setP((s) => ({ ...s, role, moi: null, lastTab: ROLE_HOME[role] })),
+      connecter: (moi) => setP((s) => ({ ...s, role: moi.role, moi, groupe: moi.groupe, lastTab: ROLE_HOME[moi.role] })),
       logout: () => {
         setSheet(null);
         hideToast();
+        void deconnecter();
         if (DEMO) {
-          setP((s) => ({ ...s, role: null, lastTab: null }));
+          setP((s) => ({ ...s, role: null, moi: null, lastTab: null }));
           return;
         }
         // Hors démo : aucune donnée de mineur ne reste sur un téléphone partagé.

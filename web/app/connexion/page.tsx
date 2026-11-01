@@ -4,8 +4,13 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Frame } from "@/components/AppShell";
 import { cx } from "@/components/ui";
+import { SecondFacteur } from "@/components/connexion/SecondFacteur";
 import { ROLE_HOME, useStore, type Role } from "@/lib/store";
 import { DEMO } from "@/lib/demo";
+import { supabase } from "@/lib/supabase";
+import { connecter, deconnecter, verifierCode, type EtapeConnexion } from "@/lib/session";
+
+type Facteur = Extract<EtapeConnexion, { etape: "enrolement" | "code" }>;
 
 const ROLES: [Role, string][] = [
   ["cadre", "Cadre"],
@@ -23,18 +28,52 @@ export default function Connexion() {
   const [id, setId] = useState("");
   const [pw, setPw] = useState("");
   const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [facteur, setFacteur] = useState<Facteur | null>(null);
 
   const enter = (role: Role) => {
     store.enter(role);
     router.replace(ROLE_HOME[role]);
   };
 
-  const submit = (e: FormEvent) => {
+  const suite = (r: EtapeConnexion) => {
+    setBusy(false);
+    if (r.etape === "erreur") return setErr(r.message);
+    setErr(null);
+    if (r.etape === "ok") {
+      store.connecter(r.moi);
+      router.replace(ROLE_HOME[r.moi.role]);
+      return;
+    }
+    // Un code faux renvoie une erreur : l'écran (et son QR code) reste affiché.
+    setFacteur(r);
+  };
+
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (busy) return;
     if (store.offline) return setErr("Pas de réseau. La première connexion demande Internet ; ensuite, le carnet fonctionne sans réseau.");
     if (!id || !pw) return setErr("Saisissez votre identifiant et votre mot de passe.");
-    if (pw.length < 4) return setErr("Identifiant ou mot de passe incorrect.");
-    enter("cadre");
+    if (!supabase) {
+      // Sans serveur configuré, seule la démo fonctionne.
+      if (!DEMO) return setErr("Le serveur n'est pas configuré. Adressez-vous à l'administrateur.");
+      return pw.length < 4 ? setErr("Identifiant ou mot de passe incorrect.") : enter("cadre");
+    }
+    setBusy(true);
+    suite(await connecter(id, pw));
+  };
+
+  const code = async (saisie: string) => {
+    if (busy || !facteur) return;
+    setBusy(true);
+    suite(await verifierCode(facteur.factorId, saisie));
+  };
+
+  const annuler = () => {
+    setFacteur(null);
+    setErr(null);
+    setPw("");
+    void deconnecter();
   };
 
   return (
@@ -46,6 +85,15 @@ export default function Connexion() {
           <h1 className="m-0 text-[26px] font-extrabold leading-[1.15] tracking-[-0.01em]">Carnet de progression</h1>
           <p className="m-0 text-[15px] text-muted text-pretty">Connectez-vous avec le compte remis par votre groupe.</p>
         </div>
+        {facteur ? (
+          <SecondFacteur
+            enrolement={facteur.etape === "enrolement" ? facteur : undefined}
+            busy={busy}
+            err={err}
+            onCode={code}
+            onAnnuler={annuler}
+          />
+        ) : (
         <form onSubmit={submit} className="flex flex-col gap-3.5" noValidate>
           <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
             Identifiant
@@ -80,11 +128,12 @@ export default function Connexion() {
               {err}
             </div>
           )}
-          <button type="submit" className="h-[52px] rounded-ui bg-green text-[16px] font-bold text-white">
-            Se connecter
+          <button type="submit" disabled={busy} className="h-[52px] rounded-ui bg-green text-[16px] font-bold text-white disabled:opacity-60">
+            {busy ? "Connexion…" : "Se connecter"}
           </button>
         </form>
-        {DEMO && (
+        )}
+        {DEMO && !facteur && (
         <div className="mt-auto flex flex-col gap-2.5 border-t border-line pt-4">
           <span className="text-[13px] font-bold text-muted">Démo : entrer comme</span>
           <div className="grid grid-cols-2 gap-2">
