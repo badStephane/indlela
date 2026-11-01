@@ -23,3 +23,14 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm audit --omit=dev --audit-level=high
+
+  # Règles d'accès de la base : les tests obligatoires de la conception, sur un Postgres Supabase local.
+  db:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE: npx --yes supabase@2.109.1
+    steps:
+      - uses: actions/checkout@v7
+      - run: $SUPABASE db start
+      - run: $SUPABASE db lint --level warning --fail-on warning
+      - run: $SUPABASE test db

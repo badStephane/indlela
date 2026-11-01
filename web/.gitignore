@@ -5,3 +5,6 @@ next-env.d.ts
 *.tsbuildinfo
 # Généré au build par scripts/build-sw.mjs
 public/sw.js
+# Clés Supabase et réglages locaux : jamais dans le dépôt
+.env
+.env*.local
