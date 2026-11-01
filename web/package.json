@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "node scripts/build-sw.mjs && next build",
     "start": "next start",
+    "deploy": "npm run build && wrangler pages deploy --branch main",
     "lint": "tsc --noEmit",
     "test": "vitest run",
     "premier-admin": "node scripts/premier-admin.mjs"
@@ -26,7 +27,8 @@
     "@types/react-dom": "19.2.2",
     "tailwindcss": "4.3.3",
     "typescript": "5.9.3",
-    "vitest": "3.2.7"
+    "vitest": "3.2.7",
+    "wrangler": "4.156.0"
   },
   "engines": {
     "node": ">=22"

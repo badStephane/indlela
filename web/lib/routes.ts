@@ -7,3 +7,12 @@ export type JeuneScreen = "valider" | "carnet" | "cour";
 export function jeuneHref(id: string, screen?: JeuneScreen): string {
   return `/jeune${screen ? `/${screen}` : ""}?id=${encodeURIComponent(id)}`;
 }
+
+const ANCIENNE_ADRESSE = /^\/jeunes\/([^/]+)(?:\/(valider|carnet|cour))?\/?$/;
+
+/** Ancienne adresse d'un jeune (/jeunes/:id, /jeunes/:id/carnet…) traduite vers l'actuelle ; null sinon. */
+export function depuisAncienneAdresse(chemin: string): string | null {
+  const m = ANCIENNE_ADRESSE.exec(chemin);
+  if (!m) return null;
+  return jeuneHref(decodeURIComponent(m[1]), m[2] as JeuneScreen | undefined);
+}

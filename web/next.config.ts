@@ -1,14 +1,10 @@
 import type { NextConfig } from "next";
 
+// Export statique : toute l'application tourne dans le navigateur (Supabase y est appelé directement),
+// servie telle quelle par Cloudflare Pages. Les anciennes adresses /jeunes/:id repartent depuis app/not-found.tsx.
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  // Anciennes adresses des écrans d'un jeune (/jeunes/:id…), gardées pour les favoris.
-  async redirects() {
-    return [
-      { source: "/jeunes/:id", destination: "/jeune?id=:id", permanent: true },
-      { source: "/jeunes/:id/:screen(valider|carnet|cour)", destination: "/jeune/:screen?id=:id", permanent: true },
-    ];
-  },
+  output: "export",
 };
 
 export default nextConfig;
