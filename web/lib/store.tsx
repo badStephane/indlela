@@ -18,6 +18,9 @@ import { REF_TITLES, type BranchCode, type Etape } from "./referentiels";
 import { etapeSuivante, type DecisionInput, type Reconnaissance } from "./courHonneur";
 import { deconnecter, type Moi } from "./session";
 import { espaceInitial, exigeDeuxFARoles, normaliserRoles } from "./roles";
+import { supabase } from "./supabase";
+import { aEnvoyer, nbAEnvoyer, SYNCHRO_VIDE, type Synchro } from "./sync/plan";
+import { useSynchro } from "./sync/useSynchro";
 
 export type Role = "cadre" | "groupe" | "progression" | "parent" | "admin";
 
@@ -97,6 +100,8 @@ interface Persisted {
   ref: RefState;
   /** Adaptations des épreuves par unité (une unité par branche dans la démo). */
   adapts: Partial<Record<BranchCode, UnitAdapt>>;
+  /** Empreinte de la dernière version reçue du serveur, pour savoir ce qui reste à envoyer. */
+  synchro: Synchro;
 }
 
 interface Toast {
@@ -194,6 +199,7 @@ const initial = (): Persisted => {
   demo: { emptyUnit: false, syncFails: true },
   ref: initialRef(),
   adapts: {},
+  synchro: SYNCHRO_VIDE,
   };
 };
 
@@ -265,6 +271,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           moi: saved.moi ? normaliserMoi(saved.moi) : null,
           journal: saved.journal ?? base.journal,
           ref: { ...initialRef(), ...saved.ref },
+          synchro: saved.synchro ?? SYNCHRO_VIDE,
         });
       })
       .catch(() => alive && setStorageErr(true))
@@ -341,7 +348,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const on = () => {
       setNetOnline(true);
-      if (!pRef.current.simOffline) {
+      // Connecté au serveur, la synchronisation repart d'elle-même (useSynchro) ; la démo simule l'envoi.
+      if (!pRef.current.simOffline && !(supabase && pRef.current.moi)) {
         const n = pendingCount(pRef.current.vals) + pRef.current.recons.filter((r) => r.pending).length;
         if (n) flush(n);
       }
@@ -356,7 +364,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [flush]);
 
   const offline = p.simOffline || !netOnline;
-  const pending = pendingCount(p.vals) + p.recons.filter((r) => r.pending).length;
+  const serveurActif = !!supabase && !!p.moi;
+  const nAEnvoyerServeur = useMemo(
+    () => (serveurActif ? nbAEnvoyer(aEnvoyer({ jeunes: p.jeunes, vals: p.vals, recons: p.recons }, p.synchro)) : 0),
+    [serveurActif, p.jeunes, p.vals, p.recons, p.synchro],
+  );
+  const pending = serveurActif ? nAEnvoyerServeur : pendingCount(p.vals) + p.recons.filter((r) => r.pending).length;
+  const synchroniser = useSynchro({
+    etatRef: pRef,
+    setEtat: setP,
+    pret: hydrated,
+    enLigne: !offline,
+    nAEnvoyer: nAEnvoyerServeur,
+    signataire: userName,
+    onEtat: (erreur) => setSyncErr(!!erreur),
+    notifier: showToast,
+  });
   const refSteps = useMemo<RefSteps>(
     () => ({
       troupe: p.ref.published.troupe?.steps ?? BASE_STEPS.troupe,
@@ -378,6 +401,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   stepsRef.current = steps;
 
   const tapSync = useCallback(() => {
+    if (serveurActif) {
+      if (offline) showToast("Pas de réseau : les saisies restent sur le téléphone et partiront au retour du réseau.");
+      else void synchroniser(true);
+      return;
+    }
     if (!DEMO && !offline && !syncErr) {
       if (pending) flush(pending);
       else showToast("Tout est envoyé.");
@@ -400,7 +428,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return;
     }
     flush(pending);
-  }, [offline, syncErr, netOnline, pending, p.demo.syncFails, showToast, flush]);
+  }, [serveurActif, synchroniser, offline, syncErr, netOnline, pending, p.demo.syncFails, showToast, flush]);
 
   const addJeunes = useCallback(
     (list: NewJeune[]) => {
@@ -447,7 +475,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         date,
         validePar: userName,
         commentaire: e.commentaire || undefined,
-        pending: offline,
+        // Connecté au serveur, toute saisie attend sa confirmation d'envoi.
+        pending: offline || serveurActif,
         annuleeLe: null,
         batch,
         refVersion: refVersion[j.branche],
@@ -477,7 +506,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       });
       if (storageErr) showToast("Attention : ce téléphone n'enregistre plus les saisies. Retrouvez du réseau avant de fermer l'application.");
     },
-    [offline, showToast, steps, refVersion, storageErr, userName, entries],
+    [offline, serveurActif, showToast, steps, refVersion, storageErr, userName, entries],
   );
 
   const reconnaitre = useCallback(
@@ -491,7 +520,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         observations: input.observations.trim().slice(0, 1000),
         ct: input.ct.trim().slice(0, 80),
         ...(input.presents !== undefined ? { presents: input.presents, voixPour: input.voixPour } : {}),
-        pending: offline,
+        pending: offline || serveurActif,
       };
       const branche = steps[j.branche];
       const current = branche.find((x) => x.id === j.etapeId);
@@ -515,7 +544,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         showToast("Décision retirée");
       });
     },
-    [offline, showToast, steps, userName, entries],
+    [offline, serveurActif, showToast, steps, userName, entries],
   );
 
   const cancelValidation = useCallback(
@@ -594,7 +623,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setSheet(null);
         hideToast();
         void deconnecter();
-        if (DEMO) {
+        // Un compte du serveur ne laisse rien derrière lui ; la démo garde ses données d'exemple.
+        if (DEMO && !p.moi) {
           setP((s) => ({ ...s, role: null, moi: null, lastTab: null }));
           return;
         }
