@@ -14,13 +14,15 @@ import { SEED_COMPTES, SEED_UNITES, seedJournal, type Compte, type JournalEntry,
 import { critStatus, isValidated, pendingCount, plural } from "./progress";
 import { toISODate } from "./dates";
 import { BASE_STEPS, EMPTY_ADAPT, domaineOfPreuve, effectiveSteps, preuveLabel, type RefSteps, type StepsByBranch, type UnitAdapt } from "./effective";
-import { REF_TITLES, type BranchCode, type Etape } from "./referentiels";
+import { REF_TITLES, VERSION_CARNET, type BranchCode, type Etape } from "./referentiels";
 import { etapeSuivante, type DecisionInput, type Reconnaissance } from "./courHonneur";
 import { deconnecter, type Moi } from "./session";
 import { espaceInitial, exigeDeuxFARoles, normaliserRoles } from "./roles";
 import { supabase } from "./supabase";
 import { aEnvoyer, nbAEnvoyer, SYNCHRO_VIDE, type Synchro } from "./sync/plan";
 import { useSynchro } from "./sync/useSynchro";
+import { REF_SERVEUR_VIDE, refAEnvoyer, type RefServeur } from "./sync/referentiels";
+import { nbRefAEnvoyer } from "./sync/serveurRef";
 
 export type Role = "cadre" | "groupe" | "progression" | "parent" | "admin";
 
@@ -46,8 +48,6 @@ export interface RefState {
   routeCreated: boolean;
 }
 
-/** Version du carnet transcrit, avant toute publication par l'admin. */
-const BASE_VERSION: Record<BranchCode, number> = { troupe: 2, meute: 1, route: 1 };
 
 export interface DemoFlags {
   emptyUnit: boolean;
@@ -102,6 +102,8 @@ interface Persisted {
   adapts: Partial<Record<BranchCode, UnitAdapt>>;
   /** Empreinte de la dernière version reçue du serveur, pour savoir ce qui reste à envoyer. */
   synchro: Synchro;
+  /** Ce que le serveur connaît des référentiels et des adaptations. */
+  refServeur: RefServeur;
 }
 
 interface Toast {
@@ -200,6 +202,7 @@ const initial = (): Persisted => {
   ref: initialRef(),
   adapts: {},
   synchro: SYNCHRO_VIDE,
+  refServeur: REF_SERVEUR_VIDE,
   };
 };
 
@@ -272,6 +275,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           journal: saved.journal ?? base.journal,
           ref: { ...initialRef(), ...saved.ref },
           synchro: saved.synchro ?? SYNCHRO_VIDE,
+          refServeur: saved.refServeur ?? REF_SERVEUR_VIDE,
         });
       })
       .catch(() => alive && setStorageErr(true))
@@ -366,8 +370,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const offline = p.simOffline || !netOnline;
   const serveurActif = !!supabase && !!p.moi;
   const nAEnvoyerServeur = useMemo(
-    () => (serveurActif ? nbAEnvoyer(aEnvoyer({ jeunes: p.jeunes, vals: p.vals, recons: p.recons }, p.synchro)) : 0),
-    [serveurActif, p.jeunes, p.vals, p.recons, p.synchro],
+    () =>
+      serveurActif
+        ? nbAEnvoyer(aEnvoyer({ jeunes: p.jeunes, vals: p.vals, recons: p.recons }, p.synchro)) +
+          nbRefAEnvoyer(refAEnvoyer({ ref: p.ref, adapts: p.adapts, refServeur: p.refServeur }, p.unites, () => ""))
+        : 0,
+    [serveurActif, p.jeunes, p.vals, p.recons, p.synchro, p.ref, p.adapts, p.refServeur, p.unites],
   );
   const pending = serveurActif ? nAEnvoyerServeur : pendingCount(p.vals) + p.recons.filter((r) => r.pending).length;
   const synchroniser = useSynchro({
@@ -390,9 +398,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
   const refVersion = useMemo<Record<BranchCode, number>>(
     () => ({
-      troupe: p.ref.published.troupe?.version ?? BASE_VERSION.troupe,
-      meute: p.ref.published.meute?.version ?? BASE_VERSION.meute,
-      route: p.ref.published.route?.version ?? BASE_VERSION.route,
+      troupe: p.ref.published.troupe?.version ?? VERSION_CARNET.troupe,
+      meute: p.ref.published.meute?.version ?? VERSION_CARNET.meute,
+      route: p.ref.published.route?.version ?? VERSION_CARNET.route,
     }),
     [p.ref.published],
   );
@@ -689,7 +697,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setP((s) => {
           const draft = s.ref.draft[b];
           if (!draft) return s;
-          const version = (s.ref.published[b]?.version ?? BASE_VERSION[b]) + 1;
+          const version = (s.ref.published[b]?.version ?? VERSION_CARNET[b]) + 1;
           const { [b]: _published, ...otherDrafts } = s.ref.draft;
           const publication: JournalInput = {
             action: "publication",

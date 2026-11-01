@@ -12,11 +12,14 @@ import { toISODate } from "../dates";
 import { plural } from "../progress";
 import { aEnvoyer, fusionner, marquerEnvoye, nbAEnvoyer, type Etat, type Synchro } from "./plan";
 import { envoyer, lire } from "./serveur";
+import { uuid } from "../mock";
+import { apresEnvoiRef, fusionnerRef, refAEnvoyer, type EtatRef } from "./referentiels";
+import { envoyerRef, lireRef, nbRefAEnvoyer } from "./serveurRef";
 
 /** Laisse finir une série de touches (plusieurs preuves cochées) avant d'envoyer. */
 const DELAI_ENVOI_MS = 1500;
 
-export interface EtatSynchronisable extends Etat {
+export interface EtatSynchronisable extends Etat, EtatRef {
   synchro: Synchro;
   moi: Moi | null;
   unites: Unite[];
@@ -65,15 +68,23 @@ export function useSynchro<T extends EtatSynchronisable>(o: Options<T>): (manuel
           return;
         }
       }
-      const lu = await lire(etatRef.current.unites);
+      // Référentiels et adaptations : une erreur n'empêche pas de relire le serveur, qui la corrige souvent.
+      const planRef = refAEnvoyer(depart, depart.unites, uuid);
+      const nRef = nbRefAEnvoyer(planRef);
+      const envoiRef = nRef > 0 ? await envoyerRef(planRef, depart.moi.groupeId) : null;
+      if (envoiRef?.ok) setEtat((s) => ({ ...s, refServeur: apresEnvoiRef(s.refServeur, planRef) }));
+      if (envoiRef && !envoiRef.ok) notifier(envoiRef.erreur);
+
+      const [lu, luRef] = await Promise.all([lire(etatRef.current.unites), lireRef()]);
       if (!lu.ok) {
         onEtat(lu.erreur);
         if (manuel) notifier(lu.erreur);
         return;
       }
-      setEtat((s) => ({ ...s, ...fusionner(s, lu.etat, s.synchro) }));
-      onEtat(null);
-      if (n > 0) notifier(`${n} ${plural(n, "saisie envoyée", "saisies envoyées")} au serveur`);
+      setEtat((s) => ({ ...s, ...fusionner(s, lu.etat, s.synchro), ...(luRef.ok ? fusionnerRef(s, luRef, s.unites) : {}) }));
+      onEtat(envoiRef && !envoiRef.ok ? envoiRef.erreur : null);
+      const total = n + (envoiRef?.ok ? nRef : 0);
+      if (total > 0) notifier(`${total} ${plural(total, "saisie envoyée", "saisies envoyées")} au serveur`);
       else if (manuel) notifier("Tout est à jour.");
     } finally {
       enCours.current = false;
