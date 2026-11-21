@@ -1,9 +1,10 @@
 # En-têtes servis par Cloudflare avec les fichiers du site.
+# Appareil photo pour l'application seule : photos de preuve prises par le cadre (ni micro ni position).
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: DENY
-  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Permissions-Policy: camera=(self), microphone=(), geolocation=()
 
 # Fichiers versionnés par Next : jamais modifiés, gardés un an.
 /_next/static/*

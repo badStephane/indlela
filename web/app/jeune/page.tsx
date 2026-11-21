@@ -8,6 +8,7 @@ import { useJeuneRoute } from "@/lib/useJeune";
 import { useStore } from "@/lib/store";
 import { BRANCHES } from "@/lib/referentiels";
 import { ageOf, ceremonies, dateRemise, fullName, historiqueUnites, type Jeune } from "@/lib/mock";
+import { PhotosValidation } from "@/components/photos/PhotosValidation";
 import { critStatus, isValidated, pct, plural, progressOf, type CritStatus, type DomaineProgress, type Progress } from "@/lib/progress";
 import { fmtDayMonth, fmtShort, fmtWhen } from "@/lib/dates";
 import { dateReconnue, historique, type Reconnaissance } from "@/lib/courHonneur";
@@ -219,14 +220,14 @@ function DomaineBloc({ j, d, cadre, brevets }: { j: Jeune; d: DomaineProgress; c
       </summary>
       <div className="flex flex-col border-t border-rule [&>*:last-child]:border-b-0">
         {d.preuves.map((x) => (
-          <PreuveRow key={x.id} label={x.label} r={critStatus(store.vals, j.id, x.id)} cadre={cadre} unite={x.unite} />
+          <PreuveRow key={x.id} jeuneId={j.id} label={x.label} r={critStatus(store.vals, j.id, x.id)} cadre={cadre} unite={x.unite} />
         ))}
       </div>
     </details>
   );
 }
 
-function PreuveRow({ label, r, cadre, unite }: { label: string; r: CritStatus; cadre: boolean; unite: boolean }) {
+function PreuveRow({ jeuneId, label, r, cadre, unite }: { jeuneId: string; label: string; r: CritStatus; cadre: boolean; unite: boolean }) {
   const store = useStore();
   const checked = isValidated(r);
   const pend = r.st === "pending";
@@ -243,9 +244,10 @@ function PreuveRow({ label, r, cadre, unite }: { label: string; r: CritStatus; c
   const comment = checked ? r.v.commentaire : undefined;
   const Row = tappable ? "button" : "div";
   return (
+    <div className="border-b border-rule">
     <Row
       {...(tappable ? { type: "button" as const, onClick: () => store.openCancelSheet(r.v.id), "aria-label": `${label}, réussie. Annuler cette validation` } : {})}
-      className={`${rowClass} min-h-14 gap-3 py-2`}
+      className={`${rowClass} min-h-14 gap-3 border-b-0 py-2`}
     >
       <span
         className={cx(
@@ -269,6 +271,8 @@ function PreuveRow({ label, r, cadre, unite }: { label: string; r: CritStatus; c
         </span>
       )}
     </Row>
+    {checked && <PhotosValidation jeuneId={jeuneId} validationId={r.v.id} preuve={label} />}
+    </div>
   );
 }
 

@@ -58,6 +58,14 @@ Le service worker (`public/sw.js`, généré à chaque `npm run build` depuis `s
   puis apparaissent dans l'unité.
 - **Journal** : chaque écriture (validation, annulation, publication, compte, consentement,
   import, export, sauvegarde) y entre. Une validation hors connexion y entre à la synchronisation.
+- **Photos de preuve** : en validant, chaque preuve cochée accepte jusqu'à 3 photos, facultatives
+  (« Prendre une photo » ouvre l'appareil photo sur téléphone ; « Ajouter une photo » choisit un fichier
+  sur ordinateur). La photo montre le travail réussi, pas les visages : c'est rappelé sous le bouton.
+  Elle est réduite sur l'appareil (1280 px, JPEG, sans EXIF ni position GPS), gardée sur le téléphone
+  sans réseau, puis envoyée dès que sa validation est sur le serveur (bucket privé, liens signés d'une
+  heure). Mêmes lecteurs que la validation, parents compris ; rien ne s'efface ; tout est effacé du
+  téléphone à la déconnexion (hors démo). Décision du 21/11/2026, qui assouplit la règle « jamais de
+  photo » de la conception : le formulaire de consentement des parents doit mentionner ces photos.
 
 ## Écarts assumés avec la maquette
 

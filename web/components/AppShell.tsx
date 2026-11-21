@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, type CSSProperties, type ReactNode } from "react";
 import { BRANCH_COLORS, type BranchCode } from "@/lib/referentiels";
+import { usePhotos } from "@/lib/photosStore";
 import { useStore, useSheetTarget, type Role } from "@/lib/store";
 import { useBack } from "@/lib/nav";
 import { fmtWhen } from "@/lib/dates";
@@ -120,6 +121,7 @@ export function AppShell({
   const router = useRouter();
   const goBack = useBack(back ?? "/");
   const { offline, syncErr, pending, role, lastTab, toast } = store;
+  const photosEnAttente = usePhotos().enAttente;
 
   const sync = offline
     ? { label: pending ? `Hors ligne · ${pending}` : "Hors ligne", cls: "bg-wait-bg text-wait-ink", dot: "bg-wait-dot" }
@@ -145,7 +147,7 @@ export function AppShell({
     router.replace("/connexion");
   };
   // Hors démo, quitter efface le téléphone : on prévient si des saisies attendent encore.
-  const quit = () => (!DEMO && pending ? setConfirmQuit(true) : doQuit());
+  const quit = () => (!DEMO && (pending || photosEnAttente) ? setConfirmQuit(true) : doQuit());
   // Le toast se place au-dessus du pied d'action et de la barre d'onglets (absente sur ordinateur).
   const toastOffsets = {
     "--toast-b": `calc(${foot ? 150 : 72}px + env(safe-area-inset-bottom))`,
@@ -271,8 +273,14 @@ export function AppShell({
             }}
           >
             <span className="text-[14px] text-muted text-pretty">
-              {pending} {plural(pending, "saisie n'a pas encore été envoyée", "saisies n'ont pas encore été envoyées")}. En quittant, elles sont effacées de ce
-              téléphone avec le reste du carnet.
+              {[
+                pending ? `${pending} ${plural(pending, "saisie", "saisies")}` : "",
+                photosEnAttente ? `${photosEnAttente} ${plural(photosEnAttente, "photo", "photos")}` : "",
+              ]
+                .filter(Boolean)
+                .join(" et ")}{" "}
+              {pending + photosEnAttente > 1 ? "n'ont pas encore été envoyées" : "n'a pas encore été envoyée"}. En quittant, tout est effacé de ce téléphone avec le reste
+              du carnet.
             </span>
           </ConfirmSheet>
         )}

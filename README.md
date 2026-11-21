@@ -26,11 +26,11 @@ Le prototype tourne en **mode démo** (données fictives, entrées « Démo · e
 
 ## Base de données (Supabase)
 
-Le schéma vit dans [`supabase/migrations/`](supabase/migrations/) : 12 tables, la RLS sur chacune, et des fonctions qui disent qui est connecté. Un compte admin, chef de groupe ou responsable progression n'a aucun droit sans second facteur (TOTP). Les validations, cours d'honneur et journal ne se suppriment pas ; une validation ne se modifie que pour être annulée.
+Le schéma vit dans [`supabase/migrations/`](supabase/migrations/) : 13 tables et le bucket privé `preuves` (photos de preuve), la RLS sur chacun, et des fonctions qui disent qui est connecté. Un compte admin, chef de groupe ou responsable progression n'a aucun droit sans second facteur (TOTP). Les validations, photos de preuve, cours d'honneur et journal ne se suppriment pas ; une validation ne se modifie que pour être annulée.
 
 ```bash
 supabase db start            # Postgres local (Docker), ports 573xx
-supabase test db             # 45 tests des droits, dont les trois obligatoires de la conception
+supabase test db             # tests des droits (dont les trois obligatoires de la conception) et des photos
 ```
 
 Envoyer le schéma au projet hébergé :

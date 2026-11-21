@@ -159,7 +159,8 @@ interface Store extends Persisted {
   updateJeune: (id: string, patch: Partial<Pick<Jeune, "etapeId" | "choix">>) => void;
   /** Adapte les épreuves de l'unité ; `resume` est inscrit au journal. */
   updateAdapt: (branche: BranchCode, fn: (a: UnitAdapt) => UnitAdapt, resume?: string) => void;
-  validate: (j: Jeune, entries: ValidationEntry[], date: string) => void;
+  /** Renvoie les validations créées (pour y joindre les photos de preuve). */
+  validate: (j: Jeune, entries: ValidationEntry[], date: string) => Validation[];
   /** Enregistre la décision de la cour d'honneur ; une étape reconnue fait passer le jeune à la suivante. */
   reconnaitre: (j: Jeune, input: CourInput) => void;
   openCancelSheet: (validationId: string) => void;
@@ -467,12 +468,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const validate = useCallback(
-    (j: Jeune, items: ValidationEntry[], date: string) => {
+    (j: Jeune, items: ValidationEntry[], date: string): Validation[] => {
       const batch = uuid();
       const stamp = new Date().toISOString();
       // Une preuve déjà validée ne l'est pas deux fois (double touche, deux cadres).
       const fresh = items.filter((e) => !isValidated(critStatus(pRef.current.vals, j.id, e.preuveId)));
-      if (!fresh.length) return;
+      if (!fresh.length) return [];
       const step = steps[j.branche].find((x) => x.id === j.etapeId);
       const add: Validation[] = fresh.map((e) => ({
         id: uuid(),
@@ -513,6 +514,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         showToast("Validation retirée");
       });
       if (storageErr) showToast("Attention : ce téléphone n'enregistre plus les saisies. Retrouvez du réseau avant de fermer l'application.");
+      return add;
     },
     [offline, serveurActif, showToast, steps, refVersion, storageErr, userName, entries],
   );
