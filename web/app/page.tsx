@@ -3,15 +3,15 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ROLE_HOME, useStore } from "@/lib/store";
-import { Frame } from "@/components/AppShell";
+import { Accueil } from "@/components/accueil/Accueil";
 
-/** La dernière unité ou vue utilisée s'ouvre seule. */
+/** Visiteur : la présentation du carnet. Compte déjà connecté : sa dernière unité ou vue s'ouvre seule. */
 export default function Home() {
   const { hydrated, role, lastTab } = useStore();
   const router = useRouter();
   useEffect(() => {
-    if (!hydrated) return;
-    router.replace(role ? lastTab || ROLE_HOME[role] : "/connexion");
+    if (hydrated && role) router.replace(lastTab || ROLE_HOME[role]);
   }, [hydrated, role, lastTab, router]);
-  return <Frame>{null}</Frame>;
+  if (hydrated && role) return null;
+  return <Accueil />;
 }

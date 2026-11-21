@@ -8,3 +8,5 @@ public/sw.js
 # Clés Supabase et réglages locaux : jamais dans le dépôt
 .env
 .env*.local
+# Wrangler (Cloudflare) : cache local
+.wrangler

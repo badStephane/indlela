@@ -1,0 +1,10 @@
+// Site statique servi par Cloudflare Pages (projet « indlela », https://indlela.pages.dev).
+// Déployer : npm run deploy (après npx wrangler login). Voir DEPLOIEMENT.md.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "indlela",
+  "compatibility_date": "2026-10-30",
+  // Pages sert ce dossier tel quel : /jeune sert jeune.html, 404.html pour une adresse inconnue,
+  // et applique public/_headers.
+  "pages_build_output_dir": "./out"
+}
