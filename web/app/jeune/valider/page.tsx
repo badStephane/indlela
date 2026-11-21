@@ -12,9 +12,13 @@ import { critStatus, isValidated, plural, progressOf } from "@/lib/progress";
 import type { PreuveUnite } from "@/lib/effective";
 import { fmtDayMonth, fmtShort, toISODate } from "@/lib/dates";
 import { jeuneHref } from "@/lib/routes";
+import { usePhotos } from "@/lib/photosStore";
+import { AjoutPhotos } from "@/components/photos/AjoutPhotos";
 
 /** Preuves cochées, avec la façon dont le jeune les a réussies. */
 type Selection = Record<string, string>;
+/** Photos de preuve, par preuve cochée. */
+type PhotosSel = Record<string, string[]>;
 
 interface Groupe {
   id: string;
@@ -27,6 +31,8 @@ export default function Valider() {
   const { ok, j } = useJeuneRoute(canValidate);
   const store = useStore();
   const [sel, setSel] = useState<Selection>({});
+  const [photosSel, setPhotosSel] = useState<PhotosSel>({});
+  const photos = usePhotos();
   const [date, setDate] = useState(() => toISODate(new Date()));
   const submitted = useRef(false);
   const back = useBack(j ? jeuneHref(j.id) : "/unite");
@@ -49,17 +55,29 @@ export default function Valider() {
   const ids = Object.keys(sel);
   const n = ids.length;
   const today = toISODate(new Date());
-  const toggle = (id: string) => setSel((s) => (id in s ? Object.fromEntries(Object.entries(s).filter(([k]) => k !== id)) : { ...s, [id]: "" }));
+  const oublierPhotos = (preuveIds: string[]) => {
+    preuveIds.forEach((id) => (photosSel[id] ?? []).forEach(photos.abandonner));
+    setPhotosSel((s) => Object.fromEntries(Object.entries(s).filter(([k]) => !preuveIds.includes(k))));
+  };
+  const toggle = (id: string) => {
+    if (id in sel) oublierPhotos([id]);
+    setSel((s) => (id in s ? Object.fromEntries(Object.entries(s).filter(([k]) => k !== id)) : { ...s, [id]: "" }));
+  };
   const toggleAll = (g: Groupe) => {
     const allOn = g.preuves.every((x) => x.id in sel);
+    if (allOn) oublierPhotos(g.preuves.map((x) => x.id));
     setSel((s) => (allOn ? Object.fromEntries(Object.entries(s).filter(([k]) => !g.preuves.some((x) => x.id === k))) : { ...Object.fromEntries(g.preuves.map((x) => [x.id, ""])), ...s }));
   };
   const setComment = (id: string, text: string) => setSel((s) => ({ ...s, [id]: text }));
+  const setPhotos = (id: string, list: string[]) => setPhotosSel((s) => ({ ...s, [id]: list }));
 
   const confirm = () => {
     if (submitted.current || !n) return;
     submitted.current = true;
-    store.validate(j, ids.map((preuveId) => ({ preuveId, commentaire: sel[preuveId].trim() })), date > today ? today : date);
+    const creees = store.validate(j, ids.map((preuveId) => ({ preuveId, commentaire: sel[preuveId].trim() })), date > today ? today : date);
+    photos.attacher(creees.map((v) => ({ validationId: v.id, jeuneId: j.id, photoIds: photosSel[v.preuveId] ?? [] })));
+    // Preuve déjà validée entre-temps (double touche, autre cadre) : ses photos ne servent plus.
+    oublierPhotos(ids.filter((id) => !creees.some((v) => v.preuveId === id)));
     back();
   };
 
@@ -93,14 +111,14 @@ export default function Valider() {
         ) : (
           <>
             {auProgramme.map((g) => (
-              <GroupeBloc key={g.id} g={g} sel={sel} vals={vals} jeuneId={j.id} onToggle={toggle} onToggleAll={() => toggleAll(g)} onComment={setComment} />
+              <GroupeBloc key={g.id} g={g} sel={sel} photos={photosSel} vals={vals} jeuneId={j.id} onToggle={toggle} onToggleAll={() => toggleAll(g)} onComment={setComment} onPhotos={setPhotos} />
             ))}
             {autres.length > 0 && (
               <details className="rounded-card border border-dashed border-line-strong px-3.5 py-2">
                 <summary className="min-h-10 cursor-pointer py-2 text-[14px] font-bold text-muted">{p.brevets ? "Autres brevets" : "Autres domaines au choix"}</summary>
                 <div className="flex flex-col gap-3 pb-2">
                   {autres.map((g) => (
-                    <GroupeBloc key={g.id} g={g} sel={sel} vals={vals} jeuneId={j.id} onToggle={toggle} onComment={setComment} />
+                    <GroupeBloc key={g.id} g={g} sel={sel} photos={photosSel} vals={vals} jeuneId={j.id} onToggle={toggle} onComment={setComment} onPhotos={setPhotos} />
                   ))}
                 </div>
               </details>
@@ -131,14 +149,16 @@ export default function Valider() {
 interface GroupeBlocProps {
   g: Groupe;
   sel: Selection;
+  photos: PhotosSel;
   vals: Validation[];
   jeuneId: string;
   onToggle: (id: string) => void;
   onToggleAll?: () => void;
   onComment: (id: string, text: string) => void;
+  onPhotos: (id: string, ids: string[]) => void;
 }
 
-function GroupeBloc({ g, sel, vals, jeuneId, onToggle, onToggleAll, onComment }: GroupeBlocProps) {
+function GroupeBloc({ g, sel, photos, vals, jeuneId, onToggle, onToggleAll, onComment, onPhotos }: GroupeBlocProps) {
   const allOn = g.preuves.every((x) => x.id in sel);
   return (
     <div className="flex flex-col gap-1.5">
@@ -175,16 +195,19 @@ function GroupeBloc({ g, sel, vals, jeuneId, onToggle, onToggleAll, onComment }:
                 </span>
               </button>
               {on && (
-                <label className="flex flex-col gap-1 px-3.5 pb-3 pl-[56px] text-[12px] font-semibold text-acc-text">
-                  Comment l&apos;a-t-il réussie ? (facultatif)
-                  <input
-                    value={sel[x.id]}
-                    onChange={(e) => onComment(x.id, e.target.value)}
-                    placeholder="Ex. au camp de Toubab Dialaw, devant le CP"
-                    maxLength={280}
-                    className="h-11 rounded-ui border border-line-strong bg-surface px-3 text-[15px] font-normal text-ink outline-none focus:border-ink"
-                  />
-                </label>
+                <div className="flex flex-col gap-3 px-3.5 pb-3 pl-[56px]">
+                  <label className="flex flex-col gap-1 text-[12px] font-semibold text-acc-text">
+                    Comment l&apos;a-t-il réussie ? (facultatif)
+                    <input
+                      value={sel[x.id]}
+                      onChange={(e) => onComment(x.id, e.target.value)}
+                      placeholder="Ex. au camp de Toubab Dialaw, devant le CP"
+                      maxLength={280}
+                      className="h-11 rounded-ui border border-line-strong bg-surface px-3 text-[15px] font-normal text-ink outline-none focus:border-ink"
+                    />
+                  </label>
+                  <AjoutPhotos preuve={x.label} ids={photos[x.id] ?? []} onChange={(list) => onPhotos(x.id, list)} />
+                </div>
               )}
             </div>
           );

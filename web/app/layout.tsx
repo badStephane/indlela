@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, IBM_Plex_Sans, JetBrains_Mono } from "next/font/google";
 import { StoreProvider } from "@/lib/store";
+import { PhotosProvider } from "@/lib/photosStore";
 import { RegisterSW } from "@/components/RegisterSW";
 import { NavTracker } from "@/lib/nav";
 import "./globals.css";
@@ -29,7 +30,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fr" className={`${bricolage.variable} ${jetbrains.variable} ${plex.variable}`}>
       <body className="text-[15px] leading-[1.4] antialiased">
-        <StoreProvider>{children}</StoreProvider>
+        <StoreProvider>
+          <PhotosProvider>{children}</PhotosProvider>
+        </StoreProvider>
         <NavTracker />
         <RegisterSW />
       </body>
