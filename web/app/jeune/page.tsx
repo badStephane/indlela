@@ -30,6 +30,7 @@ export default function Fiche() {
       branch={j.branche}
       banner
       titreDansPage
+      retour={role === "parent" ? "Vos enfants" : undefined}
       aDroite={
         <Link href={jeuneHref(j.id, "carnet")} className="flex min-h-11 items-center px-1 text-[17px] text-encre underline underline-offset-4">
           Carnet PDF

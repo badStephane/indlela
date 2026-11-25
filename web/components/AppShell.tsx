@@ -232,7 +232,7 @@ export function AppShell({
           </div>
         )}
 
-        {tabs.length > 0 && (
+        {tabs.length > 1 && (
           <nav aria-label="Navigation" className="no-print flex flex-none border-t-4 border-double border-encre bg-fond pb-[env(safe-area-inset-bottom)] lg:hidden">
             {tabs.map(([href, label, court]) => {
               const on = lastTab === href;
