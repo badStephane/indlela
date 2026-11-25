@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { FicheJeune } from "@/components/FicheJeune";
-import { Bouton, CourbesNiveau, EffectifChemin, Echelle, PointAttente, Surligne } from "@/components/carte";
+import { Bouton, CheminDebut, CourbesNiveau, EffectifChemin, Echelle, PointAttente, Surligne } from "@/components/carte";
 import { canValidate, useGuard } from "@/lib/access";
 import { useStore, useTroupe, useTroupeSansConsentement } from "@/lib/store";
 import { ceremonies, fullName } from "@/lib/mock";
@@ -172,17 +172,7 @@ export default function Unite() {
 function UniteVide({ canAdd, onAdd }: { canAdd: boolean; onAdd: () => void }) {
   return (
     <section className="flex flex-col items-start gap-4 pt-8">
-      <svg aria-hidden="true" width="56" height="84" viewBox="0 0 56 84">
-        <circle cx="40" cy="14" r="11" fill="none" stroke="var(--color-pointille)" strokeWidth="3" strokeDasharray="3 4" />
-        {[
-          [36, 37],
-          [27, 47],
-          [16, 57],
-          [6, 69],
-        ].map(([cx, cy]) => (
-          <circle key={cy} cx={cx} cy={cy} r="4" fill="var(--color-pointille)" />
-        ))}
-      </svg>
+      <CheminDebut />
       <h2 className="m-0 text-titre font-extrabold leading-tight tracking-[-0.3px]">Le chemin commence ici.</h2>
       <p className="m-0 text-[17px] text-crayon text-pretty">
         Ajoutez les jeunes de l&apos;unité avec leur étape. Vous pourrez ensuite valider leurs preuves en réunion.

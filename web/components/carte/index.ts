@@ -11,3 +11,4 @@ export * from "./CourbesNiveau";
 export * from "./NavBas";
 export * from "./EffectifChemin";
 export * from "./Chiffre";
+export * from "./CheminDebut";

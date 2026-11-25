@@ -15,5 +15,5 @@ export default function Referentiels() {
   }, [ok]);
 
   if (!ok) return null;
-  return <ReferentielsScreen kicker="Administration" title="Référentiels" />;
+  return <ReferentielsScreen kicker="Étapes, domaines et preuves de chaque branche" title="Référentiels" />;
 }

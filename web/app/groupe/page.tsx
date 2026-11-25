@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
-import { BarreSentier, Bouton, Chiffre, Chiffres, Surligne, TitreSection, type RepartitionEtape } from "@/components/carte";
+import { BarreSentier, Bouton, Chiffre, Chiffres, FOND_BRANCHE, Surligne, TitreSection, type RepartitionEtape } from "@/components/carte";
 import { cx } from "@/components/ui";
 import { useGuard } from "@/lib/access";
 import { useStore, useTroupe } from "@/lib/store";
@@ -15,7 +15,6 @@ import { anneeScoute } from "@/lib/rapport";
 import { jeuneHref } from "@/lib/routes";
 import { slug, telechargerExcel } from "@/lib/excel";
 
-const FILET_BRANCHE: Record<BranchCode, string> = { meute: "bg-meute", troupe: "bg-troupe", route: "bg-route" };
 
 interface LigneUnite {
   code: BranchCode;
@@ -116,7 +115,7 @@ export default function Groupe() {
                   <tr key={u.code} className="border-t border-ligne">
                     <th scope="row" className="py-2 pr-3 text-left font-semibold">
                       <span className="flex min-h-11 items-center gap-3">
-                        <span aria-hidden="true" className={cx("h-6 w-1.5 flex-none", FILET_BRANCHE[u.code])} />
+                        <span aria-hidden="true" className={cx("h-6 w-1.5 flex-none", FOND_BRANCHE[u.code])} />
                         {u.ouvrir ? (
                           <button type="button" onClick={u.ouvrir} className="bg-transparent text-left font-semibold text-encre underline-offset-4 hover:underline">
                             {store.unitesNoms[u.code]}

@@ -60,7 +60,7 @@ export const sheetBtn = {
 };
 
 export const fieldClass =
-  "h-12 rounded-ui border border-line-strong bg-surface px-3.5 text-[16px] font-normal text-ink outline-none focus:border-ink";
+  "h-12 w-full min-w-0 border-0 border-b-[1.5px] border-encre bg-transparent px-0 text-[17px] font-normal text-encre";
 
 /** Contrôle segmenté, comme les onglets de branche des référentiels. */
 export function Segmented<T extends string>({
@@ -75,7 +75,7 @@ export function Segmented<T extends string>({
   label: string;
 }) {
   return (
-    <div role="tablist" aria-label={label} className="grid gap-1 rounded-ui bg-track p-1" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
+    <div role="tablist" aria-label={label} className="grid" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
       {options.map((o) => {
         const on = o.value === value;
         return (
@@ -85,11 +85,11 @@ export function Segmented<T extends string>({
             role="tab"
             aria-selected={on}
             onClick={() => onChange(o.value)}
-            className={`flex h-10 min-w-0 items-center justify-center gap-1.5 truncate rounded-ui px-1 text-[14px] font-bold ${
-              on ? "bg-surface text-ink shadow-[0_1px_2px_rgba(0,0,0,.1)]" : "bg-transparent text-muted"
+            className={`-ml-[1.5px] flex min-h-11 min-w-0 items-center justify-center gap-1.5 truncate border-[1.5px] border-encre px-1 text-[15px] font-semibold first:ml-0 ${
+              on ? "bg-encre text-fond" : "bg-transparent text-encre"
             }`}
           >
-            {o.dot && <span className="h-2 w-2 flex-none rounded-full" style={{ background: o.dot }} />}
+            {o.dot && <span aria-hidden="true" className="h-3 w-1.5 flex-none" style={{ background: o.dot }} />}
             <span className="truncate">{o.label}</span>
           </button>
         );

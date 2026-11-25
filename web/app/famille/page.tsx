@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { cx } from "@/components/ui";
+import { FOND_BRANCHE } from "@/components/carte";
 import { useGuard } from "@/lib/access";
 import { useStore } from "@/lib/store";
 import { BRANCHES, type BranchCode } from "@/lib/referentiels";
@@ -15,7 +16,6 @@ import { jeuneHref } from "@/lib/routes";
 /** Nombre de preuves récentes montrées sous chaque enfant. */
 const PREUVES_RECENTES = 3;
 
-const FILET_BRANCHE: Record<BranchCode, string> = { meute: "bg-meute", troupe: "bg-troupe", route: "bg-route" };
 
 export default function Famille() {
   const ok = useGuard((r) => r === "parent");
@@ -68,7 +68,7 @@ function Enfant({ j, p, vals }: { j: Jeune; p: Progress; vals: Validation[] }) {
 
   return (
     <article className="grid grid-cols-[6px_1fr] gap-x-5">
-      <span aria-hidden="true" className={cx("row-span-full", FILET_BRANCHE[j.branche])} />
+      <span aria-hidden="true" className={cx("row-span-full", FOND_BRANCHE[j.branche])} />
       <div className="flex min-w-0 flex-col gap-2">
         <p className="m-0 font-mono text-[14px] uppercase tracking-[1px] text-crayon">
           {[BRANCHES[j.branche].name, age === null ? null : `${age} ans`].filter(Boolean).join(" · ")}

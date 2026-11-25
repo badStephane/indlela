@@ -4,12 +4,13 @@ import { useState } from "react";
 import { AppShell, type FootAction } from "../AppShell";
 import { AddInput, EtapeEditor, type Edit } from "./RefEditor";
 import { UnitEpreuves } from "../UnitEpreuves";
-import { cx, OutlineButton } from "../ui";
+import { cx } from "../ui";
+import { Bandeau, Bouton, CheminDebut } from "../carte";
 import { useStore } from "@/lib/store";
 import { uuid } from "@/lib/mock";
 import { addEtape } from "@/lib/refEditor";
 import { plural } from "@/lib/progress";
-import { BRANCHES, BRANCH_COLORS, REF_TITLES, type BranchCode } from "@/lib/referentiels";
+import { BRANCHES, REF_TITLES, type BranchCode } from "@/lib/referentiels";
 
 const ORDER: BranchCode[] = ["meute", "troupe", "route"];
 
@@ -53,9 +54,9 @@ export function ReferentielsScreen({ kicker, title, withUnits = false }: Referen
 
   return (
     <AppShell kicker={kicker} title={title} branch={rb} foot={foot}>
-      <div className="flex flex-col gap-4 p-4">
+      <div className="flex flex-col gap-4 px-4 pb-10 lg:px-0">
         {withUnits && <ModeSwitch mode={mode} onChange={setMode} />}
-        <div role="tablist" aria-label="Branche" className="grid grid-cols-3 gap-1 rounded-ui bg-track p-1">
+        <div role="tablist" aria-label="Branche" className="flex border-b-4 border-double border-encre">
           {ORDER.map((b) => {
             const on = b === rb;
             return (
@@ -69,13 +70,12 @@ export function ReferentielsScreen({ kicker, title, withUnits = false }: Referen
                   setOpen(0);
                 }}
                 className={cx(
-                  "flex h-10 items-center justify-center gap-1.5 rounded-ui text-[14px] font-bold",
-                  on ? "bg-surface text-ink shadow-[0_1px_2px_rgba(0,0,0,.1)]" : "bg-transparent text-muted",
+                  "-mb-1 flex min-h-12 items-center gap-1.5 border-b-4 bg-transparent px-4 text-[17px] text-encre",
+                  on ? "border-soleil font-bold" : "border-transparent",
                 )}
               >
-                <span className="h-2 w-2 rounded-full" style={{ background: BRANCH_COLORS[b].acc }} />
                 {BRANCHES[b].name}
-                {ref.draft[b] && <span className="h-1.5 w-1.5 rounded-full bg-wait-dot" aria-label="brouillon" />}
+                {ref.draft[b] && <span className="text-[13px] font-normal text-crayon">(brouillon)</span>}
               </button>
             );
           })}
@@ -83,53 +83,58 @@ export function ReferentielsScreen({ kicker, title, withUnits = false }: Referen
 
         {mode === "unite" ? (
           <>
-            <span className="text-[17px] font-bold">{store.unitesNoms[rb]}</span>
+            <h2 className="m-0 text-section font-extrabold">{store.unitesNoms[rb]}</h2>
             <UnitEpreuves key={rb} branche={rb} />
           </>
         ) : routeEmpty ? (
-          <div className="flex flex-col items-start gap-2.5 rounded-card border border-dashed border-line-strong px-5 py-6">
-            <span className="text-[17px] font-bold">Référentiel de la route non reçu</span>
-            <span className="text-[14px] text-muted text-pretty">
-              La route arrive en V2. Le document officiel est demandé aux cadres de la branche. Vous pouvez préparer un référentiel vide en attendant.
-            </span>
-            <OutlineButton
+          <div className="flex flex-col items-start gap-3 pt-4">
+            <CheminDebut largeur={44} />
+            <h2 className="m-0 text-[24px] font-extrabold leading-tight">La route n&apos;a pas encore de référentiel.</h2>
+            <p className="m-0 text-[17px] text-pretty">
+              La route arrive en V2 ; le document officiel est demandé aux cadres de la branche. Aucune preuve ne peut être validée tant qu&apos;une version n&apos;est pas publiée.
+            </p>
+            <Bouton
               onClick={() => {
                 store.updateRef((r) => ({ ...r, routeCreated: true }));
                 store.log({ action: "creation", table: "referentiels", ligne: "route-v1", resume: "Référentiel de la route créé (vide, version 1)", apres: { version: 1, actif: false } });
               }}
-              className="h-11 bg-transparent px-4 text-[14px]"
             >
               Créer un référentiel vide
-            </OutlineButton>
+            </Bouton>
+            <p className="m-0 text-[15px] text-crayon">Tout reste en brouillon, invisible des cadres, jusqu&apos;à la publication.</p>
           </div>
         ) : (
           <>
             <div className="flex flex-col gap-0.5">
-              <span className="text-[17px] font-bold">{REF_TITLES[rb]}</span>
-              <span className="num text-[13px] text-muted">
+              <h2 className="m-0 text-section font-extrabold">{REF_TITLES[rb]}</h2>
+              <span className="font-mono text-[14px] text-crayon">
                 Version {ver} · publiée · {nbValidations} {plural(nbValidations, "validation", "validations")}
               </span>
-              {rb === "meute" && <span className="mt-1 text-[13px] text-muted text-pretty">Base proposée : chaque chef de meute peut adapter les preuves de son unité.</span>}
+              {rb === "meute" && <span className="mt-1 text-[15px] text-crayon text-pretty">Base proposée : chaque chef de meute peut adapter les preuves de son unité.</span>}
             </div>
 
             {draft && (
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-ui bg-wait-bg px-3.5 py-2.5 text-[13px] text-wait-ink">
-                <span className="text-pretty">Brouillon non publié : les cadres voient encore la version {ver}.</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    store.discardDraft(rb);
-                    store.showToast("Brouillon abandonné");
-                  }}
-                  className="h-8 flex-none rounded-full border border-wait-dot bg-transparent px-3 text-[12px] font-bold"
-                >
-                  Abandonner le brouillon
-                </button>
-              </div>
+              <Bandeau>
+                <span className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-pretty">
+                    <strong>Brouillon de la version {ver + 1}</strong> · invisible des cadres. La version {ver} reste en usage.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      store.discardDraft(rb);
+                      store.showToast("Brouillon abandonné");
+                    }}
+                    className="min-h-11 flex-none border-[1.5px] border-encre bg-transparent px-3 text-[14px] font-semibold text-encre"
+                  >
+                    Abandonner le brouillon
+                  </button>
+                </span>
+              </Bandeau>
             )}
 
             {steps.length > 0 && (
-              <div className="flex flex-col overflow-hidden rounded-card border border-line bg-surface [&>*:last-child]:border-b-0">
+              <div className="flex flex-col border-t border-ligne">
                 {steps.map((s, i) => (
                   <EtapeEditor key={s.id} step={s} index={i} edit={edit} isOpen={open === i} onOpen={() => setOpen(open === i ? -1 : i)} />
                 ))}
@@ -150,7 +155,7 @@ const MODES: [Mode, string][] = [
 
 function ModeSwitch({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => void }) {
   return (
-    <div role="tablist" aria-label="Ce que vous modifiez" className="grid grid-cols-2 gap-1 rounded-ui border border-line bg-surface p-1">
+    <div role="tablist" aria-label="Ce que vous modifiez" className="grid grid-cols-2">
       {MODES.map(([m, label]) => (
         <button
           key={m}
@@ -158,7 +163,7 @@ function ModeSwitch({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => voi
           role="tab"
           aria-selected={mode === m}
           onClick={() => onChange(m)}
-          className={cx("h-10 rounded-ui text-[14px] font-bold", mode === m ? "bg-ink text-white" : "bg-transparent text-muted")}
+          className={cx("min-h-11 border-[1.5px] border-encre px-3 text-[15px] font-semibold", m !== MODES[0][0] && "-ml-[1.5px]", mode === m ? "bg-encre text-fond" : "bg-transparent text-encre")}
         >
           {label}
         </button>

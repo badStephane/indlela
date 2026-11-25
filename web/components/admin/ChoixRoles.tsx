@@ -15,29 +15,27 @@ interface ChoixRolesProps {
 /** Rôles cochés d'un compte : les rôles d'encadrement se cumulent, parent reste seul (voir lib/roles.ts). */
 export function ChoixRoles({ roles, onToggle, disabled = false }: ChoixRolesProps) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <span className="text-[13px] font-semibold">Rôles</span>
-      <div className="grid grid-cols-2 gap-2" role="group" aria-label="Rôles du compte">
-        {PROPOSES.map((r) => {
-          const on = roles.includes(r);
-          return (
-            <button
-              key={r}
-              type="button"
-              aria-pressed={on}
-              disabled={disabled}
-              onClick={() => onToggle(r)}
-              className={cx(
-                "h-11 rounded-ui border text-[14px] font-semibold disabled:opacity-60",
-                on ? "border-ink bg-ink text-white" : "border-line bg-surface text-ink",
-              )}
-            >
-              {ROLE_LABELS[r]}
-            </button>
-          );
-        })}
-      </div>
-      <span className="text-[12px] text-muted text-pretty">Plusieurs rôles possibles. Un compte parent reste à part, sans autre rôle.</span>
-    </div>
+    <fieldset className="m-0 flex flex-col border-0 p-0">
+      <legend className="mb-1 text-sm font-semibold">Rôles (cumulables)</legend>
+      {PROPOSES.map((r) => {
+        const on = roles.includes(r);
+        return (
+          <button
+            key={r}
+            type="button"
+            aria-pressed={on}
+            disabled={disabled}
+            onClick={() => onToggle(r)}
+            className="flex min-h-11 items-center gap-3 bg-transparent text-left text-[16px] text-encre disabled:text-crayon"
+          >
+            <span aria-hidden="true" className={cx("flex size-[22px] flex-none items-center justify-center border-[1.5px] text-[14px] font-bold", on ? "border-sentier bg-sentier text-white" : "border-encre")}>
+              {on ? "✓" : ""}
+            </span>
+            {ROLE_LABELS[r]}
+          </button>
+        );
+      })}
+      <span className="pt-1 text-[14px] text-crayon text-pretty">Plusieurs rôles possibles. Un compte parent reste à part, sans autre rôle.</span>
+    </fieldset>
   );
 }

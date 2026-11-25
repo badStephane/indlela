@@ -57,6 +57,9 @@ export function Bandeau({ ton = "alerte", children }: { ton?: "alerte" | "erreur
   return <div role={ton === "erreur" ? "alert" : "status"} className={`border-l-4 px-3 py-2.5 text-[15px] leading-snug ${t}`}>{children}</div>;
 }
 
+/** Fond à la couleur de chaque branche, pour un filet ou une pastille. */
+export const FOND_BRANCHE = { meute: "bg-meute", troupe: "bg-troupe", route: "bg-route" } as const;
+
 /** Filet de branche à gauche d'un bloc (meute, troupe, route). */
 export function BlocBranche({ branche, children }: { branche: "meute" | "troupe" | "route"; children: ReactNode }) {
   const c = { meute: "border-meute", troupe: "border-troupe", route: "border-route" }[branche];
