@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { segmentsBarre } from "../BarreSentier";
+import { largeurSegment } from "../Echelle";
 import { estOngletActif, ongletsVisibles } from "../NavBas";
 
 describe("segmentsBarre", () => {
@@ -23,6 +24,20 @@ describe("segmentsBarre", () => {
 
   it("renvoie une liste vide quand l'unité n'a aucun jeune", () => {
     expect(segmentsBarre([{ etape: "Volontaire", nombre: 0 }])).toEqual([]);
+  });
+});
+
+describe("largeurSegment", () => {
+  it("garde 14 px par preuve quand l'échelle est courte", () => {
+    expect(largeurSegment(10)).toBe(14);
+  });
+
+  it("rétrécit les segments pour que l'échelle tienne sur un téléphone", () => {
+    expect(largeurSegment(30) * 30).toBeLessThanOrEqual(180);
+  });
+
+  it("ne descend jamais sous 4 px", () => {
+    expect(largeurSegment(200)).toBe(4);
   });
 });
 

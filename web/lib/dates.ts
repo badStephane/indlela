@@ -54,6 +54,21 @@ export function fmtWhen(iso: string): string {
   return daysSince(iso) === 0 ? "Aujourd'hui" : fmtShort(iso);
 }
 
+const deuxChiffres = (n: number) => String(n).padStart(2, "0");
+
+/** Date de carte, en chiffres : « 03.09 », ou « 03.09.2026 » avec l'année. */
+export function fmtPoint(iso: string, avecAnnee = false): string {
+  const x = fromISODate(iso);
+  const jourMois = `${deuxChiffres(x.getDate())}.${deuxChiffres(x.getMonth() + 1)}`;
+  return avecAnnee ? `${jourMois}.${x.getFullYear()}` : jourMois;
+}
+
+/** Mois et année : « 03.2026 » (étape franchie, entrée dans l'unité). */
+export function fmtMoisAn(iso: string): string {
+  const x = fromISODate(iso);
+  return `${deuxChiffres(x.getMonth() + 1)}.${x.getFullYear()}`;
+}
+
 export function toISODate(d: Date): string {
   const p = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;

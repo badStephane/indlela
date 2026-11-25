@@ -87,6 +87,11 @@ function fold(s: string): string {
   return s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 }
 
+/** Recherche d'un nom : sans accents ni majuscules ; une recherche vide garde tout. */
+export function contientSansAccents(texte: string, recherche: string): boolean {
+  return fold(texte).includes(fold(recherche.trim()));
+}
+
 function personKey(p: Person): string {
   return `${fold(p.prenom)}|${fold(p.nom)}`;
 }

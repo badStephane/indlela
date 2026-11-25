@@ -7,10 +7,10 @@ export function PointAttente({ libelle = "Saisie en attente du réseau" }: { lib
 
 /**
  * Pastille de synchronisation en haut d'écran. Ne se coupe jamais sur deux lignes.
- * Bouton seulement quand il y a un envoi à relancer ; sinon simple étiquette.
+ * Bouton dès que `onRelancer` est donné (un toucher relance l'envoi) ; sinon simple étiquette.
  */
 export function PastilleSync({ etat, enAttente = 0, onRelancer }: { etat: EtatSync; enAttente?: number; onRelancer?: () => void }) {
-  const libelle = etat === "en-ligne" ? "En ligne" : etat === "hors-ligne" ? `Hors ligne · ${enAttente}` : "Envoi en échec";
+  const libelle = etat === "en-ligne" ? "En ligne" : etat === "hors-ligne" ? (enAttente ? `Hors ligne · ${enAttente}` : "Hors ligne") : "Envoi en échec";
   const point = etat === "en-ligne" ? "bg-sentier" : etat === "hors-ligne" ? "bg-attente" : "bg-erreur";
   const classes = `inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap border-[1.5px] bg-fond px-2.5 text-[13px] font-semibold ${etat === "erreur" ? "border-erreur text-erreur" : "border-encre text-encre"}`;
   const contenu = (
@@ -19,11 +19,11 @@ export function PastilleSync({ etat, enAttente = 0, onRelancer }: { etat: EtatSy
       {libelle}
     </>
   );
-  if (etat === "en-ligne" || !onRelancer) {
+  if (!onRelancer) {
     return <span role="status" className={classes}>{contenu}</span>;
   }
   return (
-    <button type="button" onClick={onRelancer} aria-label={`${libelle}. Toucher pour réessayer`} className={classes}>
+    <button type="button" onClick={onRelancer} aria-live="polite" aria-label={etat === "en-ligne" ? libelle : `${libelle}. Toucher pour réessayer`} className={classes}>
       {contenu}
     </button>
   );

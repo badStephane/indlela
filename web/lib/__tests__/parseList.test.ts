@@ -1,5 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { MAX_PASTE_ROWS, parseNameList } from "../parseList";
+import { MAX_PASTE_ROWS, contientSansAccents, parseNameList } from "../parseList";
+
+describe("contientSansAccents", () => {
+  it("trouve un nom sans tenir compte des accents ni des majuscules", () => {
+    expect(contientSansAccents("Aïssatou Sarr", "aissa")).toBe(true);
+    expect(contientSansAccents("Fatou Ndiaye", "NDIA")).toBe(true);
+  });
+
+  it("garde tout quand la recherche est vide ou faite d'espaces", () => {
+    expect(contientSansAccents("Amadou Ba", "  ")).toBe(true);
+  });
+
+  it("écarte un nom qui ne contient pas la recherche", () => {
+    expect(contientSansAccents("Amadou Ba", "sow")).toBe(false);
+  });
+});
 
 const names = (text: string, existing: { prenom: string; nom: string }[] = []) =>
   parseNameList(text, existing).map((r) => [r.prenom, r.nom, r.probleme]);

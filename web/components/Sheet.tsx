@@ -5,7 +5,7 @@ import { useEffect, useId, useRef, type ReactNode } from "react";
 const FOCUSABLE = "button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex='-1'])";
 
 /**
- * Feuille posée au-dessus de l'écran courant : en bas sur téléphone, centrée sur ordinateur.
+ * Feuille posée au-dessus de l'écran courant : en bas sur téléphone, centrée sur ordinateur, à double cadre.
  * Le focus va sur le premier élément de la feuille, Échap ferme, et le focus revient où il était.
  */
 export function Sheet({ title, onClose, children, alert = false }: { title: string; onClose: () => void; children: ReactNode; alert?: boolean }) {
@@ -28,16 +28,16 @@ export function Sheet({ title, onClose, children, alert = false }: { title: stri
   }, []);
 
   return (
-    <div className="no-print absolute inset-0 z-[5] flex items-end bg-[rgba(15,18,16,.45)] lg:items-center lg:justify-center lg:p-6" onClick={onClose}>
+    <div className="no-print absolute inset-0 z-[5] flex items-end bg-[rgba(20,24,20,.5)] p-3 pb-[max(12px,env(safe-area-inset-bottom))] lg:items-center lg:justify-center lg:p-6" onClick={onClose}>
       <div
         ref={panel}
         role={alert ? "alertdialog" : "dialog"}
         aria-modal="true"
         aria-labelledby={titleId}
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[88%] w-full flex-col gap-3 overflow-y-auto rounded-t-sheet bg-surface px-[18px] pb-[max(22px,env(safe-area-inset-bottom))] pt-5 lg:max-w-[440px] lg:rounded-sheet lg:px-6 lg:pb-6"
+        className="flex max-h-[88%] w-full flex-col gap-3 overflow-y-auto border-[1.5px] border-encre bg-fond p-5 outline outline-1 outline-offset-[3px] outline-encre lg:max-w-[460px] lg:p-6"
       >
-        <span id={titleId} className="text-[19px] font-extrabold">
+        <span id={titleId} className="text-[22px] font-extrabold leading-tight tracking-[-0.3px]">
           {title}
         </span>
         {children}
@@ -46,14 +46,17 @@ export function Sheet({ title, onClose, children, alert = false }: { title: stri
   );
 }
 
+/** Actions empilées, le choix prudent d'abord ; pleine largeur sur téléphone. */
 export function SheetActions({ children }: { children: ReactNode }) {
-  return <div className="mt-1 grid grid-cols-2 gap-2">{children}</div>;
+  return <div className="mt-1 flex flex-col gap-2 lg:items-start">{children}</div>;
 }
 
+const sheetBase = "min-h-12 px-4 text-[16px] font-semibold disabled:cursor-default disabled:border-ligne disabled:bg-ligne disabled:text-crayon";
+
 export const sheetBtn = {
-  ghost: "h-[50px] rounded-ui border border-line-strong bg-transparent text-[15px] font-bold text-ink",
-  primary: "h-[50px] rounded-ui bg-acc text-[15px] font-bold text-acc-ink disabled:cursor-default disabled:bg-track disabled:text-muted",
-  danger: "h-[50px] rounded-ui bg-danger text-[15px] font-bold text-white disabled:cursor-default disabled:bg-track disabled:text-muted",
+  ghost: `${sheetBase} border-[1.5px] border-encre bg-fond text-encre`,
+  primary: `${sheetBase} bg-sentier text-white`,
+  danger: `${sheetBase} border-[1.5px] border-erreur bg-fond text-erreur`,
 };
 
 export const fieldClass =

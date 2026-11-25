@@ -9,3 +9,4 @@ export * from "./PastilleSync";
 export * from "./Elements";
 export * from "./CourbesNiveau";
 export * from "./NavBas";
+export * from "./EffectifChemin";

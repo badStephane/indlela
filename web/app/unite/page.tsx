@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
-import { List, OutlineButton, rowClass } from "@/components/ui";
-import { SentierEffectif, SentierJeune } from "@/components/Sentier";
+import { Bouton, CourbesNiveau, EffectifChemin, Echelle, PointAttente, Surligne } from "@/components/carte";
 import { canValidate, useGuard } from "@/lib/access";
 import { useStore, useTroupe, useTroupeSansConsentement } from "@/lib/store";
 import { ceremonies, fullName } from "@/lib/mock";
 import { hasPending, plural, progressOf } from "@/lib/progress";
+import { contientSansAccents } from "@/lib/parseList";
 import { fmtDayMonth, fmtMeeting } from "@/lib/dates";
 import { jeuneHref } from "@/lib/routes";
 
@@ -18,6 +18,7 @@ export default function Unite() {
   const router = useRouter();
   const troupe = useTroupe();
   const enAttente = useTroupeSansConsentement();
+  const [recherche, setRecherche] = useState("");
   const { vals, role, steps } = store;
 
   useEffect(() => {
@@ -29,87 +30,140 @@ export default function Unite() {
 
   const rows = troupe.map((j) => ({ j, p: progressOf(j, steps, vals) }));
   const award = rows.filter((r) => r.p.complete).length;
-  const etapes = steps.troupe.map((s, k) => ({ label: s.name, count: rows.filter((r) => r.p.index === k).length }));
+  const etapes = steps.troupe.map((s, k) => ({ etape: s.name, nombre: rows.filter((r) => r.p.index === k).length }));
+  const visibles = rows.filter(({ j }) => contientSansAccents(fullName(j), recherche));
   const canAdd = canValidate(role);
   const addJeunes = () => router.push("/unite/ajouter");
+  const vide = troupe.length === 0;
 
   return (
-    <AppShell kicker={store.groupeNom} title={store.unitesNoms.troupe} back={role === "groupe" ? "/groupe" : undefined} banner wide>
-      <div className="flex flex-col gap-3 p-4 lg:grid lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)] lg:items-start lg:gap-6">
-        <div className="flex flex-col gap-3 lg:sticky lg:top-4">
-        <span className="text-[14px] text-muted">Réunion du {fmtMeeting(new Date())}</span>
-
+    <AppShell
+      kicker={vide ? "Aucun jeune pour l'instant" : `Réunion du ${fmtMeeting(new Date())}`}
+      title={store.unitesNoms.troupe}
+      back={role === "groupe" ? "/groupe" : undefined}
+      banner
+      wide
+      aDroite={
+        canAdd && !vide ? (
+          <span className="hidden lg:contents">
+            <Bouton variante="secondaire" onClick={addJeunes}>
+              + Ajouter des jeunes
+            </Bouton>
+          </span>
+        ) : undefined
+      }
+    >
+      <div className="flex flex-col px-4 pb-8 lg:max-w-[720px] lg:px-0">
         {enAttente.length > 0 && (
-          <div className="rounded-ui bg-wait-bg px-3.5 py-2.5 text-[13px] text-wait-ink text-pretty">
+          <p className="m-0 border-b border-ligne py-3.5 text-[17px] text-pretty">
             {enAttente.length > 1 ? `${enAttente.length} fiches attendent` : "1 fiche attend"} le consentement des parents ({enAttente.map((j) => j.prenom).join(", ")}).{" "}
-            {enAttente.length > 1 ? "Elles apparaîtront" : "Elle apparaîtra"} ici dès que l&apos;admin l&apos;aura enregistré.
-          </div>
-        )}
-
-        {troupe.length > 0 && (
-          <div className="flex flex-col gap-5 rounded-card bg-forest px-4 pb-4 pt-[18px] text-white">
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="text-[17px] font-bold">
-                <span className="num">{troupe.length}</span> {plural(troupe.length, "jeune", "jeunes")} sur le chemin
-              </span>
-            </div>
-            <SentierEffectif etapes={etapes} tone="sombre" />
-            {award > 0 && (
-              <span className="flex items-center gap-2 rounded-ui bg-white/10 px-3 py-2 text-[13px] text-pretty">
-                <span aria-hidden className="h-2 w-2 flex-none rounded-full bg-sun" />
-                <span>
-                  <span className="num font-bold">{award}</span> {plural(award, "étape à remettre", "étapes à remettre")} à la cour d&apos;honneur du{" "}
-                  {fmtDayMonth(ceremonies().courHonneur)}
-                </span>
-              </span>
-            )}
-          </div>
-        )}
-        </div>
-
-        {troupe.length === 0 ? (
-          <div className="flex flex-col items-start gap-3 rounded-card border border-dashed border-line-strong px-5 py-7">
-            <span className="text-[17px] font-bold">Aucun jeune dans cette unité</span>
-            <span className="text-[14px] text-muted text-pretty">
-              Ajoutez vos jeunes un par un, ou collez la liste de l&apos;unité (un prénom et un nom par ligne). Vous indiquerez ensuite l&apos;étape de chacun.
+            <span className="text-crayon">
+              {enAttente.length > 1 ? "Elles apparaîtront" : "Elle apparaîtra"} ici dès que l&apos;admin l&apos;aura enregistré.
             </span>
-            {canAdd && (
-              <button type="button" onClick={addJeunes} className="h-11 rounded-ui bg-acc px-4 text-[15px] font-bold text-acc-ink">
-                Ajouter les jeunes de l&apos;unité
+          </p>
+        )}
+
+        {vide ? (
+          <UniteVide canAdd={canAdd} onAdd={addJeunes} />
+        ) : (
+          <>
+            <section aria-label="Effectif de l'unité" className="flex flex-col gap-4 border-b border-ligne py-5">
+              <p className="m-0 text-[18px]">
+                <strong className="text-[28px] font-extrabold tracking-[-0.3px]">
+                  {troupe.length} {plural(troupe.length, "jeune", "jeunes")}
+                </strong>{" "}
+                sur le chemin
+              </p>
+              <EffectifChemin etapes={etapes} />
+            </section>
+
+            {award > 0 && (
+              <button
+                type="button"
+                onClick={() => router.push("/unite/tableau-de-bord")}
+                className="flex min-h-14 w-full items-center justify-between gap-3 border-b border-ligne bg-transparent py-3.5 text-left text-[17px] text-encre"
+              >
+                <span className="text-pretty">
+                  <Surligne>
+                    {award} {plural(award, "étape", "étapes")}
+                  </Surligne>{" "}
+                  à remettre à la cour d&apos;honneur du {fmtDayMonth(ceremonies().courHonneur)}
+                </span>
+                <span aria-hidden="true" className="text-[22px]">›</span>
               </button>
             )}
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            <List>
-              {rows.map(({ j, p }) => (
-                <button key={j.id} type="button" onClick={() => router.push(jeuneHref(j.id))} className={`${rowClass} min-h-[66px] gap-3 py-2.5`}>
-                  <span className="flex min-w-0 flex-1 flex-col gap-2">
-                    <span className="flex items-baseline justify-between gap-2">
-                      <span className="truncate text-[16px] font-semibold">{fullName(j)}</span>
-                      <span className="flex-none text-[13px] text-muted">
-                        {p.step?.name} <span className="num font-semibold text-ink">{p.done}/{p.total}</span>
+
+            <div className="flex items-end justify-between gap-4 border-t-4 border-double border-encre pt-4">
+              <h2 className="m-0 pb-2 text-[16px] font-bold">Les jeunes</h2>
+              <input
+                type="search"
+                value={recherche}
+                onChange={(e) => setRecherche(e.target.value)}
+                aria-label="Chercher un jeune"
+                placeholder="Chercher"
+                className="h-11 w-[48%] max-w-[260px] border-0 border-b-[1.5px] border-encre bg-transparent px-0 text-[17px] text-encre outline-offset-4 placeholder:text-crayon"
+              />
+            </div>
+
+            <ul className="m-0 list-none p-0">
+              {visibles.map(({ j, p }) => (
+                <li key={j.id} className="border-b border-ligne">
+                  <button type="button" onClick={() => router.push(jeuneHref(j.id))} className="flex min-h-[66px] w-full items-center gap-3 bg-transparent py-3 text-left text-encre">
+                    <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+                      <span className="flex min-w-0 items-center gap-2 text-[18px] font-semibold">
+                        <span className="truncate">{fullName(j)}</span>
+                        {hasPending(vals, j) && <PointAttente />}
                       </span>
+                      <Echelle faites={p.done} total={p.total} />
                     </span>
-                    <SentierJeune
-                      total={p.steps.length}
-                      index={p.index}
-                      part={p.total ? p.done / p.total : 0}
-                      label={`${p.step?.name ?? ""}, ${p.done} sur ${p.total}`}
-                    />
-                  </span>
-                  {hasPending(vals, j) && <span title="En attente de synchronisation" aria-label="En attente de synchronisation" className="h-2.5 w-2.5 flex-none rounded-full bg-wait-dot" />}
-                </button>
+                    <span className="flex-none text-[16px] font-semibold text-sentier">{p.step?.name}</span>
+                  </button>
+                </li>
               ))}
-            </List>
+            </ul>
+            {visibles.length === 0 && <p className="m-0 py-4 text-[16px] text-crayon">Aucun jeune ne correspond à « {recherche.trim()} ».</p>}
+
             {canAdd && (
-              <OutlineButton onClick={addJeunes} className="h-12 bg-surface text-[15px]">
-                Ajouter des jeunes
-              </OutlineButton>
+              <div className="mt-5 lg:hidden">
+                <Bouton variante="secondaire" onClick={addJeunes} className="w-full">
+                  Ajouter des jeunes
+                </Bouton>
+              </div>
             )}
-          </div>
+          </>
         )}
       </div>
     </AppShell>
+  );
+}
+
+/** Unité sans jeune : le chemin commence ici. Les courbes de niveau restent dans une bande vide, sous le texte. */
+function UniteVide({ canAdd, onAdd }: { canAdd: boolean; onAdd: () => void }) {
+  return (
+    <section className="flex flex-col items-start gap-4 pt-8">
+      <svg aria-hidden="true" width="56" height="84" viewBox="0 0 56 84">
+        <circle cx="40" cy="14" r="11" fill="none" stroke="var(--color-pointille)" strokeWidth="3" strokeDasharray="3 4" />
+        {[
+          [36, 37],
+          [27, 47],
+          [16, 57],
+          [6, 69],
+        ].map(([cx, cy]) => (
+          <circle key={cy} cx={cx} cy={cy} r="4" fill="var(--color-pointille)" />
+        ))}
+      </svg>
+      <h2 className="m-0 text-titre font-extrabold leading-tight tracking-[-0.3px]">Le chemin commence ici.</h2>
+      <p className="m-0 text-[17px] text-crayon text-pretty">
+        Ajoutez les jeunes de l&apos;unité avec leur étape. Vous pourrez ensuite valider leurs preuves en réunion.
+      </p>
+      {canAdd && (
+        <Bouton large onClick={onAdd} className="lg:w-auto lg:px-8">
+          Ajouter des jeunes
+        </Bouton>
+      )}
+      <div className="relative isolate h-[240px] w-full">
+        <CourbesNiveau hauteur={240} largeur={360} />
+      </div>
+    </section>
   );
 }

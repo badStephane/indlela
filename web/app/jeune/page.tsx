@@ -1,16 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
-import { Bar, Card, cx, List, OutlineButton, rowClass, Section, SectionLabel } from "@/components/ui";
+import { Bandeau, Bouton, Cartouche, Sentier, TitreSection, TracePreuves, type EtapeSentier, type Preuve } from "@/components/carte";
+import { cx } from "@/components/ui";
 import { canValidate } from "@/lib/access";
 import { useJeuneRoute } from "@/lib/useJeune";
 import { useStore } from "@/lib/store";
-import { BRANCHES } from "@/lib/referentiels";
 import { ageOf, ceremonies, dateRemise, fullName, historiqueUnites, type Jeune } from "@/lib/mock";
 import { PhotosValidation } from "@/components/photos/PhotosValidation";
-import { critStatus, isValidated, pct, plural, progressOf, type CritStatus, type DomaineProgress, type Progress } from "@/lib/progress";
-import { fmtDayMonth, fmtShort, fmtWhen } from "@/lib/dates";
+import { critStatus, isValidated, plural, progressOf, type DomaineProgress, type Progress } from "@/lib/progress";
+import { fmtDayMonth, fmtMoisAn, fmtPoint } from "@/lib/dates";
 import { dateReconnue, historique, type Reconnaissance } from "@/lib/courHonneur";
 import { jeuneHref } from "@/lib/routes";
 
@@ -22,85 +23,52 @@ export default function Fiche() {
 
   const { vals, role, steps } = store;
   const cadre = canValidate(role);
-  const B = BRANCHES[j.branche];
   const p = progressOf(j, steps, vals);
   const age = ageOf(j);
+  const unite = store.unitesNoms[j.branche];
 
   return (
     <AppShell
-      kicker={store.unitesNoms[j.branche]}
+      kicker={unite}
       title={fullName(j)}
       back={home}
       branch={j.branche}
       banner
+      titreDansPage
+      aDroite={
+        <Link href={jeuneHref(j.id, "carnet")} className="flex min-h-11 items-center px-1 text-[17px] text-encre underline underline-offset-4">
+          Carnet PDF
+        </Link>
+      }
       foot={cadre && p.step ? { label: p.brevets ? "Valider des brevets" : "Valider des preuves", onClick: () => router.push(jeuneHref(j.id, "valider")) } : undefined}
     >
-      <div className="flex flex-col gap-[22px] px-4 pb-6 pt-[18px]">
-        <div className="flex flex-col gap-1">
-          <span className="text-[14px] text-muted">{age === null ? store.unitesNoms[j.branche] : `${age} ans · ${store.unitesNoms[j.branche]}`}</span>
-          {!cadre && (
-            <span className="mt-1.5 self-start rounded-full border border-line bg-surface px-2.5 py-1 text-[12px] font-semibold text-muted">Lecture seule</span>
-          )}
-        </div>
+      <div className="flex flex-col gap-5 px-4 pb-8 pt-2 lg:px-0">
+        <Cartouche
+          titre={fullName(j)}
+          sousTitre={[age === null ? null : `${age} ans`, unite, cadre ? null : "lecture seule"].filter(Boolean).join(" · ")}
+          libelle={p.step ? "étape" : undefined}
+          valeur={p.step?.name}
+        />
 
-        <Chemin j={j} p={p} recons={store.recons} />
+        <Sentier etapes={etapesSentier(j, p, store.recons)} className="mt-1" />
 
         {p.step && (
-          <Card className="flex flex-col gap-2.5 p-4">
-            <SectionLabel>Étape en cours</SectionLabel>
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="text-[22px] font-extrabold tracking-[-0.01em]">{p.step.name}</span>
-              <span className="num text-[14px] font-semibold text-acc-text">
-                {p.done} / {p.total}
-              </span>
-            </div>
-            <Bar value={pct(p.done, p.total)} height={8} />
+          <div className="flex flex-col gap-3">
+            <p className="m-0 border-l-4 border-encre pl-3 text-[17px] text-pretty">
+              {p.step.rule ? `${p.step.name} : ${p.step.rule}` : p.step.name}
+              <span className="block text-[15px] text-crayon">Validation de l&apos;étape : {p.step.val}</span>
+            </p>
             {p.brevets && (
-              <span className="text-[13px] font-semibold text-ink">
-                {p.brevets.obtenus} {plural(p.brevets.obtenus, "brevet obtenu", "brevets obtenus")} · {p.brevets.series}{" "}
-                {plural(p.brevets.series, "série", "séries")} sur 2
-              </span>
+              <p className="m-0 font-mono text-[14px]">
+                {p.brevets.obtenus} {plural(p.brevets.obtenus, "brevet obtenu", "brevets obtenus")} · {p.brevets.series} {plural(p.brevets.series, "série", "séries")} sur 2
+              </p>
             )}
-            {p.step.rule && <span className="text-[13px] text-ink">Règle : {p.step.rule}</span>}
-            <span className="text-[13px] text-muted text-pretty">Validation de l&apos;étape : {p.step.val}</span>
             {p.complete && (
-              <span className="rounded-ui bg-acc-soft px-2.5 py-2 text-[13px] font-semibold text-acc-text">
-                Étape réussie · à présenter à la cour d&apos;honneur du {fmtDayMonth(ceremonies().courHonneur)}
-              </span>
+              <Bandeau ton="ok">
+                <strong>Étape réussie.</strong> À présenter à la cour d&apos;honneur du {fmtDayMonth(ceremonies().courHonneur)}.
+              </Bandeau>
             )}
-            {cadre && (
-              <button
-                type="button"
-                onClick={() => router.push(jeuneHref(j.id, "cour"))}
-                className={cx(
-                  "h-11 rounded-ui text-[14px] font-bold",
-                  p.complete ? "bg-acc text-acc-ink" : "border border-line-strong bg-transparent text-muted",
-                )}
-              >
-                {p.complete ? "Présenter à la cour d'honneur" : "Saisir une décision de cour d'honneur"}
-              </button>
-            )}
-            {cadre && (
-              <label className="mt-1 flex items-center justify-between gap-3 border-t border-line pt-3 text-[13px] text-muted">
-                Corriger l&apos;étape du jeune
-                <select
-                  value={p.step.id}
-                  onChange={(e) => {
-                    const next = p.steps.find((s) => s.id === e.target.value);
-                    store.updateJeune(j.id, { etapeId: e.target.value });
-                    if (next) store.showToast(`${j.prenom} : étape ${next.name}`);
-                  }}
-                  className="h-10 rounded-ui border border-line-strong bg-surface px-2.5 text-[14px] font-semibold text-ink"
-                >
-                  {p.steps.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-          </Card>
+          </div>
         )}
 
         {p.step && <Programme j={j} p={p} cadre={cadre} />}
@@ -109,170 +77,106 @@ export default function Fiche() {
 
         <CoursHonneur list={historique(store.recons, j.id)} steps={p.steps} />
 
-        <Section label="Spécialités et badges">
+        <section>
+          <TitreSection>Spécialités et badges</TitreSection>
           {j.specs.length ? (
-            <div className="flex flex-wrap gap-2">
+            <ul className="m-0 list-none p-0">
               {j.specs.map((sp) => (
-                <div key={sp.name} className="flex flex-col gap-0.5 rounded-full border border-line bg-surface px-3 py-2">
-                  <span className="text-[14px] font-semibold">{sp.name}</span>
-                  <span className="num text-[12px] text-muted">{sp.meta}</span>
-                </div>
+                <li key={sp.name} className="flex items-baseline justify-between gap-3 border-b border-ligne py-2.5">
+                  <span className="text-[16px]">{sp.name}</span>
+                  <span className="font-mono text-[13px] text-crayon">{sp.meta}</span>
+                </li>
               ))}
-            </div>
+            </ul>
           ) : (
-            <span className="text-[14px] text-muted">Aucune spécialité ni badge pour l&apos;instant.</span>
+            <p className="m-0 py-2.5 text-[16px] text-crayon">Aucune spécialité ni badge pour l&apos;instant.</p>
           )}
-        </Section>
+        </section>
 
-        <Section label="Historique des unités">
-          <div className="flex flex-col">
+        <section>
+          <TitreSection>Historique des unités</TitreSection>
+          <ul className="m-0 list-none p-0">
             {historiqueUnites(j, store.unitesNoms).map((h) => (
-              <div key={h.unit} className="flex justify-between gap-3 border-b border-line py-1.5 text-[14px]">
-                <span>{h.unit}</span>
-                <span className="num text-[12px] text-muted">{h.period}</span>
-              </div>
+              <li key={h.unit} className="flex items-baseline justify-between gap-3 border-b border-ligne py-2.5">
+                <span className="text-[16px]">{h.unit}</span>
+                <span className="font-mono text-[13px] text-crayon">{h.period}</span>
+              </li>
             ))}
-          </div>
-        </Section>
+          </ul>
+        </section>
 
-        <OutlineButton onClick={() => router.push(jeuneHref(j.id, "carnet"))} className="h-12 bg-surface text-[15px]">
-          Voir le carnet PDF
-        </OutlineButton>
+        {cadre && p.step && <GererEtape j={j} p={p} />}
       </div>
     </AppShell>
   );
 }
 
-/** Le chemin : étapes franchies, soleil sur l'étape en cours. */
-function Chemin({ j, p, recons }: { j: Jeune; p: Progress; recons: Reconnaissance[] }) {
-  return (
-    <ol className="m-0 flex list-none flex-col p-0" aria-label="Étapes">
-      {p.steps.map((s, k) => {
-        const done = k < p.index;
-        const cur = k === p.index;
-        const last = k === p.steps.length - 1;
-        const dotColor = done ? "var(--acc)" : cur ? "#F2B400" : undefined;
-        const remise = done ? (dateReconnue(recons, j.id, s.id) ?? dateRemise(j, k, p.index)) : null;
-        return (
-          <li key={s.id} className="flex gap-3.5" aria-current={cur ? "step" : undefined}>
-            <div className="flex w-[22px] flex-none flex-col items-center">
-              <span
-                className={cx("mt-[3px] flex-none rounded-full border-[3px]", !dotColor && "border-line-strong")}
-                style={{ width: cur ? 20 : 14, height: cur ? 20 : 14, background: dotColor ?? "transparent", borderColor: dotColor }}
-              />
-              <span
-                className="min-h-4 w-0 flex-1 border-l-[3px]"
-                style={{ borderLeftStyle: done ? "solid" : "dashed", borderLeftColor: last ? "transparent" : done ? "var(--acc)" : "var(--color-line-strong)" }}
-              />
-            </div>
-            <div className="flex min-w-0 flex-col gap-px pb-3.5">
-              <span className={cx(cur ? "text-[18px] font-extrabold" : "text-[15px] font-medium", k > p.index ? "text-muted" : "text-ink")}>{s.name}</span>
-              <span className="num text-[12px] text-muted">
-                {done ? (remise ? `Remise le ${fmtShort(remise, true)}` : "Franchie") : cur ? `En cours · ${p.done}/${p.total}` : "À venir"}
-              </span>
-            </div>
-          </li>
-        );
-      })}
-    </ol>
-  );
+/** Étapes du sentier : franchie (avec le mois de remise), en cours (preuves faites), à venir. */
+function etapesSentier(j: Jeune, p: Progress, recons: Reconnaissance[]): EtapeSentier[] {
+  return p.steps.map((s, k) => {
+    if (k < p.index) {
+      const remise = dateReconnue(recons, j.id, s.id) ?? dateRemise(j, k, p.index);
+      return { nom: s.name, etat: "franchie", note: remise ? fmtMoisAn(remise) : undefined };
+    }
+    if (k === p.index) return { nom: s.name, etat: "en-cours", note: `${p.done}/${p.total}` };
+    return { nom: s.name, etat: "a-venir" };
+  });
 }
 
 /** Preuves à réussir à cette étape, domaine par domaine, avec la façon dont le jeune les a réussies. */
 function Programme({ j, p, cadre }: { j: Jeune; p: Progress; cadre: boolean }) {
-  const label = p.brevets ? "Brevets du jeune" : `Preuves · ${p.step?.name}`;
   if (!p.domaines.length) {
     return (
-      <Section label={label}>
-        <span className="text-[14px] text-muted text-pretty">
+      <section>
+        <TitreSection>{p.brevets ? "Brevets du jeune" : "Preuves"}</TitreSection>
+        <p className="m-0 py-2.5 text-[16px] text-crayon text-pretty">
           {p.brevets ? `Aucun brevet choisi. Choisissez ci-dessous les brevets que ${j.prenom} prépare.` : "Aucune preuve au programme."}
-        </span>
-      </Section>
+        </p>
+      </section>
     );
   }
   return (
-    <Section label={label}>
-      <div className="flex flex-col gap-2">
-        {p.domaines.map((d) => (
-          <DomaineBloc key={d.domaine.id} j={j} d={d} cadre={cadre} brevets={!!p.brevets} />
-        ))}
-      </div>
-    </Section>
+    <>
+      {p.domaines.map((d) => (
+        <DomaineBloc key={d.domaine.id} j={j} d={d} cadre={cadre} brevets={!!p.brevets} />
+      ))}
+    </>
   );
 }
 
 function DomaineBloc({ j, d, cadre, brevets }: { j: Jeune; d: DomaineProgress; cadre: boolean; brevets: boolean }) {
   const store = useStore();
   const consigne = d.domaine.min && !brevets ? ` · ${d.domaine.min} au choix` : "";
-  return (
-    <details open={!d.complete} className="group overflow-hidden rounded-card border border-line bg-surface">
-      <summary className="flex min-h-12 cursor-pointer list-none items-center gap-3 px-3.5 py-2">
-        <span className="flex min-w-0 flex-1 flex-col">
-          <span className="text-[15px] font-bold">{d.domaine.name}</span>
-          <span className="num text-[12px] text-muted">
-            {brevets ? `${d.validated} / ${d.preuves.length} ${plural(d.preuves.length, "brevet", "brevets")}` : `${Math.min(d.validated, d.required)} / ${d.required}${consigne}`}
-          </span>
-        </span>
-        {d.complete && <span className="rounded-full bg-acc-soft px-2.5 py-1 text-[12px] font-bold text-acc-text">Complet</span>}
-        <span className="text-[14px] text-muted group-open:rotate-180" aria-hidden>
-          ▾
-        </span>
-      </summary>
-      <div className="flex flex-col border-t border-rule [&>*:last-child]:border-b-0">
-        {d.preuves.map((x) => (
-          <PreuveRow key={x.id} jeuneId={j.id} label={x.label} r={critStatus(store.vals, j.id, x.id)} cadre={cadre} unite={x.unite} />
-        ))}
-      </div>
-    </details>
-  );
-}
+  const compte = brevets ? `${d.validated}/${d.preuves.length}` : `${Math.min(d.validated, d.required)}/${d.required}${consigne}`;
+  const validations = new Map<string, string>();
 
-function PreuveRow({ jeuneId, label, r, cadre, unite }: { jeuneId: string; label: string; r: CritStatus; cadre: boolean; unite: boolean }) {
-  const store = useStore();
-  const checked = isValidated(r);
-  const pend = r.st === "pending";
-  const tappable = checked && cadre;
-  let meta = unite ? "Preuve de l'unité · à réussir" : "À réussir";
-  let metaCls = "text-muted";
-  if (checked) {
-    meta = pend ? `${fmtWhen(r.v.date)} · en attente de réseau` : `${fmtWhen(r.v.date)} · ${r.v.validePar}`;
-    metaCls = pend ? "text-wait-text" : "text-muted";
-  } else if (r.st === "cancelled") {
-    meta = `Annulée le ${fmtShort(r.v.annuleeLe!)} · à revalider`;
-    metaCls = "text-err-ink";
-  }
-  const comment = checked ? r.v.commentaire : undefined;
-  const Row = tappable ? "button" : "div";
+  const preuves: Preuve[] = d.preuves.map((x) => {
+    const r = critStatus(store.vals, j.id, x.id);
+    const libelle = x.unite ? `${x.label} (preuve de l'unité)` : x.label;
+    if (r.st === "cancelled") return { id: x.id, libelle, annulee: fmtPoint(r.v.annuleeLe!) };
+    if (!isValidated(r)) return { id: x.id, libelle };
+    validations.set(x.id, r.v.id);
+    return {
+      id: x.id,
+      libelle,
+      date: fmtPoint(r.v.date),
+      cadre: r.v.validePar,
+      note: r.v.commentaire,
+      attente: r.st === "pending",
+      suite: <PhotosValidation jeuneId={j.id} validationId={r.v.id} preuve={x.label} />,
+    };
+  });
+
+  const ouvrir = (p: Preuve) => {
+    const v = validations.get(p.id);
+    if (v) store.openCancelSheet(v);
+  };
+
   return (
-    <div className="border-b border-rule">
-    <Row
-      {...(tappable ? { type: "button" as const, onClick: () => store.openCancelSheet(r.v.id), "aria-label": `${label}, réussie. Annuler cette validation` } : {})}
-      className={`${rowClass} min-h-14 gap-3 border-b-0 py-2`}
-    >
-      <span
-        className={cx(
-          "flex h-6 w-6 flex-none items-center justify-center rounded-full border-2 text-[14px] font-extrabold",
-          !checked && "border-line-strong bg-transparent",
-          pend && "border-wait-dot bg-wait-bg text-wait-ink",
-          checked && !pend && "border-acc bg-acc text-acc-ink",
-        )}
-        aria-hidden
-      >
-        {checked ? "✓" : ""}
-      </span>
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className={cx("text-[14px] font-medium text-pretty", r.st === "cancelled" ? "text-muted" : "text-ink")}>{label}</span>
-        <span className={cx("num text-[12px]", metaCls)}>{meta}</span>
-        {comment && <span className="text-[13px] text-ink text-pretty">« {comment} »</span>}
-      </span>
-      {tappable && (
-        <span className="text-[18px] text-muted" aria-hidden>
-          ⋯
-        </span>
-      )}
-    </Row>
-    {checked && <PhotosValidation jeuneId={jeuneId} validationId={r.v.id} preuve={label} />}
-    </div>
+    <section>
+      <TitreSection aDroite={compte}>{d.domaine.name}</TitreSection>
+      <TracePreuves preuves={preuves} onOuvrir={cadre ? ouvrir : undefined} />
+    </section>
   );
 }
 
@@ -283,15 +187,16 @@ function ChoixJeune({ j, p }: { j: Jeune; p: Progress }) {
   const entamés = new Set(p.domaines.filter((d) => d.validated > 0).map((d) => d.domaine.id));
   const groupes = [...new Set(p.choixPossibles.map((c) => c.groupe ?? ""))];
   return (
-    <Section label={p.brevets ? "Brevets préparés" : "Domaines au choix"}>
-      <span className="text-[14px] text-muted text-pretty">
+    <section className="flex flex-col gap-3">
+      <TitreSection>{p.brevets ? "Brevets préparés" : "Domaines au choix"}</TitreSection>
+      <p className="m-0 text-[16px] text-crayon text-pretty">
         {p.brevets
           ? `Choisissez les brevets que ${j.prenom} prépare : au moins 3, dans 2 séries différentes.`
           : `Cochez les domaines que ${j.prenom} prépare. Leurs preuves comptent dans son étape.`}
-      </span>
+      </p>
       {groupes.map((g) => (
         <div key={g || "domaines"} className="flex flex-col gap-1.5">
-          {g && <span className="text-[12px] font-semibold text-muted">{g}</span>}
+          {g && <span className="text-[14px] font-semibold">{g}</span>}
           <div className="flex flex-wrap gap-2">
             {p.choixPossibles
               .filter((c) => (c.groupe ?? "") === g)
@@ -306,20 +211,20 @@ function ChoixJeune({ j, p }: { j: Jeune; p: Progress }) {
                     disabled={acquis}
                     onClick={() => toggle(c.id)}
                     className={cx(
-                      "min-h-10 rounded-full border px-3 py-1.5 text-left text-[14px] font-semibold",
-                      on ? "border-acc bg-acc-soft text-acc-text" : "border-line-strong bg-surface text-muted",
+                      "min-h-11 border-[1.5px] px-3 py-1.5 text-left text-[15px]",
+                      on ? "border-sentier bg-ok-fond font-semibold text-encre" : "border-encre bg-fond text-encre",
                     )}
                   >
                     {on ? "✓ " : "+ "}
                     {c.label}
-                    {acquis && <span className="font-normal">{p.brevets ? " · obtenu" : " · entamé"}</span>}
+                    {acquis && <span className="font-normal text-crayon">{p.brevets ? " · obtenu" : " · entamé"}</span>}
                   </button>
                 );
               })}
           </div>
         </div>
       ))}
-    </Section>
+    </section>
   );
 }
 
@@ -327,25 +232,58 @@ function ChoixJeune({ j, p }: { j: Jeune; p: Progress }) {
 function CoursHonneur({ list, steps }: { list: Reconnaissance[]; steps: Progress["steps"] }) {
   if (!list.length) return null;
   return (
-    <Section label="Cours d'honneur">
-      <div className="flex flex-col gap-2">
+    <section>
+      <TitreSection>Cours d&apos;honneur</TitreSection>
+      <ul className="m-0 list-none p-0">
         {list.map((r) => (
-          <Card key={r.id} className="flex flex-col gap-1.5 p-3.5">
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="text-[15px] font-bold">{steps.find((s) => s.id === r.etapeId)?.name ?? "Étape"}</span>
-              <span className={cx("rounded-full px-2.5 py-1 text-[12px] font-bold", r.decision === "reconnue" ? "bg-acc-soft text-acc-text" : "bg-wait-bg text-wait-ink")}>
+          <li key={r.id} className="flex flex-col gap-1 border-b border-ligne py-2.5">
+            <span className="flex items-baseline justify-between gap-3">
+              <strong className="text-[16px]">{steps.find((s) => s.id === r.etapeId)?.name ?? "Étape"}</strong>
+              <span className={cx("text-[15px] font-semibold", r.decision === "reconnue" ? "text-sentier" : "text-erreur")}>
                 {r.decision === "reconnue" ? "Reconnue" : "Ajournée"}
               </span>
-            </div>
-            <span className="num text-[12px] text-muted">
-              {fmtShort(r.date, true)} · {r.ct}
+            </span>
+            <span className="font-mono text-[13px] text-crayon">
+              {fmtPoint(r.date, true)} · {r.ct}
               {r.presents ? ` · ${r.voixPour} voix sur ${r.presents}` : ""}
               {r.pending ? " · en attente de réseau" : ""}
             </span>
-            {r.observations && <span className="text-[14px] text-ink text-pretty">« {r.observations} »</span>}
-          </Card>
+            {r.observations && <span className="font-note text-[15px] italic text-annotation text-pretty">{r.observations}</span>}
+          </li>
         ))}
-      </div>
-    </Section>
+      </ul>
+    </section>
+  );
+}
+
+/** Gestes de cadre sur l'étape : cour d'honneur, correction de l'étape. */
+function GererEtape({ j, p }: { j: Jeune; p: Progress }) {
+  const store = useStore();
+  const router = useRouter();
+  return (
+    <section className="flex flex-col gap-3">
+      <TitreSection>Étape</TitreSection>
+      <Bouton variante={p.complete ? "primaire" : "secondaire"} onClick={() => router.push(jeuneHref(j.id, "cour"))} className="w-full lg:w-auto lg:self-start">
+        {p.complete ? "Présenter à la cour d'honneur" : "Saisir une décision de cour d'honneur"}
+      </Bouton>
+      <label className="flex flex-wrap items-center justify-between gap-3 text-[16px]">
+        Corriger l&apos;étape du jeune
+        <select
+          value={p.step!.id}
+          onChange={(e) => {
+            const next = p.steps.find((s) => s.id === e.target.value);
+            store.updateJeune(j.id, { etapeId: e.target.value });
+            if (next) store.showToast(`${j.prenom} : étape ${next.name}`);
+          }}
+          className="h-11 border-0 border-b-[1.5px] border-encre bg-transparent pr-6 text-[17px] font-semibold text-encre"
+        >
+          {p.steps.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
+      </label>
+    </section>
   );
 }

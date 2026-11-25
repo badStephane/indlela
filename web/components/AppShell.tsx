@@ -9,9 +9,9 @@ import { useBack } from "@/lib/nav";
 import { fmtWhen } from "@/lib/dates";
 import { plural } from "@/lib/progress";
 import { cx } from "./ui";
+import { Bandeau, Logo, PastilleSync, type EtatSync } from "./carte";
 import { ConfirmSheet } from "./ConfirmSheet";
-import { ChangerEspace } from "./ChangerEspace";
-import { Sheet } from "./Sheet";
+import { MenuCompte } from "./MenuCompte";
 import { DEMO } from "@/lib/demo";
 import { ROLE_LABELS } from "@/lib/admin";
 
@@ -21,8 +21,8 @@ type Tab = [href: string, label: string, court?: string];
 const TABS: Record<Role, Tab[]> = {
   cadre: [
     ["/unite", "Unité"],
+    ["/unite/tableau-de-bord", "Tableau de bord"],
     ["/unite/epreuves", "Épreuves"],
-    ["/unite/tableau-de-bord", "Tableau de bord", "Suivi"],
   ],
   groupe: [
     ["/groupe", "Vue groupe", "Groupe"],
@@ -45,22 +45,12 @@ const TABS: Record<Role, Tab[]> = {
   ],
 };
 
-const initiales = (nom: string) =>
-  nom
-    .replace(/^(Cdt|Adj|CG|RP|Admin|Famille)\.?\s+/i, "")
-    .split(/[\s.]+/)
-    .filter(Boolean)
-    .map((w) => w[0])
-    .slice(-2)
-    .join("")
-    .toUpperCase();
-
-function Chevron() {
-  return (
-    <svg aria-hidden width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M15 5l-7 7 7 7" />
-    </svg>
-  );
+/** Nom de l'écran où mène le bouton retour : le nom de son onglet, sinon « Retour ». */
+function libelleRetour(href: string | undefined): string {
+  const tab = Object.values(TABS)
+    .flat()
+    .find(([h]) => h === href);
+  return tab?.[1] ?? "Retour";
 }
 
 export interface FootAction {
@@ -76,16 +66,16 @@ export function accentVars(branch: BranchCode): CSSProperties {
 }
 
 /**
- * Colonne d'application, pleine hauteur sur téléphone, centrée sur tablette.
- * `wide` : à partir de 1024 px, l'application occupe tout l'écran (navigation latérale).
+ * Colonne d'application, pleine hauteur ; centrée sur tablette.
+ * `wide` : à partir de 1024 px, l'application occupe tout l'écran (barre latérale).
  */
 export function Frame({ children, style, className, wide = false }: { children: ReactNode; style?: CSSProperties; className?: string; wide?: boolean }) {
   return (
-    <div className={cx("print-root min-h-dvh sm:py-6", wide && "lg:py-0")}>
+    <div className="print-root min-h-dvh bg-fond-2">
       <div
         className={cx(
-          "relative mx-auto flex h-dvh w-full max-w-[480px] flex-col overflow-hidden bg-paper sm:h-[min(860px,calc(100dvh-48px))] sm:rounded-[34px] sm:shadow-[0_2px_8px_rgba(0,0,0,.06),0_24px_60px_rgba(27,35,30,.14)]",
-          wide && "lg:h-dvh lg:max-w-none lg:flex-row lg:rounded-none lg:shadow-none",
+          "relative mx-auto flex h-dvh w-full max-w-[480px] flex-col overflow-hidden bg-fond sm:border-x sm:border-ligne",
+          wide && "lg:max-w-none lg:flex-row lg:border-x-0",
           className,
         )}
         style={style}
@@ -104,8 +94,11 @@ export function AppShell({
   banner = false,
   foot,
   wide = false,
+  aDroite,
+  titreDansPage = false,
   children,
 }: {
+  /** Sous-titre, sous le titre de la page. */
   kicker: string;
   title: string;
   /** Écran parent quand on arrive par un lien direct ; absent = pas de bouton retour. */
@@ -115,6 +108,10 @@ export function AppShell({
   foot?: FootAction;
   /** Sur ordinateur, le contenu prend plus de largeur (écrans en deux colonnes). */
   wide?: boolean;
+  /** Actions courtes à droite de l'en-tête (lien, bouton secondaire). */
+  aDroite?: ReactNode;
+  /** La page pose elle-même son h1 (cartouche d'un jeune) : l'en-tête ne garde que le retour et les actions. */
+  titreDansPage?: boolean;
   children: ReactNode;
 }) {
   const store = useStore();
@@ -123,19 +120,12 @@ export function AppShell({
   const { offline, syncErr, pending, role, lastTab, toast } = store;
   const photosEnAttente = usePhotos().enAttente;
 
-  const sync = offline
-    ? { label: pending ? `Hors ligne · ${pending}` : "Hors ligne", cls: "bg-wait-bg text-wait-ink", dot: "bg-wait-dot" }
-    : syncErr
-      ? { label: "Échec · Réessayer", cls: "bg-err-bg text-err-ink", dot: "bg-err-dot" }
-      : { label: "En ligne", cls: "bg-ok-bg text-ok-ink", dot: "bg-ok-dot" };
-
+  const etatSync: EtatSync = offline ? "hors-ligne" : syncErr ? "erreur" : "en-ligne";
   const bannerText = pending
     ? `Hors connexion · ${pending} ${plural(pending, "validation", "validations")} en attente. Elles partiront au retour du réseau.`
     : "Hors connexion. Vos validations restent sur le téléphone et partiront au retour du réseau.";
 
   const tabs = role ? TABS[role] : [];
-  // Cinq onglets tiennent sur 360 px avec leur nom court.
-  const tabText = tabs.length >= 4 ? "flex-1 px-0.5 text-[12px]" : "flex-1 text-[13px]";
   const [compte, setCompte] = useState(false);
   const openTab = (href: string) => {
     store.setLastTab(href);
@@ -150,70 +140,87 @@ export function AppShell({
   const quit = () => (!DEMO && (pending || photosEnAttente) ? setConfirmQuit(true) : doQuit());
   // Le toast se place au-dessus du pied d'action et de la barre d'onglets (absente sur ordinateur).
   const toastOffsets = {
-    "--toast-b": `calc(${foot ? 150 : 72}px + env(safe-area-inset-bottom))`,
-    "--toast-b-lg": `${foot ? 92 : 24}px`,
+    "--toast-b": `calc(${foot ? 160 : 80}px + env(safe-area-inset-bottom))`,
+    "--toast-b-lg": `${foot ? 96 : 24}px`,
   } as CSSProperties;
+  const largeur = wide ? "lg:max-w-[1120px]" : "lg:max-w-[760px]";
+
+  const actions = (
+    <div className="flex shrink-0 flex-col items-end gap-1">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {aDroite}
+        <PastilleSync etat={etatSync} enAttente={pending} onRelancer={store.tapSync} />
+      </div>
+      {role && (
+        <button type="button" onClick={() => setCompte(true)} className="min-h-11 bg-transparent px-1 text-[14px] text-encre underline underline-offset-4 lg:hidden">
+          Compte
+        </button>
+      )}
+    </div>
+  );
 
   return (
     <Frame wide style={accentVars(branch)}>
-      <SideNav tabs={tabs} current={lastTab} onOpen={openTab} onQuit={quit} />
+      <SideNav tabs={tabs} current={lastTab} etatSync={etatSync} onOpen={openTab} onCompte={() => setCompte(true)} />
 
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="no-print flex min-h-[62px] flex-none items-center gap-1.5 bg-paper px-3 pb-2.5 pt-[max(10px,env(safe-area-inset-top))] text-ink lg:min-h-[72px] lg:border-b lg:border-line lg:px-6 lg:pb-3 lg:pt-3">
-          {back !== undefined && (
-            <button type="button" onClick={goBack} aria-label="Retour" className="-ml-2 flex h-11 w-11 flex-none items-center justify-center rounded-full bg-transparent text-inherit hover:bg-track">
-              <Chevron />
-            </button>
-          )}
-          <div className="flex min-w-0 flex-1 flex-col pl-1">
-            <span className="truncate text-[12px] text-muted">{kicker}</span>
-            <h1 className="truncate text-[19px] font-extrabold tracking-[-0.01em] lg:text-[22px]">{title}</h1>
+        {/* L'en-tête défile avec la page : sur téléphone, un titre sur deux lignes ne garde pas un tiers de l'écran. */}
+        <main className="min-h-0 flex-1 overflow-y-auto">
+        <header className="no-print flex-none px-4 pt-[max(14px,env(safe-area-inset-top))] lg:px-8 lg:pt-6">
+          <div className={cx("flex flex-col gap-1 lg:mx-auto lg:w-full", largeur)}>
+            {(back !== undefined || titreDansPage) && (
+              <div className="flex items-start justify-between gap-3">
+                {back !== undefined ? (
+                  <button type="button" onClick={goBack} className="-ml-1 flex min-h-11 items-center gap-1.5 bg-transparent px-1 text-[17px] text-encre">
+                    <span aria-hidden="true" className="text-[22px] leading-none">‹</span>
+                    {libelleRetour(back)}
+                  </button>
+                ) : (
+                  <span />
+                )}
+                {titreDansPage && actions}
+              </div>
+            )}
+            {!titreDansPage && (
+              <div className="flex items-start gap-3 border-b-4 border-double border-encre pb-3">
+                <div className="min-w-0 flex-1">
+                  <h1 className="m-0 text-titre font-extrabold leading-[1.1] tracking-[-0.3px] lg:text-titre-web">{title}</h1>
+                  {kicker && <p className="m-0 mt-1 text-[15px] text-crayon">{kicker}</p>}
+                </div>
+                {actions}
+              </div>
+            )}
           </div>
-          <button
-            type="button"
-            onClick={store.tapSync}
-            aria-live="polite"
-            className={cx("flex h-10 flex-none items-center gap-[7px] rounded-full px-3 text-[12px] font-bold", sync.cls)}
-          >
-            <span className={cx("h-2 w-2 rounded-full", sync.dot)} />
-            {/* En ligne, le point suffit sur téléphone : le titre garde la place. */}
-            <span className={cx(!offline && !syncErr && "sr-only sm:not-sr-only")}>{sync.label}</span>
-          </button>
-          {role && (
-            <button
-              type="button"
-              onClick={() => setCompte(true)}
-              aria-label={`Compte de ${store.userName}`}
-              className="num flex h-10 w-10 flex-none items-center justify-center rounded-full bg-forest text-[13px] font-bold text-white lg:hidden"
-            >
-              {initiales(store.userName)}
-            </button>
-          )}
         </header>
 
-        {store.storageErr && (
-          <div role="alert" className="no-print flex-none bg-err-bg px-4 py-[9px] text-[13px] font-semibold text-err-ink text-pretty lg:px-6">
-            Ce téléphone n&apos;enregistre plus les saisies (mémoire pleine ou navigation privée). Retrouvez du réseau avant de fermer l&apos;application.
+        {(store.storageErr || (banner && offline)) && (
+          <div className="no-print flex flex-none flex-col gap-2 px-4 pt-3 lg:px-8">
+            <div className={cx("flex flex-col gap-2 lg:mx-auto lg:w-full", largeur)}>
+              {store.storageErr && (
+                <Bandeau ton="erreur">
+                  Ce téléphone n&apos;enregistre plus les saisies (mémoire pleine ou navigation privée). Retrouvez du réseau avant de fermer l&apos;application.
+                </Bandeau>
+              )}
+              {banner && offline && <Bandeau>{bannerText}</Bandeau>}
+            </div>
           </div>
         )}
-        {banner && offline && <div className="no-print flex-none bg-wait-bg px-4 py-[9px] text-[13px] text-wait-ink text-pretty lg:px-6">{bannerText}</div>}
 
-        <main className="min-h-0 flex-1 overflow-y-auto">
           {/* Sur téléphone, le contenu reste l'enfant direct de main ; sur ordinateur, il est centré. */}
-          <div className={cx("contents lg:mx-auto lg:block lg:w-full lg:py-4", wide ? "lg:max-w-[1120px] lg:px-2" : "lg:max-w-[760px]")}>{children}</div>
+          <div className={cx("contents lg:mx-auto lg:block lg:w-full lg:px-4 lg:py-4", largeur)}>{children}</div>
         </main>
 
         {foot && (
-          <div className="no-print flex flex-none border-t border-line bg-surface px-4 pb-3 pt-2.5 lg:px-6">
-            <div className={cx("flex w-full flex-col gap-1.5 lg:mx-auto lg:flex-row lg:items-center lg:justify-end lg:gap-4 lg:px-4", wide ? "lg:max-w-[1120px]" : "lg:max-w-[760px]")}>
-              {foot.note && <span className="text-center text-[12px] text-muted text-pretty lg:flex-1 lg:text-left lg:text-[13px]">{foot.note}</span>}
+          <div className="no-print flex flex-none border-t border-ligne bg-fond px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 lg:px-8">
+            <div className={cx("flex w-full flex-col gap-1.5 lg:mx-auto lg:flex-row lg:items-center lg:justify-end lg:gap-4", largeur)}>
+              {foot.note && <span className="text-center text-[14px] text-crayon text-pretty lg:flex-1 lg:text-left">{foot.note}</span>}
               <button
                 type="button"
                 onClick={foot.disabled ? undefined : foot.onClick}
                 aria-disabled={foot.disabled}
                 className={cx(
-                  "h-[52px] rounded-ui text-[16px] font-bold lg:w-[320px] lg:flex-none",
-                  foot.disabled ? "cursor-default bg-track text-muted" : "bg-acc text-acc-ink",
+                  "h-[54px] w-full text-[17px] font-semibold lg:w-[320px] lg:flex-none",
+                  foot.disabled ? "cursor-default bg-ligne text-crayon" : "bg-sentier text-white",
                 )}
               >
                 {foot.label}
@@ -222,65 +229,53 @@ export function AppShell({
           </div>
         )}
 
-        <nav aria-label="Navigation" className="no-print flex flex-none border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden">
-          {tabs.map(([href, label, court]) => {
-            const on = lastTab === href;
-            return (
-              <button
-                key={href}
-                type="button"
-                onClick={() => openTab(href)}
-                aria-current={on ? "page" : undefined}
-                aria-label={court ? label : undefined}
-                className={cx("relative h-[58px] min-w-0 truncate bg-transparent font-bold", tabText, on ? "text-ink" : "text-muted")}
-              >
-                {court ?? label}
-                {on && <span aria-hidden className="absolute left-1/2 top-[7px] h-[5px] w-[5px] -translate-x-1/2 rounded-full bg-sun" />}
-              </button>
-            );
-          })}
-        </nav>
-
-        {compte && (
-          <Sheet title={store.userName} onClose={() => setCompte(false)}>
-            <span className="-mt-2 text-[14px] text-muted">
-              {role && ROLE_LABELS[role]} · {store.groupeNom}
-            </span>
-            <ChangerEspace onChange={() => setCompte(false)} />
-            <button
-              type="button"
-              onClick={() => {
-                setCompte(false);
-                quit();
-              }}
-              className="h-12 rounded-ui border border-line-strong bg-transparent text-[15px] font-bold text-ink"
-            >
-              Se déconnecter
-            </button>
-          </Sheet>
+        {tabs.length > 0 && (
+          <nav aria-label="Navigation" className="no-print flex flex-none border-t-4 border-double border-encre bg-fond pb-[env(safe-area-inset-bottom)] lg:hidden">
+            {tabs.map(([href, label, court]) => {
+              const on = lastTab === href;
+              return (
+                <button
+                  key={href}
+                  type="button"
+                  onClick={() => openTab(href)}
+                  aria-current={on ? "page" : undefined}
+                  aria-label={court ? label : undefined}
+                  className={cx(
+                    "flex min-h-16 min-w-0 flex-1 items-center justify-center px-1 text-center leading-tight",
+                    tabs.length >= 4 ? "text-[13px]" : "text-[15px]",
+                    on ? "bg-encre font-bold text-fond" : "bg-transparent text-encre",
+                  )}
+                >
+                  {court ?? label}
+                </button>
+              );
+            })}
+          </nav>
         )}
+
+        {compte && <MenuCompte onClose={() => setCompte(false)} onQuit={quit} />}
 
         <CancelSheet />
         {confirmQuit && (
           <ConfirmSheet
-            title="Quitter sans envoyer ?"
-            cancelLabel="Rester"
-            confirmLabel="Quitter quand même"
+            title="Des saisies ne sont pas envoyées"
+            cancelLabel="Rester connecté"
+            confirmLabel="Me déconnecter quand même"
             onCancel={() => setConfirmQuit(false)}
             onConfirm={() => {
               setConfirmQuit(false);
               doQuit();
             }}
           >
-            <span className="text-[14px] text-muted text-pretty">
+            <span className="text-[15px] text-pretty">
               {[
                 pending ? `${pending} ${plural(pending, "saisie", "saisies")}` : "",
                 photosEnAttente ? `${photosEnAttente} ${plural(photosEnAttente, "photo", "photos")}` : "",
               ]
                 .filter(Boolean)
                 .join(" et ")}{" "}
-              {pending + photosEnAttente > 1 ? "n'ont pas encore été envoyées" : "n'a pas encore été envoyée"}. En quittant, tout est effacé de ce téléphone avec le reste
-              du carnet.
+              {pending + photosEnAttente > 1 ? "attendent" : "attend"} encore le réseau. Si vous vous déconnectez, tout est effacé de cet appareil avec le reste du
+              carnet.
             </span>
           </ConfirmSheet>
         )}
@@ -288,10 +283,10 @@ export function AppShell({
         {toast && (
           <div
             role="status"
-            className="no-print absolute bottom-[var(--toast-b)] left-3 right-3 z-[6] flex min-h-[52px] items-center gap-2 rounded-ui bg-toast py-1.5 pl-3.5 pr-1.5 text-white shadow-[0_8px_24px_rgba(0,0,0,.25)] lg:bottom-[var(--toast-b-lg)] lg:left-auto lg:right-6 lg:w-[420px]"
+            className="no-print absolute bottom-[var(--toast-b)] left-3 right-3 z-[6] flex min-h-[56px] items-center gap-3 bg-encre py-2 pl-4 pr-2 text-fond lg:bottom-[var(--toast-b-lg)] lg:left-auto lg:right-8 lg:w-[440px]"
             style={toastOffsets}
           >
-            <span className="flex-1 text-[14px] text-pretty">{toast.msg}</span>
+            <span className="flex-1 text-[15px] text-pretty">{toast.msg}</span>
             {toast.undo && (
               <button
                 type="button"
@@ -300,7 +295,7 @@ export function AppShell({
                   store.hideToast();
                   u();
                 }}
-                className="h-10 bg-transparent px-3 text-[14px] font-extrabold text-sun"
+                className="min-h-11 flex-none border-[1.5px] border-soleil bg-transparent px-3 text-[16px] font-bold text-soleil"
               >
                 Annuler
               </button>
@@ -312,17 +307,26 @@ export function AppShell({
   );
 }
 
-/** Navigation latérale, à partir de 1024 px ; remplace la barre d'onglets du bas. */
-function SideNav({ tabs, current, onOpen, onQuit }: { tabs: Tab[]; current: string | null; onOpen: (href: string) => void; onQuit: () => void }) {
+const LIBELLES_SYNC: Record<EtatSync, { libelle: string; point: string }> = {
+  "en-ligne": { libelle: "En ligne", point: "bg-sentier" },
+  "hors-ligne": { libelle: "Hors ligne", point: "bg-attente" },
+  erreur: { libelle: "Envoi en échec", point: "bg-erreur" },
+};
+
+/** Barre latérale, à partir de 1024 px ; remplace la barre d'onglets du bas. */
+function SideNav({ tabs, current, etatSync, onOpen, onCompte }: { tabs: Tab[]; current: string | null; etatSync: EtatSync; onOpen: (href: string) => void; onCompte: () => void }) {
   const store = useStore();
+  const sync = LIBELLES_SYNC[etatSync];
   return (
-    <nav aria-label="Navigation principale" className="no-print hidden w-[252px] flex-none flex-col gap-7 border-r border-line bg-surface px-4 py-6 lg:flex">
-      <div className="flex flex-col gap-2 px-3">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.svg" alt="Indlela" className="h-[28px] w-auto self-start" />
-        <span className="text-[13px] leading-snug text-muted text-pretty">{store.groupeLibelle}</span>
-      </div>
-      <div className="flex flex-col gap-0.5">
+    <nav aria-label="Navigation principale" className="no-print hidden w-[240px] flex-none flex-col gap-6 border-r border-ligne bg-fond-2 px-4 py-6 lg:flex">
+      <Logo taille={30} className="px-2" />
+      {store.role && (
+        <div className="m-1 flex flex-col border-[1.5px] border-encre bg-fond px-3 py-2.5 outline outline-1 outline-offset-[3px] outline-encre">
+          <span className="text-[13px] text-crayon">{store.groupeNom}</span>
+          <strong className="text-[15px]">{ROLE_LABELS[store.role]}</strong>
+        </div>
+      )}
+      <div className="flex flex-col">
         {tabs.map(([href, label]) => {
           const on = current === href;
           return (
@@ -331,30 +335,25 @@ function SideNav({ tabs, current, onOpen, onQuit }: { tabs: Tab[]; current: stri
               type="button"
               onClick={() => onOpen(href)}
               aria-current={on ? "page" : undefined}
-              className={cx(
-                "flex h-11 items-center gap-2.5 rounded-ui px-3 text-left text-[15px] font-bold",
-                on ? "bg-acc-soft text-acc-text" : "bg-transparent text-muted hover:bg-paper hover:text-ink",
-              )}
+              className={cx("flex min-h-11 items-center px-3.5 text-left text-[16px]", on ? "bg-encre font-bold text-fond" : "bg-transparent text-encre hover:bg-fond")}
             >
-              <span aria-hidden className={cx("h-[7px] w-[7px] flex-none rounded-full", on ? "bg-sun" : "bg-transparent")} />
               {label}
             </button>
           );
         })}
       </div>
       {store.role && (
-        <div className="mt-auto flex flex-col gap-3 border-t border-line pt-4">
-          <ChangerEspace compact />
-          <div className="flex items-center gap-2.5 px-1">
-            <span className="num flex h-9 w-9 flex-none items-center justify-center rounded-full bg-forest text-[12px] font-bold text-white">{initiales(store.userName)}</span>
-            <span className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate text-[14px] font-bold">{store.userName}</span>
-              <span className="text-[12px] leading-tight text-muted">{ROLE_LABELS[store.role]}</span>
-            </span>
-            <button type="button" onClick={onQuit} className="h-9 flex-none rounded-ui px-2 text-[13px] font-bold text-muted hover:bg-paper hover:text-ink">
-              Quitter
+        <div className="mt-auto flex flex-col gap-1 px-1.5 text-[14px]">
+          <span className="flex items-center gap-2">
+            <span aria-hidden="true" className={cx("size-[9px] rounded-full", sync.point)} />
+            {sync.libelle}
+          </span>
+          <span className="text-crayon">
+            {store.userName} ·{" "}
+            <button type="button" onClick={onCompte} className="bg-transparent p-0 text-encre underline underline-offset-4">
+              compte
             </button>
-          </div>
+          </span>
         </div>
       )}
     </nav>
@@ -375,13 +374,13 @@ function CancelSheet() {
       onCancel={store.closeSheet}
       onConfirm={() => store.cancelValidation(v.id)}
     >
-      <div className="flex flex-col gap-0.5 rounded-ui bg-paper px-3 py-2.5">
-        <span className="text-[15px] font-semibold">{label}</span>
-        <span className="num text-[12px] text-muted">
+      <div className="flex flex-col gap-0.5 border-l-4 border-encre pl-3">
+        <span className="text-[16px] font-semibold">{label}</span>
+        <span className="font-mono text-[13px] text-crayon">
           {when === "Aujourd'hui" ? when : `Validé le ${when}`} · {v.validePar}
         </span>
       </div>
-      <span className="text-[14px] text-muted text-pretty">
+      <span className="text-[15px] text-crayon text-pretty">
         La validation n&apos;est pas effacée : elle reste dans le journal avec la date d&apos;annulation et votre nom. La preuve redevient à réussir.
       </span>
     </ConfirmSheet>

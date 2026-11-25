@@ -1,18 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { cx } from "./ui";
+import { TitreSection } from "./carte";
 import { ROLE_LABELS } from "@/lib/admin";
 import { ROLE_HOME, useStore, type Role } from "@/lib/store";
 
 interface ChangerEspaceProps {
   /** Appelé après le changement, par exemple pour fermer le menu du compte. */
   onChange?: () => void;
-  compact?: boolean;
 }
 
 /** Espaces d'un compte qui cumule plusieurs rôles (ex. admin et responsable progression). */
-export function ChangerEspace({ onChange, compact = false }: ChangerEspaceProps) {
+export function ChangerEspace({ onChange }: ChangerEspaceProps) {
   const store = useStore();
   const router = useRouter();
   const roles = store.moi?.roles ?? [];
@@ -25,29 +24,28 @@ export function ChangerEspace({ onChange, compact = false }: ChangerEspaceProps)
   };
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <span className={cx("font-semibold text-muted", compact ? "px-1 text-[12px]" : "text-[13px]")}>Espace</span>
-      <div className="flex flex-col gap-1" role="group" aria-label="Changer d'espace">
+    <div className="flex flex-col">
+      <TitreSection as="h3">Changer d&apos;espace</TitreSection>
+      <ul className="m-0 list-none p-0" aria-label="Espaces du compte">
         {roles.map((r) => {
           const on = r === store.role;
           return (
-            <button
-              key={r}
-              type="button"
-              aria-pressed={on}
-              onClick={() => !on && ouvrir(r)}
-              className={cx(
-                "flex items-center gap-2.5 rounded-ui border text-left font-bold",
-                compact ? "h-9 px-2.5 text-[13px]" : "h-11 px-3 text-[15px]",
-                on ? "border-ink bg-ink text-white" : "border-line bg-surface text-ink hover:bg-paper",
+            <li key={r} className="border-b border-ligne">
+              {on ? (
+                <span aria-current="true" className="flex min-h-12 items-center justify-between gap-3 text-[16px] font-bold">
+                  {ROLE_LABELS[r]}
+                  <span className="text-[13px] text-crayon">espace actuel</span>
+                </span>
+              ) : (
+                <button type="button" onClick={() => ouvrir(r)} className="flex min-h-12 w-full items-center justify-between gap-3 bg-transparent text-left text-[16px] text-encre">
+                  {ROLE_LABELS[r]}
+                  <span aria-hidden="true">›</span>
+                </button>
               )}
-            >
-              <span aria-hidden className={cx("h-[7px] w-[7px] flex-none rounded-full", on ? "bg-sun" : "bg-line-strong")} />
-              {ROLE_LABELS[r]}
-            </button>
+            </li>
           );
         })}
-      </div>
+      </ul>
     </div>
   );
 }
