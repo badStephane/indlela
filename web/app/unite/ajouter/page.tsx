@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell, type FootAction } from "@/components/AppShell";
-import { cx, List, OutlineButton, rowClass } from "@/components/ui";
+import { cx } from "@/components/ui";
+import { Bandeau } from "@/components/carte";
 import { canValidate, useGuard } from "@/lib/access";
 import { useStore, useTroupe, type NewJeune } from "@/lib/store";
 import { MAX_PASTE_ROWS, parseNameList, type ParsedName } from "@/lib/parseList";
@@ -17,12 +18,14 @@ type Mode = "excel" | "liste" | "un";
 
 const MODES: [Mode, string][] = [
   ["excel", "Fichier Excel"],
-  ["liste", "Coller une liste"],
-  ["un", "Un jeune"],
+  ["liste", "Liste collée"],
+  ["un", "Un par un"],
 ];
 
 const MAX_NAME = 60;
-const inputClass = "h-12 rounded-ui border border-line-strong bg-surface px-3.5 text-[16px] font-normal text-ink outline-none focus:border-ink";
+/** Champ sur une ligne, comme le reste de la charte. */
+const inputClass = "h-11 w-full border-0 border-b-[1.5px] border-encre bg-transparent px-0 text-[17px] font-normal text-encre";
+const labelClass = "flex flex-col text-[15px] font-semibold";
 const PROBLEME_LABEL: Record<NonNullable<ParsedName["probleme"]>, string> = {
   "nom-manquant": "Nom de famille manquant · non ajouté",
   doublon: "Déjà dans l'unité · non ajouté",
@@ -51,6 +54,12 @@ export default function AjouterJeunes() {
   // Fichier Excel
   const fileRef = useRef<HTMLInputElement>(null);
   const [fichier, setFichier] = useState<{ nom: string; table: string[][] } | null>(null);
+
+  // Ajouter des jeunes fait partie de l'onglet Unité.
+  useEffect(() => {
+    if (ok) store.setLastTab("/unite");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ok]);
 
   if (!ok) return null;
 
@@ -130,8 +139,8 @@ export default function AjouterJeunes() {
 
   return (
     <AppShell kicker={store.unitesNoms.troupe} title="Ajouter des jeunes" back="/unite" foot={foot}>
-      <div className="flex flex-col gap-4 p-4">
-        <div role="tablist" aria-label="Façon d'ajouter" className="grid grid-cols-3 gap-1 rounded-ui bg-track p-1">
+      <div className="flex flex-col gap-5 px-4 pb-8 pt-4 lg:px-0">
+        <div role="tablist" aria-label="Façon d'ajouter" className="grid grid-cols-3 border-b-4 border-double border-encre">
           {MODES.map(([m, label]) => (
             <button
               key={m}
@@ -139,7 +148,7 @@ export default function AjouterJeunes() {
               role="tab"
               aria-selected={mode === m}
               onClick={() => changeMode(m)}
-              className={cx("h-10 rounded-ui text-[14px] font-bold", mode === m ? "bg-surface text-ink shadow-[0_1px_2px_rgba(0,0,0,.1)]" : "bg-transparent text-muted")}
+              className={cx("-mb-1 min-h-12 border-b-4 bg-transparent px-1 text-[16px]", mode === m ? "border-soleil font-bold text-encre" : "border-transparent text-crayon")}
             >
               {label}
             </button>
@@ -147,11 +156,11 @@ export default function AjouterJeunes() {
         </div>
 
         <EtapeSelect steps={steps} value={etapeId} onChange={setEtapeId} label={mode === "un" ? "Étape du jeune" : mode === "excel" ? "Étape si le fichier n'en donne pas" : "Étape pour tous"} />
-        <label className="flex min-h-11 items-start gap-3 rounded-card border border-line bg-surface px-3.5 py-2.5 text-[14px]">
-          <input type="checkbox" checked={consentement} onChange={(e) => setConsentement(e.target.checked)} className="mt-0.5 h-5 w-5 flex-none accent-[var(--acc)]" />
+        <label className="flex min-h-11 items-start gap-3 text-[16px]">
+          <input type="checkbox" checked={consentement} onChange={(e) => setConsentement(e.target.checked)} className="mt-0.5 size-6 flex-none accent-[var(--color-sentier)]" />
           <span className="flex flex-col gap-0.5">
             <span className="font-semibold">Consentement des parents reçu</span>
-            <span className="text-[13px] text-muted text-pretty">
+            <span className="text-[15px] text-crayon text-pretty">
               {mode === "un" ? "Formulaire signé." : "Formulaires signés pour tous les jeunes de la liste."} Sans consentement, la fiche reste inactive jusqu&apos;à ce que l&apos;admin
               l&apos;enregistre.
             </span>
@@ -162,34 +171,34 @@ export default function AjouterJeunes() {
           <div className="flex flex-col gap-3">
             <input ref={fileRef} type="file" accept={EXCEL_ACCEPT} onChange={onFile} className="hidden" />
             {!fichier ? (
-              <div className="flex flex-col gap-3 rounded-card border border-line bg-surface p-4">
-                <span className="text-[14px] text-pretty">
+              <div className="flex flex-col gap-3">
+                <span className="text-[16px] text-pretty">
                   Une ligne par jeune, avec les colonnes <span className="font-semibold">Prénom</span> et <span className="font-semibold">Nom</span>, et si vous les avez{" "}
                   <span className="font-semibold">Date de naissance</span> et <span className="font-semibold">Étape</span>.
                 </span>
-                <button type="button" onClick={() => fileRef.current?.click()} className="h-12 rounded-ui bg-acc text-[15px] font-bold text-acc-ink">
+                <button type="button" onClick={() => fileRef.current?.click()} className="min-h-12 bg-sentier px-4 text-[16px] font-semibold text-white">
                   Choisir le fichier Excel
                 </button>
-                <OutlineButton onClick={modele} className="h-11 bg-transparent text-[14px]">
+                <button type="button" onClick={modele} className="min-h-12 border-[1.5px] border-encre bg-fond px-4 text-[16px] font-semibold text-encre">
                   Télécharger le modèle Excel
-                </OutlineButton>
+                </button>
               </div>
             ) : (
               <>
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="truncate num text-[13px] text-muted">{fichier.nom}</span>
-                  <button type="button" onClick={() => fileRef.current?.click()} className="flex-none bg-transparent text-[13px] font-bold text-acc-text">
+                  <span className="truncate font-mono text-[14px] text-crayon">{fichier.nom}</span>
+                  <button type="button" onClick={() => fileRef.current?.click()} className="min-h-11 flex-none bg-transparent text-[16px] text-encre underline underline-offset-4">
                     Changer de fichier
                   </button>
                 </div>
                 {lignes.length === 0 ? (
-                  <div className="rounded-card border border-dashed border-line-strong px-5 py-7 text-[15px] text-muted">Le fichier ne contient aucun jeune.</div>
+                  <p className="m-0 text-[16px] text-crayon">Le fichier ne contient aucun jeune.</p>
                 ) : (
                   <>
-                    <span className="text-[14px]">
-                      {lignes.length} {plural(lignes.length, "ligne", "lignes")} · <span className="font-semibold text-ok-ink">{lignesOk.length} à ajouter</span>
+                    <span className="text-[16px]">
+                      {lignes.length} {plural(lignes.length, "ligne", "lignes")} · <span className="font-semibold text-sentier">{lignesOk.length} à ajouter</span>
                     </span>
-                    <List>
+                    <div className="flex flex-col">
                       {lignes.map((r) => (
                         <ParsedRow
                           key={r.ligne}
@@ -202,33 +211,33 @@ export default function AjouterJeunes() {
                           onToggle={() => setExclus((x) => (x.includes(r.ligne) ? x.filter((y) => y !== r.ligne) : [...x, r.ligne]))}
                         />
                       ))}
-                    </List>
+                    </div>
                   </>
                 )}
                 {lignes.length === MAX_IMPORT_ROWS && (
-                  <span className="text-[13px] text-wait-text">Seuls les {MAX_IMPORT_ROWS} premiers jeunes sont lus. Ajoutez la suite dans un second fichier.</span>
+                  <Bandeau>Seuls les {MAX_IMPORT_ROWS} premiers jeunes sont lus. Ajoutez la suite dans un second fichier.</Bandeau>
                 )}
               </>
             )}
           </div>
         ) : mode === "un" ? (
           <div className="flex flex-col gap-3.5">
-            <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
+            <label className={labelClass}>
               Prénom
               <input value={prenom} onChange={(e) => setPrenom(e.target.value)} maxLength={MAX_NAME} autoComplete="off" className={inputClass} />
             </label>
-            <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
+            <label className={labelClass}>
               Nom
               <input value={nom} onChange={(e) => setNom(e.target.value)} maxLength={MAX_NAME} autoComplete="off" className={inputClass} />
             </label>
-            <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
+            <label className={labelClass}>
               Date de naissance (facultatif)
               <input type="date" value={naissance} max={today} onChange={(e) => setNaissance(e.target.value)} className={inputClass} />
             </label>
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
+            <label className={labelClass}>
               Liste des jeunes
               <textarea
                 value={text}
@@ -238,12 +247,12 @@ export default function AjouterJeunes() {
                 }}
                 rows={6}
                 placeholder={"Un jeune par ligne, par exemple :\nAwa Ndiaye\nMoussa Diop\nNDIAYE Mame Diarra"}
-                className="rounded-ui border border-line-strong bg-surface px-3 py-2.5 text-[15px] font-normal text-ink outline-none focus:border-ink"
+                className="w-full resize-y border-0 bg-transparent bg-[repeating-linear-gradient(transparent_0_31px,var(--color-ligne)_31px_32px)] px-0 py-0 text-[17px] font-normal leading-[32px] text-encre placeholder:text-crayon"
               />
-              <span className="font-normal text-muted">Copiez la liste depuis WhatsApp, Excel ou vos notes. Les numéros et les tirets sont ignorés.</span>
+              <span className="mt-2 font-normal text-crayon">Copiez la liste depuis WhatsApp, Excel ou vos notes. Les numéros et les tirets sont ignorés.</span>
             </label>
             {rows.length > 0 && (
-              <List>
+              <div className="flex flex-col">
                 {rows.map((r) => (
                   <ParsedRow
                     key={r.line}
@@ -256,10 +265,10 @@ export default function AjouterJeunes() {
                     onToggle={() => setExclus((s) => (s.includes(r.line) ? s.filter((x) => x !== r.line) : [...s, r.line]))}
                   />
                 ))}
-              </List>
+              </div>
             )}
             {rows.length === MAX_PASTE_ROWS && (
-              <span className="text-[13px] text-wait-text">Seuls les {MAX_PASTE_ROWS} premiers jeunes sont lus. Ajoutez la suite dans un second temps.</span>
+              <Bandeau>Seuls les {MAX_PASTE_ROWS} premiers jeunes sont lus. Ajoutez la suite dans un second temps.</Bandeau>
             )}
           </div>
         )}
@@ -270,9 +279,9 @@ export default function AjouterJeunes() {
 
 function EtapeSelect({ steps, value, onChange, label }: { steps: EtapeUnite[]; value: string; onChange: (id: string) => void; label: string }) {
   return (
-    <label className="flex items-center justify-between gap-3 rounded-card border border-line bg-surface px-3.5 py-2.5 text-[14px] font-semibold">
+    <label className="flex flex-wrap items-center justify-between gap-3 text-[16px] font-semibold">
       {label}
-      <select value={value} onChange={(e) => onChange(e.target.value)} className="h-10 rounded-ui border border-line-strong bg-surface px-2.5 text-[14px] font-semibold text-ink">
+      <select value={value} onChange={(e) => onChange(e.target.value)} className="h-11 border-0 border-b-[1.5px] border-encre bg-transparent pr-6 text-[17px] font-semibold text-encre">
         {steps.map((s) => (
           <option key={s.id} value={s.id}>
             {s.name}
@@ -297,10 +306,10 @@ interface ParsedRowProps {
 function ParsedRow({ row, erreur, steps, etapeId, excluded, onEtape, onToggle }: ParsedRowProps) {
   const name = `${row.prenom} ${row.nom}`.trim() || "Sans nom";
   return (
-    <div className={cx(rowClass, "min-h-14 gap-2.5 py-2", (erreur || excluded) && "opacity-60")}>
+    <div className={cx("flex min-h-14 items-center gap-2.5 border-b border-ligne py-2", excluded && "text-crayon")}>
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className={cx("truncate text-[15px] font-semibold", excluded && "line-through")}>{name}</span>
-        {erreur && <span className="text-[12px] text-err-ink">{erreur}</span>}
+        <span className={cx("truncate text-[17px]", excluded && "line-through")}>{name}</span>
+        {erreur && <span className="text-[14px] font-semibold text-erreur">{erreur}</span>}
       </span>
       {!erreur && (
         <>
@@ -309,7 +318,7 @@ function ParsedRow({ row, erreur, steps, etapeId, excluded, onEtape, onToggle }:
             value={etapeId}
             disabled={excluded}
             onChange={(e) => onEtape(e.target.value)}
-            className="h-9 max-w-[124px] flex-none rounded-ui border border-line bg-surface px-1.5 text-[13px] text-ink"
+            className="h-11 max-w-[132px] flex-none border-0 border-b-[1.5px] border-encre bg-transparent pr-5 text-[15px] text-encre"
           >
             {steps.map((s) => (
               <option key={s.id} value={s.id}>
@@ -321,7 +330,7 @@ function ParsedRow({ row, erreur, steps, etapeId, excluded, onEtape, onToggle }:
             type="button"
             onClick={onToggle}
             aria-label={excluded ? `Remettre ${name}` : `Ne pas ajouter ${name}`}
-            className="h-9 w-9 flex-none rounded-ui bg-transparent text-[18px] text-muted"
+            className="size-11 flex-none bg-transparent text-[20px] text-encre"
           >
             {excluded ? "↺" : "×"}
           </button>

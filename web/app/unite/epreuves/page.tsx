@@ -18,8 +18,8 @@ export default function EpreuvesUnite() {
   if (!ok) return null;
 
   return (
-    <AppShell kicker={store.unitesNoms.troupe} title="Épreuves de l'unité">
-      <div className="p-4">
+    <AppShell kicker={`${store.unitesNoms.troupe} · référentiel version ${store.refVersion.troupe}`} title="Épreuves de l'unité">
+      <div className="px-4 pb-8 pt-4 lg:px-0">
         <UnitEpreuves branche="troupe" />
       </div>
     </AppShell>

@@ -96,6 +96,7 @@ export function AppShell({
   wide = false,
   aDroite,
   titreDansPage = false,
+  retour,
   children,
 }: {
   /** Sous-titre, sous le titre de la page. */
@@ -112,6 +113,8 @@ export function AppShell({
   aDroite?: ReactNode;
   /** La page pose elle-même son h1 (cartouche d'un jeune) : l'en-tête ne garde que le retour et les actions. */
   titreDansPage?: boolean;
+  /** Libellé du bouton retour quand l'écran parent n'est pas un onglet (« ‹ Fatou Ndiaye »). */
+  retour?: string;
   children: ReactNode;
 }) {
   const store = useStore();
@@ -173,7 +176,7 @@ export function AppShell({
                 {back !== undefined ? (
                   <button type="button" onClick={goBack} className="-ml-1 flex min-h-11 items-center gap-1.5 bg-transparent px-1 text-[17px] text-encre">
                     <span aria-hidden="true" className="text-[22px] leading-none">‹</span>
-                    {libelleRetour(back)}
+                    {retour ?? libelleRetour(back)}
                   </button>
                 ) : (
                   <span />

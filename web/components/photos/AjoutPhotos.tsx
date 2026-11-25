@@ -6,7 +6,7 @@ import { MAX_PHOTOS } from "@/lib/photos";
 import { VignetteLocale } from "./Vignette";
 
 const boutonClass =
-  "flex h-10 cursor-pointer items-center gap-1.5 rounded-full border border-line-strong bg-surface px-3 text-[13px] font-bold text-ink focus-within:outline focus-within:outline-2 focus-within:outline-acc";
+  "flex min-h-11 cursor-pointer items-center gap-1.5 border-[1.5px] border-dashed border-encre bg-fond px-3 text-[15px] font-semibold text-encre focus-within:outline focus-within:outline-[3px] focus-within:outline-soleil";
 
 /** Écran tactile : l'appareil photo s'ouvre directement ; sur ordinateur, on choisit un fichier. */
 function useTactile(): boolean {
