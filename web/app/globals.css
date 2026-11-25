@@ -156,6 +156,7 @@
   }
   .print-sheet {
     box-shadow: none !important;
+    border: 0 !important;
   }
   .print-root,
   .print-root * {

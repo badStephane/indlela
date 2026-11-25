@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
+import { FicheJeune } from "@/components/FicheJeune";
 import { Bouton, CourbesNiveau, EffectifChemin, Echelle, PointAttente, Surligne } from "@/components/carte";
 import { canValidate, useGuard } from "@/lib/access";
 import { useStore, useTroupe, useTroupeSansConsentement } from "@/lib/store";
@@ -19,6 +20,8 @@ export default function Unite() {
   const troupe = useTroupe();
   const enAttente = useTroupeSansConsentement();
   const [recherche, setRecherche] = useState("");
+  // Sur ordinateur, la fiche du jeune choisi s'ouvre à côté de la liste.
+  const [selection, setSelection] = useState<string | null>(null);
   const { vals, role, steps } = store;
 
   useEffect(() => {
@@ -35,6 +38,11 @@ export default function Unite() {
   const canAdd = canValidate(role);
   const addJeunes = () => router.push("/unite/ajouter");
   const vide = troupe.length === 0;
+  const choisi = troupe.find((j) => j.id === selection) ?? visibles[0]?.j;
+  const ouvrir = (id: string) => {
+    if (window.matchMedia("(min-width: 1024px)").matches) setSelection(id);
+    else router.push(jeuneHref(id));
+  };
 
   return (
     <AppShell
@@ -53,7 +61,7 @@ export default function Unite() {
         ) : undefined
       }
     >
-      <div className="flex flex-col px-4 pb-8 lg:max-w-[720px] lg:px-0">
+      <div className="flex flex-col px-4 pb-8 lg:px-0">
         {enAttente.length > 0 && (
           <p className="m-0 border-b border-ligne py-3.5 text-[17px] text-pretty">
             {enAttente.length > 1 ? `${enAttente.length} fiches attendent` : "1 fiche attend"} le consentement des parents ({enAttente.map((j) => j.prenom).join(", ")}).{" "}
@@ -93,7 +101,9 @@ export default function Unite() {
               </button>
             )}
 
-            <div className="flex items-end justify-between gap-4 border-t-4 border-double border-encre pt-4">
+            <div className="border-t-4 border-double border-encre lg:grid lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)] lg:items-start lg:gap-8">
+            <div className="flex flex-col lg:sticky lg:top-0">
+            <div className="flex items-end justify-between gap-4 pt-4">
               <h2 className="m-0 pb-2 text-[16px] font-bold">Les jeunes</h2>
               <input
                 type="search"
@@ -108,7 +118,12 @@ export default function Unite() {
             <ul className="m-0 list-none p-0">
               {visibles.map(({ j, p }) => (
                 <li key={j.id} className="border-b border-ligne">
-                  <button type="button" onClick={() => router.push(jeuneHref(j.id))} className="flex min-h-[66px] w-full items-center gap-3 bg-transparent py-3 text-left text-encre">
+                  <button
+                    type="button"
+                    onClick={() => ouvrir(j.id)}
+                    aria-current={choisi?.id === j.id ? "true" : undefined}
+                    className="flex min-h-[66px] w-full items-center gap-3 bg-transparent py-3 text-left text-encre lg:px-2 lg:aria-[current]:bg-fond-2 lg:aria-[current]:shadow-[inset_4px_0_0_var(--color-encre)]"
+                  >
                     <span className="flex min-w-0 flex-1 flex-col gap-1.5">
                       <span className="flex min-w-0 items-center gap-2 text-[18px] font-semibold">
                         <span className="truncate">{fullName(j)}</span>
@@ -130,6 +145,22 @@ export default function Unite() {
                 </Bouton>
               </div>
             )}
+            </div>
+            {choisi && (
+              <div className="hidden lg:flex lg:flex-col lg:gap-5 lg:pt-4">
+                <div className="flex flex-wrap gap-2">
+                  {canAdd && <Bouton onClick={() => router.push(jeuneHref(choisi.id, "valider"))}>Valider des preuves</Bouton>}
+                  <Bouton variante="secondaire" onClick={() => router.push(jeuneHref(choisi.id))}>
+                    Ouvrir la fiche
+                  </Bouton>
+                  <Bouton variante="secondaire" onClick={() => router.push(jeuneHref(choisi.id, "carnet"))}>
+                    Carnet PDF
+                  </Bouton>
+                </div>
+                <FicheJeune j={choisi} titre="h2" />
+              </div>
+            )}
+            </div>
           </>
         )}
       </div>
