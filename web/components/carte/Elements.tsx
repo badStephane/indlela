@@ -4,9 +4,9 @@ import type { ButtonHTMLAttributes, ComponentProps, InputHTMLAttributes, ReactNo
 /** Titre de section avec filet double. `aDroite` : compteur ou action courte. */
 export function TitreSection({ children, aDroite, as: T = "h2" }: { children: ReactNode; aDroite?: ReactNode; as?: "h2" | "h3" }) {
   return (
-    <T className="filet-double mt-6 flex items-baseline justify-between gap-3 text-section font-extrabold tracking-[-0.3px]">
+    <T className="filet-double mt-6 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-section font-extrabold tracking-[-0.3px]">
       <span className="min-w-0">{children}</span>
-      {aDroite && <span className="shrink-0 font-mono text-[13px] font-normal">{aDroite}</span>}
+      {aDroite && <span className="ml-auto min-w-0 text-right font-mono text-[13px] font-normal">{aDroite}</span>}
     </T>
   );
 }

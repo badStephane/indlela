@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { BASE_STEPS, effectiveSteps } from "../effective";
 import type { Jeune, Validation } from "../mock";
 import type { Reconnaissance } from "../courHonneur";
-import { anneeScoute, bilanJeunes, etapeALaDate, evolution, periodes, synthese } from "../rapport";
+import { anneeScoute, bilanJeunes, etapeALaDate, evolution, moisDeLAnnee, periodes, synthese, validationsParMois } from "../rapport";
 
 const steps = effectiveSteps(BASE_STEPS, {});
 const A = anneeScoute(new Date(2026, 9, 31));
@@ -171,5 +171,33 @@ describe("construireRapport", () => {
       steps,
     };
     expect(construireRapport(data, A, "annee", "2026-10-31").jeunes.map((x) => x.j.id)).toEqual(["m1", "t1", "t2"]);
+  });
+});
+
+describe("moisDeLAnnee", () => {
+  it("découpe l'année en mois, de septembre au mois en cours", () => {
+    const mois = moisDeLAnnee(A, "2026-11-25");
+    expect(mois.map((m) => m.label)).toEqual(["sept.", "oct.", "nov."]);
+    expect(mois[0]).toEqual({ label: "sept.", debut: "2026-09-01", fin: "2026-09-30" });
+    expect(mois[2].fin).toBe("2026-11-30");
+  });
+
+  it("donne les douze mois d'une année terminée", () => {
+    const mois = moisDeLAnnee(anneeScoute(new Date(2025, 9, 1)), "2026-11-25");
+    expect(mois).toHaveLength(12);
+    expect(mois[11]).toEqual({ label: "août", debut: "2026-08-01", fin: "2026-08-31" });
+  });
+});
+
+describe("validationsParMois", () => {
+  it("compte les preuves validées et non annulées de chaque mois, toutes unités confondues", () => {
+    const jeunes = [jeune("a"), jeune("b")];
+    const vals = [val("a", "2026-09-10"), val("b", "2026-09-20"), val("a", "2026-10-02"), val("a", "2026-10-03", { annuleeLe: "2026-10-04" }), val("b", "2025-12-01")];
+    const r = validationsParMois({ jeunes, vals, recons: [], steps }, A, ["troupe"], "2026-11-25");
+    expect(r).toEqual([
+      { label: "sept.", validations: 2 },
+      { label: "oct.", validations: 1 },
+      { label: "nov.", validations: 0 },
+    ]);
   });
 });

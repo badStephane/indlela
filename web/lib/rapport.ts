@@ -7,6 +7,7 @@ import type { Reconnaissance } from "./courHonneur";
 import type { StepsByBranch } from "./effective";
 import type { BranchCode } from "./referentiels";
 import { estActif } from "./suivi";
+import { MONTHS } from "./dates";
 
 export type Granularite = "semaine" | "trimestre" | "annee";
 
@@ -169,4 +170,18 @@ export function bilanJeunes(data: DonneesProgression, a: AnneeScoute, today: str
     validations: data.vals.filter((v) => v.jeuneId === j.id && !v.annuleeLe && within(v.date, p)).length,
     reconnues: data.recons.filter((r) => r.jeuneId === j.id && r.decision === "reconnue" && within(r.date, p)).length,
   }));
+}
+
+/** Mois de l'année scoute, de septembre au mois de `today` inclus (les douze si l'année est finie). */
+export function moisDeLAnnee(a: AnneeScoute, today: string): Periode[] {
+  const y = Number(a.debut.slice(0, 4));
+  return Array.from({ length: 12 }, (_, k) => {
+    const m = RENTREE + k;
+    return { label: MONTHS[m % 12], debut: iso(y, m, 1), fin: iso(y, m + 1, 0) };
+  }).filter((p) => p.debut <= today);
+}
+
+/** Preuves validées (non annulées) de chaque mois de l'année, toutes unités confondues. */
+export function validationsParMois(data: DonneesProgression, a: AnneeScoute, branches: BranchCode[], today: string): { label: string; validations: number }[] {
+  return moisDeLAnnee(a, today).map((p) => ({ label: p.label, validations: branches.reduce((n, b) => n + chiffres(data, p, b).validations, 0) }));
 }

@@ -30,10 +30,11 @@ const TABS: Record<Role, Tab[]> = {
     ["/admin/donnees", "Données"],
   ],
   progression: [
-    ["/progression", "Progression"],
+    ["/progression", "Progression du groupe", "Progression"],
     ["/progression/cours", "Cours d'honneur", "Cours"],
     ["/progression/epreuves", "Épreuves"],
-    ["/groupe/unites", "Unités"],
+    ["/progression/rapport", "Rapport d'évolution", "Rapport"],
+    ["/groupe/unites", "Groupe et unités"],
     ["/admin/donnees", "Données"],
   ],
   parent: [["/famille", "Famille"]],
@@ -44,6 +45,9 @@ const TABS: Record<Role, Tab[]> = {
     ["/admin/donnees", "Données"],
   ],
 };
+
+/** Onglets de la barre du téléphone ; les écrans suivants passent dans le menu du compte. */
+const ONGLETS_TELEPHONE = 4;
 
 /** Nom de l'écran où mène le bouton retour : le nom de son onglet, sinon « Retour ». */
 function libelleRetour(href: string | undefined): string {
@@ -129,6 +133,8 @@ export function AppShell({
     : "Hors connexion. Vos validations restent sur le téléphone et partiront au retour du réseau.";
 
   const tabs = role ? TABS[role] : [];
+  const tabsBas = tabs.slice(0, ONGLETS_TELEPHONE);
+  const tabsMenu = tabs.slice(ONGLETS_TELEPHONE);
   const [compte, setCompte] = useState(false);
   const openTab = (href: string) => {
     store.setLastTab(href);
@@ -232,9 +238,9 @@ export function AppShell({
           </div>
         )}
 
-        {tabs.length > 1 && (
+        {tabsBas.length > 1 && (
           <nav aria-label="Navigation" className="no-print flex flex-none border-t-4 border-double border-encre bg-fond pb-[env(safe-area-inset-bottom)] lg:hidden">
-            {tabs.map(([href, label, court]) => {
+            {tabsBas.map(([href, label, court]) => {
               const on = lastTab === href;
               return (
                 <button
@@ -245,7 +251,7 @@ export function AppShell({
                   aria-label={court ? label : undefined}
                   className={cx(
                     "flex min-h-16 min-w-0 flex-1 items-center justify-center px-1 text-center leading-tight",
-                    tabs.length >= 4 ? "text-[13px]" : "text-[15px]",
+                    tabsBas.length >= 4 ? "text-[13px]" : "text-[15px]",
                     on ? "bg-encre font-bold text-fond" : "bg-transparent text-encre",
                   )}
                 >
@@ -256,7 +262,7 @@ export function AppShell({
           </nav>
         )}
 
-        {compte && <MenuCompte onClose={() => setCompte(false)} onQuit={quit} />}
+        {compte && <MenuCompte ecrans={tabsMenu.map(([href, label]) => ({ href, label }))} onOpen={openTab} onClose={() => setCompte(false)} onQuit={quit} />}
 
         <CancelSheet />
         {confirmQuit && (

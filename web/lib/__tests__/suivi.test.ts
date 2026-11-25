@@ -134,7 +134,7 @@ describe("ajournes", () => {
   it("liste les jeunes dont la dernière décision sur l'étape en cours est un ajournement", () => {
     const list = [jeune("a"), jeune("b"), jeune("c", { etapeId: "tr.eng" })];
     const recons = [
-      recon("a", "tr.vol", "2026-09-10", "ajournee"),
+      { ...recon("a", "tr.vol", "2026-09-10", "ajournee"), observations: "Brevet de secourisme à refaire" },
       recon("b", "tr.vol", "2026-09-10", "ajournee"),
       recon("b", "tr.vol", "2026-10-10", "reconnue"),
       // Ajourné à une étape qu'il a depuis franchie.
@@ -143,6 +143,7 @@ describe("ajournes", () => {
     const out = ajournes(list, recons);
     expect(out.map((x) => x.j.id)).toEqual(["a"]);
     expect(out[0].le).toBe("2026-09-10");
+    expect(out[0].observations).toBe("Brevet de secourisme à refaire");
   });
 });
 

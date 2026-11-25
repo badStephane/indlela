@@ -3,10 +3,19 @@
 import { ROLE_LABELS } from "@/lib/admin";
 import { useStore } from "@/lib/store";
 import { ChangerEspace } from "./ChangerEspace";
+import { TitreSection } from "./carte";
 import { Sheet, sheetBtn } from "./Sheet";
 
-/** Menu du compte : qui est connecté, changement d'espace, déconnexion. */
-export function MenuCompte({ onClose, onQuit }: { onClose: () => void; onQuit: () => void }) {
+interface MenuCompteProps {
+  /** Écrans qui n'ont pas de place dans la barre d'onglets du téléphone. */
+  ecrans?: { href: string; label: string }[];
+  onOpen?: (href: string) => void;
+  onClose: () => void;
+  onQuit: () => void;
+}
+
+/** Menu du compte : qui est connecté, autres écrans, changement d'espace, déconnexion. */
+export function MenuCompte({ ecrans = [], onOpen, onClose, onQuit }: MenuCompteProps) {
   const store = useStore();
   const { role, moi } = store;
   return (
@@ -18,6 +27,25 @@ export function MenuCompte({ onClose, onQuit }: { onClose: () => void; onQuit: (
           {role && ` · ${ROLE_LABELS[role]}`}
         </span>
       </div>
+      {ecrans.length > 0 && onOpen && (
+        <nav aria-label="Autres écrans" className="flex flex-col lg:hidden">
+          <TitreSection as="h3">Autres écrans</TitreSection>
+          {ecrans.map((e) => (
+            <button
+              key={e.href}
+              type="button"
+              onClick={() => {
+                onClose();
+                onOpen(e.href);
+              }}
+              className="flex min-h-12 items-center justify-between border-b border-ligne bg-transparent text-left text-[17px] text-encre"
+            >
+              {e.label}
+              <span aria-hidden="true">›</span>
+            </button>
+          ))}
+        </nav>
+      )}
       <ChangerEspace onChange={onClose} />
       <button
         type="button"
