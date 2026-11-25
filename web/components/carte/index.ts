@@ -10,3 +10,4 @@ export * from "./Elements";
 export * from "./CourbesNiveau";
 export * from "./NavBas";
 export * from "./EffectifChemin";
+export * from "./Chiffre";

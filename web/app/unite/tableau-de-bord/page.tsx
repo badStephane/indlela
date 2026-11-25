@@ -3,7 +3,7 @@
 import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
-import { Surligne, TitreSection } from "@/components/carte";
+import { Chiffre, Chiffres, Surligne, TitreSection } from "@/components/carte";
 import { useGuard } from "@/lib/access";
 import { useStore, useTroupe } from "@/lib/store";
 import { ceremonies, fullName } from "@/lib/mock";
@@ -48,11 +48,11 @@ export default function TableauDeBord() {
           <p className="m-0 text-[17px] text-crayon">Le tableau de bord se remplit dès que l&apos;unité compte des jeunes.</p>
         ) : (
           <>
-            <dl className="m-0 grid grid-cols-3 border-b border-ligne">
+            <Chiffres>
               <Chiffre valeur={troupe.length} libelle={`${plural(troupe.length, "jeune actif", "jeunes actifs")}`} />
               <Chiffre valeur={valideesCeMois} libelle={`${plural(valideesCeMois, "preuve validée", "preuves validées")} en ${LONG_MONTHS[maintenant.getMonth()]}`} />
               <Chiffre valeur={stale.length ? <Surligne>{stale.length}</Surligne> : 0} libelle={`sans validation depuis ${JOURS_SANS_VALIDATION} j`} />
-            </dl>
+            </Chiffres>
 
             <section>
               <h2 className="m-0 text-section font-extrabold tracking-[-0.3px]">
@@ -112,14 +112,6 @@ export default function TableauDeBord() {
   );
 }
 
-function Chiffre({ valeur, libelle }: { valeur: ReactNode; libelle: string }) {
-  return (
-    <div className="flex min-w-0 flex-col-reverse gap-1 py-3 pr-2 [&+&]:border-l [&+&]:border-ligne [&+&]:pl-3">
-      <dt className="text-[15px] leading-snug text-crayon">{libelle}</dt>
-      <dd className="m-0 text-[40px] font-extrabold leading-none tracking-[-1px]">{valeur}</dd>
-    </div>
-  );
-}
 
 function Liste({ children }: { children: ReactNode }) {
   return <ul className="m-0 list-none p-0">{children}</ul>;

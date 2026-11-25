@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { Card, Section } from "@/components/ui";
+import { Bandeau, BlocBranche, Bouton, ChampLigne, TitreSection } from "@/components/carte";
 import { useGuard } from "@/lib/access";
 import { useStore } from "@/lib/store";
 import { MAX_GROUPE_NOM, nettoyerGroupe, nomGroupe, nomsUnites, type Groupe } from "@/lib/groupe";
-import { BRANCH_COLORS, type BranchCode } from "@/lib/referentiels";
+import type { BranchCode } from "@/lib/referentiels";
 import type { Compte, Unite } from "@/lib/admin";
 import { plural } from "@/lib/progress";
 import { estActif } from "@/lib/suivi";
@@ -17,7 +17,7 @@ import { estActif } from "@/lib/suivi";
 
 const ORDER: BranchCode[] = ["meute", "troupe", "route"];
 const HORS_LIGNE = "Ces changements passent par le serveur : retrouvez du réseau.";
-const fieldClass = "h-11 min-w-0 rounded-ui border border-line-strong bg-surface px-3 text-[15px] text-ink outline-none focus:border-ink disabled:text-muted";
+const ligneClass = "block h-11 w-full min-w-0 border-0 border-b-[1.5px] border-encre bg-transparent p-0 text-[17px] font-normal text-encre disabled:text-crayon";
 
 export default function GroupeUnites() {
   const ok = useGuard((r) => r === "groupe" || r === "progression");
@@ -39,71 +39,61 @@ export default function GroupeUnites() {
   const apercu = nomsUnites(propre);
 
   return (
-    <AppShell kicker={store.groupeNom} title="Groupe et unités">
-      <div className="flex flex-col gap-6 p-4 lg:mx-auto lg:w-full lg:max-w-[760px]">
-        {offline && <span className="rounded-ui bg-wait-bg px-3.5 py-2.5 text-[13px] text-wait-ink">{HORS_LIGNE}</span>}
+    <AppShell kicker="Partagé entre le chef de groupe et le responsable progression" title="Groupe et unités" wide>
+      <div className="flex flex-col gap-4 px-4 pb-10 lg:max-w-[960px] lg:px-0">
+        {offline && <Bandeau>{HORS_LIGNE}</Bandeau>}
 
-        <Section label="Groupe" gap="gap-2.5">
-          <Card className="flex flex-col gap-3 p-4">
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (!change || offline) return;
-                store.setGroupe(propre);
-                store.showToast(`${nomGroupe(propre)} enregistré · les unités suivent`);
-              }}
-              className="flex flex-col gap-3"
-            >
-              <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
-                Nom du groupe
-                <span className="flex items-center gap-2">
-                  <span className="flex-none text-[15px] font-normal text-muted">Groupe</span>
-                  <input
-                    value={form.nom}
-                    onChange={(e) => setForm((f) => ({ ...f, nom: e.target.value }))}
-                    maxLength={MAX_GROUPE_NOM + 7}
-                    placeholder="Troisième Dakar"
-                    disabled={offline}
-                    className={`${fieldClass} flex-1`}
-                  />
-                </span>
-              </label>
-              <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
-                Paroisse
-                <span className="flex items-center gap-2">
-                  <span className="flex-none text-[15px] font-normal text-muted">Paroisse</span>
-                  <input
-                    value={form.paroisse}
-                    onChange={(e) => setForm((f) => ({ ...f, paroisse: e.target.value }))}
-                    maxLength={MAX_GROUPE_NOM + 9}
-                    placeholder="Saint-Pierre"
-                    disabled={offline}
-                    className={`${fieldClass} flex-1`}
-                  />
-                </span>
-              </label>
-              <div className="flex flex-col gap-1 rounded-ui bg-track px-3 py-2.5 text-[13px]">
-                <span className="font-semibold">Les unités s&apos;appelleront</span>
-                <span className="text-muted">
-                  {apercu.meute} · {apercu.troupe} · {apercu.route}
-                </span>
-              </div>
-              <button type="submit" disabled={!change || offline} className="h-11 rounded-ui bg-acc px-4 text-[14px] font-bold text-acc-ink disabled:bg-track disabled:text-muted">
+        <section>
+          <TitreSection>Le groupe</TitreSection>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!change || offline) return;
+              store.setGroupe(propre);
+              store.showToast(`${nomGroupe(propre)} enregistré · les unités suivent`);
+            }}
+            className="flex flex-col gap-4 pt-2"
+          >
+            <div className="grid gap-5 lg:grid-cols-2 lg:gap-6">
+              <ChampLigne
+                id="groupe-nom"
+                label="Nom du groupe"
+                value={form.nom}
+                onChange={(e) => setForm((f) => ({ ...f, nom: e.target.value }))}
+                maxLength={MAX_GROUPE_NOM + 7}
+                placeholder="Troisième Dakar"
+                disabled={offline}
+              />
+              <ChampLigne
+                id="groupe-paroisse"
+                label="Paroisse"
+                value={form.paroisse}
+                onChange={(e) => setForm((f) => ({ ...f, paroisse: e.target.value }))}
+                maxLength={MAX_GROUPE_NOM + 9}
+                placeholder="Saint-Pierre"
+                disabled={offline}
+              />
+            </div>
+            <p className="m-0 text-[15px] text-crayon text-pretty">
+              Les unités prennent ce nom : « {apercu.meute} », « {apercu.troupe} », « {apercu.route} ». Il s&apos;affiche en tête de chaque écran, sur les carnets et dans les rapports.
+            </p>
+            <div>
+              <Bouton type="submit" disabled={!change || offline} className="w-full lg:w-auto lg:px-6">
                 Enregistrer
-              </button>
-              <span className="text-[12px] text-muted">Le nom du groupe et de ses unités s&apos;affiche en tête de chaque écran, sur les carnets et dans les rapports.</span>
-            </form>
-          </Card>
-        </Section>
+              </Bouton>
+            </div>
+          </form>
+        </section>
 
-        <Section label="Unités et responsables" gap="gap-2.5">
+        <section className="flex flex-col gap-6">
+          <TitreSection>Les unités et leurs cadres</TitreSection>
           {unites.map((u) => (
             <UniteCard key={u.id} u={u} />
           ))}
-          <span className="text-[13px] text-muted text-pretty">
+          <p className="m-0 text-[15px] text-crayon text-pretty">
             Le responsable de chaque unité met la liste de ses jeunes à jour depuis un fichier Excel. Un nouveau cadre ? Son compte se crée chez l&apos;administrateur.
-          </span>
-        </Section>
+          </p>
+        </section>
       </div>
     </AppShell>
   );
@@ -143,19 +133,18 @@ function UniteCard({ u }: { u: Unite }) {
   };
 
   return (
-    <Card className="flex flex-col overflow-hidden">
-      <div className="h-1" style={{ background: BRANCH_COLORS[u.branche].acc }} />
-      <div className="flex flex-col gap-3.5 px-4 pb-4 pt-3.5">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-2">
-          <span className="text-[18px] font-extrabold">{u.nom}</span>
-          <span className="num text-[12px] text-muted">
-            {nbJeunes} {plural(nbJeunes, "jeune", "jeunes")} · {u.annee}
-          </span>
-        </div>
+    <BlocBranche branche={u.branche}>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <h3 className="m-0 text-section font-extrabold">{u.nom}</h3>
+        <span className="font-mono text-[14px] text-crayon">
+          {nbJeunes} {plural(nbJeunes, "jeune", "jeunes")} · {u.annee}
+        </span>
+      </div>
 
-        <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
-          Responsable de l&apos;unité
-          <select value={u.responsable ?? ""} disabled={offline} onChange={(e) => choisirResponsable(e.target.value)} className={fieldClass}>
+      <div className="mt-3 grid gap-5 lg:grid-cols-2 lg:gap-6">
+        <label className="flex flex-col text-sm font-semibold">
+          Responsable
+          <select value={u.responsable ?? ""} disabled={offline} onChange={(e) => choisirResponsable(e.target.value)} className={`mt-0.5 ${ligneClass}`}>
             <option value="">Aucun responsable</option>
             {cadres.map((c) => (
               <option key={c.id} value={c.id}>
@@ -165,54 +154,55 @@ function UniteCard({ u }: { u: Unite }) {
           </select>
         </label>
 
-        <div className="flex flex-col gap-1.5">
-          <span className="text-[13px] font-semibold">Équipe de cadres</span>
-          {equipe.length ? (
-            <ul className="m-0 flex list-none flex-col gap-1 p-0">
-              {equipe.map((c) => (
-                <li key={c.id} className="flex min-h-10 items-center justify-between gap-2 rounded-ui border border-line px-3 text-[14px]">
-                  <span className="truncate">
-                    {c.nom}
-                    {c.id === u.responsable && <span className="ml-2 rounded-full bg-acc-soft px-2 py-0.5 text-[11px] font-bold text-acc-text">Responsable</span>}
-                  </span>
-                  {c.id !== u.responsable && (
-                    <button
-                      type="button"
-                      disabled={offline}
-                      onClick={() => retirer(c)}
-                      aria-label={`Retirer ${c.nom} de l'équipe`}
-                      className="h-9 w-9 flex-none bg-transparent text-[18px] text-muted disabled:opacity-40"
-                    >
-                      ×
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <span className="text-[13px] text-muted">Aucun cadre n&apos;est affecté à l&apos;unité.</span>
-          )}
-          {autres.length > 0 && (
-            <select
-              value=""
-              disabled={offline}
-              aria-label={`Ajouter un cadre à ${u.nom}`}
-              onChange={(e) => {
-                const c = autres.find((x) => x.id === e.target.value);
-                if (c) ajouter(c);
-              }}
-              className={fieldClass}
-            >
-              <option value="">Ajouter un cadre…</option>
-              {autres.map((c) => (
-                <option key={c.id} value={c.id}>
+        <div className="flex flex-col gap-2">
+          <span className="text-sm font-semibold">Équipe de cadres</span>
+          <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
+            {equipe.map((c) => (
+              <li key={c.id} className="flex min-h-11 items-center gap-1 border-[1.5px] border-encre pl-3 text-[16px]">
+                <span>
                   {c.nom}
-                </option>
-              ))}
-            </select>
-          )}
+                  {c.id === u.responsable && <span className="ml-1.5 text-[14px] text-crayon">· responsable</span>}
+                </span>
+                {c.id === u.responsable ? (
+                  <span className="w-3" />
+                ) : (
+                  <button
+                    type="button"
+                    disabled={offline}
+                    onClick={() => retirer(c)}
+                    aria-label={`Retirer ${c.nom} de l'équipe`}
+                    className="flex size-11 items-center justify-center bg-transparent text-[18px] text-encre disabled:text-crayon"
+                  >
+                    ×
+                  </button>
+                )}
+              </li>
+            ))}
+            {autres.length > 0 && (
+              <li>
+                <select
+                  value=""
+                  disabled={offline}
+                  aria-label={`Ajouter un cadre à ${u.nom}`}
+                  onChange={(e) => {
+                    const c = autres.find((x) => x.id === e.target.value);
+                    if (c) ajouter(c);
+                  }}
+                  className="h-11 cursor-pointer appearance-none border-[1.5px] border-dashed border-encre bg-transparent px-3 text-[16px] text-encre disabled:text-crayon"
+                >
+                  <option value="">+ Ajouter</option>
+                  {autres.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nom}
+                    </option>
+                  ))}
+                </select>
+              </li>
+            )}
+          </ul>
+          {equipe.length === 0 && <span className="text-[15px] text-crayon">Aucun cadre n&apos;est affecté à l&apos;unité.</span>}
         </div>
       </div>
-    </Card>
+    </BlocBranche>
   );
 }
