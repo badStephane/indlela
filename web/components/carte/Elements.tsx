@@ -35,7 +35,7 @@ export function BoutonLien({ variante = "primaire", large = false, className = "
 }
 
 /** Champ sur une ligne (pas de boîte). `erreur` s'affiche juste en dessous. */
-export function ChampLigne({ label, erreur, mono = false, id, ...p }: InputHTMLAttributes<HTMLInputElement> & { label: string; erreur?: string; mono?: boolean; id: string }) {
+export function ChampLigne({ label, erreur, mono = false, id, className = "", ...p }: InputHTMLAttributes<HTMLInputElement> & { label: string; erreur?: string; mono?: boolean; id: string }) {
   return (
     <div>
       <label htmlFor={id} className="block text-sm font-semibold">{label}</label>
@@ -44,7 +44,7 @@ export function ChampLigne({ label, erreur, mono = false, id, ...p }: InputHTMLA
         aria-invalid={erreur ? true : undefined}
         aria-describedby={erreur ? `${id}-err` : undefined}
         {...p}
-        className={`mt-0.5 block h-11 w-full border-0 border-b-[1.5px] bg-transparent p-0 text-[17px] text-encre ${erreur ? "border-erreur" : "border-encre"} ${mono ? "font-mono" : ""}`}
+        className={`mt-0.5 block h-11 w-full border-0 border-b-[1.5px] bg-transparent p-0 text-[17px] text-encre ${erreur ? "border-erreur" : "border-encre"} ${mono ? "font-mono" : ""} ${className}`}
       />
       {erreur && <p id={`${id}-err`} className="mt-1 text-sm font-semibold text-erreur">{erreur}</p>}
     </div>

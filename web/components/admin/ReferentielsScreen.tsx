@@ -53,7 +53,7 @@ export function ReferentielsScreen({ kicker, title, withUnits = false }: Referen
   }
 
   return (
-    <AppShell kicker={kicker} title={title} branch={rb} foot={foot}>
+    <AppShell kicker={kicker} title={title} foot={foot}>
       <div className="flex flex-col gap-4 px-4 pb-10 lg:px-0">
         {withUnits && <ModeSwitch mode={mode} onChange={setMode} />}
         <div role="tablist" aria-label="Branche" className="flex border-b-4 border-double border-encre">

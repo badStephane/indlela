@@ -27,7 +27,6 @@ export default function Fiche() {
       kicker={unite}
       title={fullName(j)}
       back={home}
-      branch={j.branche}
       banner
       titreDansPage
       retour={role === "parent" ? "Vos enfants" : undefined}

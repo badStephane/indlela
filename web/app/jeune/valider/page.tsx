@@ -95,7 +95,6 @@ export default function Valider() {
       title={p.brevets ? "Valider des brevets" : "Valider des preuves"}
       back={jeuneHref(j.id)}
       retour={fullName(j)}
-      branch={j.branche}
       banner
       foot={{
         label: n ? `Valider ${n} ${plural(n, unit[0], unit[1])}` : `Cochez au moins une ${unit[0]}`,

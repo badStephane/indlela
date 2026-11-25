@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type CSSProperties, type ReactNode } from "react";
-import { BRANCH_COLORS, type BranchCode } from "@/lib/referentiels";
 import { usePhotos } from "@/lib/photosStore";
 import { useStore, useSheetTarget, type Role } from "@/lib/store";
 import { useBack } from "@/lib/nav";
@@ -64,11 +63,6 @@ export interface FootAction {
   note?: string;
 }
 
-export function accentVars(branch: BranchCode): CSSProperties {
-  const c = BRANCH_COLORS[branch];
-  return { "--acc": c.acc, "--acc-text": c.accText, "--acc-ink": c.accInk, "--acc-soft": c.soft } as CSSProperties;
-}
-
 /**
  * Colonne d'application, pleine hauteur ; centrée sur tablette.
  * `wide` : à partir de 1024 px, l'application occupe tout l'écran (barre latérale).
@@ -94,7 +88,6 @@ export function AppShell({
   kicker,
   title,
   back,
-  branch = "troupe",
   banner = false,
   foot,
   wide = false,
@@ -108,7 +101,6 @@ export function AppShell({
   title: string;
   /** Écran parent quand on arrive par un lien direct ; absent = pas de bouton retour. */
   back?: string;
-  branch?: BranchCode;
   banner?: boolean;
   foot?: FootAction;
   /** Sur ordinateur, le contenu prend plus de largeur (écrans en deux colonnes). */
@@ -169,7 +161,7 @@ export function AppShell({
   );
 
   return (
-    <Frame wide style={accentVars(branch)}>
+    <Frame wide>
       <SideNav tabs={tabs} current={lastTab} etatSync={etatSync} onOpen={openTab} onCompte={() => setCompte(true)} />
 
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">

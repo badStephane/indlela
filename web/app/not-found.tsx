@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { depuisAncienneAdresse } from "@/lib/routes";
+import { Bouton, CheminDebut } from "@/components/carte";
 
 /**
  * Adresse inconnue. Le site est statique : une ancienne adresse de jeune (/jeunes/:id…) arrive ici
@@ -20,13 +21,14 @@ export default function Introuvable() {
 
   if (redirige) return null;
   return (
-    <main className="flex min-h-dvh items-center justify-center p-6">
-      <div className="flex max-w-sm flex-col gap-3 text-center">
-        <h1 className="text-[22px] font-extrabold">Page introuvable</h1>
-        <p className="text-[15px] text-muted text-pretty">Cette adresse ne mène à aucun écran du carnet.</p>
-        <button type="button" onClick={() => router.replace("/")} className="h-12 rounded-ui bg-forest text-[15px] font-bold text-white">
+    <main className="flex min-h-dvh items-center justify-center bg-fond p-6">
+      <div className="flex max-w-sm flex-col items-start gap-4">
+        <CheminDebut />
+        <h1 className="filet-double m-0 w-full text-titre font-extrabold leading-tight">Page introuvable</h1>
+        <p className="m-0 text-[17px] text-crayon text-pretty">Cette adresse ne mène à aucun écran du carnet.</p>
+        <Bouton large onClick={() => router.replace("/")}>
           Revenir à l&apos;accueil
-        </button>
+        </Bouton>
       </div>
     </main>
   );

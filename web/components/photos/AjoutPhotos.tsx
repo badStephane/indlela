@@ -61,9 +61,11 @@ export function AjoutPhotos({ preuve, ids, onChange }: AjoutPhotosProps) {
                 type="button"
                 onClick={() => retirer(id)}
                 aria-label={`Retirer la photo ${k + 1}`}
-                className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full border border-line bg-surface text-[15px] font-bold text-ink shadow-sm"
+                className="absolute -right-3 -top-3 flex size-11 items-center justify-center bg-transparent"
               >
-                ×
+                <span aria-hidden="true" className="flex size-7 items-center justify-center border-[1.5px] border-encre bg-fond text-[15px] font-bold text-encre">
+                  ×
+                </span>
               </button>
             </span>
           ))}
@@ -81,14 +83,14 @@ export function AjoutPhotos({ preuve, ids, onChange }: AjoutPhotosProps) {
             <input type="file" accept="image/*" multiple onChange={ajouter} disabled={busy} className="sr-only" />
             {tactile ? "Galerie" : "Ajouter une photo"}
           </label>
-          {busy && <span className="text-[12px] text-muted">Préparation…</span>}
+          {busy && <span className="text-[14px] text-crayon">Préparation…</span>}
         </div>
       )}
-      <span className="text-[12px] font-normal text-muted text-pretty">
+      <span className="text-[14px] font-normal text-crayon text-pretty">
         Facultatif, {MAX_PHOTOS} au plus. Photographiez le travail réussi (nœud, construction, carte…), pas les visages.
       </span>
       {err && (
-        <span role="alert" className="text-[12px] font-semibold text-err-ink">
+        <span role="alert" className="text-[14px] font-semibold text-erreur">
           {err}
         </span>
       )}

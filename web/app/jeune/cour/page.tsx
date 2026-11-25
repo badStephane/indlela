@@ -61,7 +61,6 @@ export default function CourHonneur() {
       title="Cour d'honneur"
       back={jeuneHref(j.id)}
       retour={fullName(j)}
-      branch={j.branche}
       banner
       foot={{
         label: decision === "reconnue" ? `Reconnaître l'étape ${step.name}` : "Enregistrer l'ajournement",

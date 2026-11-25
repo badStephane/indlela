@@ -35,7 +35,6 @@ export default function Carnet() {
       title={name}
       back={jeuneHref(j.id)}
       retour={name}
-      branch={j.branche}
       foot={{
         label: offline ? "Téléchargement indisponible" : "Télécharger le PDF",
         disabled: offline,

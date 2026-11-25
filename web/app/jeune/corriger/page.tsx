@@ -40,7 +40,6 @@ export default function CorrigerEtape() {
       title="Corriger l'étape"
       back={jeuneHref(j.id)}
       retour={fullName(j)}
-      branch={j.branche}
       foot={{
         label: nouvelle === actuelle.id ? "Choisissez la nouvelle étape" : `Passer à l'étape ${cible?.name}`,
         disabled: nouvelle === actuelle.id,
