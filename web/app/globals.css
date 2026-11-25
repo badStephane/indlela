@@ -1,9 +1,48 @@
 @import "tailwindcss";
 
-/* Direction visuelle « Sentier » (2a) : le chemin vert et le soleil jaune du logo. */
+/* Charte « La carte » v3 (25.11.2026). Les écrans y passent un par un ; les jetons de l'ancienne direction
+   « Sentier » (plus bas) restent tant qu'un écran s'en sert. Polices : lib/fonts.ts. */
 @theme {
-  --font-sans: var(--font-bricolage), system-ui, sans-serif;
-  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+  /* Couleurs de carte */
+  --color-sentier: #0b6e3c; /* tracé franchi, action principale */
+  --color-sentier-fonce: #08552e; /* alternance de l'échelle, survol */
+  --color-sentier-1: #e2ede5; /* barre de sentier : 1re étape */
+  --color-sentier-2: #9cc7ac; /* barre de sentier : 2e étape */
+  --color-soleil: #f2b400; /* étape en cours, surligneur. Jamais de texte jaune */
+  --color-encre: #141814; /* texte, cadres, filets */
+  --color-fond: #ffffff;
+  --color-fond-2: #f5f7f2; /* barre latérale, ligne sélectionnée */
+  --color-ligne: #dadbd3; /* filets fins entre les lignes */
+  --color-crayon: #3f443c; /* texte secondaire (contraste 10:1) */
+  --color-pointille: #8e968c; /* à venir, pointillés : décor, jamais du texte */
+  --color-courbe: #c9a57c; /* courbe de niveau maîtresse */
+  --color-courbe-claire: #e2cfb2;
+  --color-annotation: #7a5a2e; /* notes en italique (« comment », remarques) */
+  --color-attente: #d9730d; /* point orange : saisie en attente du réseau */
+  --color-erreur: #b42318;
+  --color-alerte-fond: #fdf3d6;
+  --color-erreur-fond: #fbe9e7;
+  --color-ok-fond: #e2ede5;
+
+  /* Branches : en filet ou bandeau seulement */
+  --color-meute: #f2b400;
+  --color-troupe: #0b6e3c;
+  --color-route: #b42318;
+
+  /* Lettres */
+  --font-sans: var(--font-atkinson), system-ui, sans-serif;
+  --font-mono: var(--font-atkinson-mono), ui-monospace, monospace;
+  --font-note: var(--font-source-serif), Georgia, serif;
+  --font-logo: var(--font-poppins), sans-serif;
+
+  /* Échelle de titres (téléphone → ordinateur) */
+  --text-titre: 1.75rem; /* 28 px, h1 téléphone */
+  --text-titre-web: 2rem; /* 32 px, h1 ordinateur */
+  --text-section: 1.25rem; /* 20 px, h2 avec filet double */
+}
+
+/* Ancienne direction « Sentier » (2a) : à retirer quand plus aucun écran ne s'en sert. */
+@theme {
 
   --color-paper: #f4f1e8;
   --color-surface: #fffdf8;
@@ -69,8 +108,32 @@
     font-family: inherit;
   }
   :focus-visible {
-    outline: 2px solid var(--color-sun);
+    outline: 3px solid var(--color-soleil);
     outline-offset: 2px;
+  }
+  /* Rien ne sort de l'écran : les mots longs passent à la ligne, les champs suivent leur bloc. */
+  h1, h2, h3, p, a, span, strong, label, dd, dt, td, th, li, button, legend {
+    overflow-wrap: break-word;
+  }
+  input, select, textarea {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
+@layer components {
+  /* Filet double sous les titres de section */
+  .filet-double {
+    border-bottom: 4px double var(--color-encre);
+    padding-bottom: 0.3rem;
+  }
+  /* Tableaux : sous 640 px, chaque ligne devient une fiche empilée */
+  @media (max-width: 640px) {
+    .tableau-empile thead { display: none; }
+    .tableau-empile tbody { display: block; }
+    .tableau-empile tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; padding: 10px 0; border-top: 1px solid var(--color-ligne); }
+    .tableau-empile th, .tableau-empile td { display: block; padding: 0; text-align: left; }
+    .tableau-empile tr > th[scope="row"] { flex-basis: 100%; }
   }
 }
 

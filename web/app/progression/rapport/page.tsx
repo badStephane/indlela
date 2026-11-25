@@ -62,7 +62,6 @@ function RapportEvolution() {
       <div className="flex min-h-full flex-col gap-3.5 bg-desk p-4 lg:items-center">
         <article
           className="print-sheet flex w-full max-w-[900px] flex-col gap-5 bg-white px-5 py-[22px] text-[#1F1D19] shadow-[0_1px_3px_rgba(0,0,0,.12),0_8px_24px_rgba(0,0,0,.06)]"
-          style={{ fontFamily: "var(--font-plex), var(--font-sans)" }}
         >
           <div className="flex items-center justify-between border-b-2 border-[#1F1D19] pb-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -47,7 +47,6 @@ export default function Carnet() {
       <div className="flex min-h-full flex-col gap-3.5 bg-desk p-4">
         <article
           className="print-sheet flex flex-col gap-3.5 bg-white px-5 py-[22px] text-[#1F1D19] shadow-[0_1px_3px_rgba(0,0,0,.12),0_8px_24px_rgba(0,0,0,.06)]"
-          style={{ fontFamily: "var(--font-plex), var(--font-sans)" }}
         >
           <div className="flex items-center justify-between pb-2.5" style={{ borderBottom: `2px solid ${BRANCH_COLORS[j.branche].acc}` }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
