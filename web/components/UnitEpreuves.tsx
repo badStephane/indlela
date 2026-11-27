@@ -24,19 +24,19 @@ export function UnitEpreuves({ branche }: { branche: BranchCode }) {
 
   if (!steps.length) {
     return (
-      <div className="rounded-card border border-dashed border-line-strong px-5 py-6 text-[14px] text-muted text-pretty">
+      <p className="m-0 text-[16px] text-crayon text-pretty">
         Le référentiel de la branche n&apos;a pas encore d&apos;étape : l&apos;unité n&apos;a rien à adapter pour l&apos;instant.
-      </div>
+      </p>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <p className="m-0 text-[14px] text-muted text-pretty">
+    <div className="flex flex-col gap-5">
+      <p className="m-0 border-l-4 border-encre pl-3 text-[16px] text-pretty">
         Le référentiel de la branche (version {store.refVersion[branche]}) est la base. Retirez les domaines au choix que l&apos;unité ne propose pas, et ajoutez ses propres
         preuves dans un domaine.
       </p>
-      <div className="flex flex-col overflow-hidden rounded-card border border-line bg-surface [&>*:last-child]:border-b-0">
+      <div className="flex flex-col gap-4">
         {steps.map((s, i) => (
           <EtapeBloc key={s.id} step={s} isOpen={open === i} onOpen={() => setOpen(open === i ? -1 : i)} update={update} />
         ))}
@@ -48,25 +48,25 @@ export function UnitEpreuves({ branche }: { branche: BranchCode }) {
 function EtapeBloc({ step, isOpen, onOpen, update }: { step: EtapeUnite; isOpen: boolean; onOpen: () => void; update: Update }) {
   const proposes = step.domaines.filter((d) => !d.retire && !d.archive).length;
   return (
-    <div className="flex flex-col border-b border-rule bg-surface">
-      <button type="button" aria-expanded={isOpen} onClick={onOpen} className="flex min-h-14 w-full items-center gap-3 bg-transparent px-3.5 py-2 text-left text-inherit">
+    <section className="flex flex-col">
+      <button type="button" aria-expanded={isOpen} onClick={onOpen} className="filet-double flex min-h-14 w-full items-center gap-3 bg-transparent py-2 text-left text-encre">
         <span className="flex flex-1 flex-col">
-          <span className="text-[16px] font-semibold">{step.name}</span>
-          <span className="text-[12px] text-muted">
+          <span className="text-section font-extrabold tracking-[-0.3px]">{step.name}</span>
+          <span className="text-[14px] text-crayon">
             {proposes} {step.regle ? "séries de brevets" : "domaines"}
             {step.rule ? ` · ${step.rule}` : ""}
           </span>
         </span>
-        <span className="text-[16px] text-muted">{isOpen ? "▴" : "▾"}</span>
+        <span aria-hidden="true" className="text-[18px]">{isOpen ? "▴" : "▾"}</span>
       </button>
       {isOpen && (
-        <div className="flex flex-col gap-2 px-3.5 pb-3.5">
+        <div className="flex flex-col">
           {step.domaines.filter((d) => !d.archive).map((d) => (
             <DomaineRow key={d.id} d={d} brevets={!!step.regle} update={update} />
           ))}
         </div>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -93,18 +93,18 @@ function DomaineRow({ d, brevets, update }: { d: DomaineUnite; brevets: boolean;
   const propres = d.preuves.filter((x) => x.unite);
 
   return (
-    <details className="rounded-ui border border-line">
-      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 px-3 py-1.5">
+    <details className="border-b border-ligne">
+      <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 py-2">
         <span className="flex min-w-0 flex-col">
-          <span className={cx("text-[14px] font-semibold", d.retire && "text-muted line-through")}>{d.name}</span>
-          <span className="num text-[11px] text-muted">
+          <span className={cx("text-[17px]", d.retire && "text-crayon line-through")}>{d.name}</span>
+          <span className="font-mono text-[13px] text-crayon">
             {d.preuves.length} {brevets ? plural(d.preuves.length, "brevet", "brevets") : plural(d.preuves.length, "preuve", "preuves")}
             {d.min ? ` · ${d.min} au choix` : ""}
             {propres.length ? ` · ${propres.length} de l'unité` : ""}
           </span>
         </span>
         {d.obligatoire ? (
-          <span className="flex-none rounded-full bg-acc-soft px-2.5 py-1.5 text-[12px] font-bold text-acc-text">Obligatoire</span>
+          <span className="flex-none text-[14px] text-crayon">obligatoire</span>
         ) : (
           <button
             type="button"
@@ -113,21 +113,24 @@ function DomaineRow({ d, brevets, update }: { d: DomaineUnite; brevets: boolean;
               e.preventDefault();
               toggleRetire();
             }}
-            className={cx("h-8 flex-none rounded-full border px-2.5 text-[12px] font-bold", d.retire ? "border-line-strong bg-transparent text-muted" : "border-acc bg-surface text-acc-text")}
+            aria-label={`${d.name} : ${d.retire ? "retiré" : "proposé"} pour l'unité`}
+            className="flex size-11 flex-none items-center justify-center bg-transparent"
           >
-            {d.retire ? "Retiré" : "Proposé"}
+            <span aria-hidden="true" className={cx("flex size-7 items-center justify-center text-[17px] font-bold", d.retire ? "border-2 border-encre bg-fond" : "bg-sentier text-white")}>
+              {d.retire ? "" : "✓"}
+            </span>
           </button>
         )}
       </summary>
-      <div className="flex flex-col gap-1 border-t border-line px-3 pb-3 pt-2">
+      <div className="flex flex-col pb-3">
         {d.preuves.filter((x) => !x.archive).map((x) => (
-          <div key={x.id} className="flex items-start justify-between gap-2 py-1 text-[13px]">
+          <div key={x.id} className="flex items-start justify-between gap-2 border-t border-ligne py-2 text-[16px]">
             <span className="text-pretty">
               {x.label}
-              {x.unite && <span className="num text-[11px] text-acc-text"> · unité</span>}
+              {x.unite && <span className="ml-1.5 inline-block border border-encre px-1 text-[13px] font-semibold">propre à l&apos;unité</span>}
             </span>
             {x.unite && (
-              <button type="button" onClick={() => removeAdded(x.id)} aria-label={`Retirer ${x.label}`} className="h-7 flex-none bg-transparent px-1 text-[16px] text-muted">
+              <button type="button" onClick={() => removeAdded(x.id)} aria-label={`Retirer ${x.label}`} className="size-11 flex-none bg-transparent text-[20px] text-encre">
                 ×
               </button>
             )}
@@ -139,7 +142,7 @@ function DomaineRow({ d, brevets, update }: { d: DomaineUnite; brevets: boolean;
               e.preventDefault();
               add();
             }}
-            className="mt-1.5 flex gap-2"
+            className="mt-2 flex items-end gap-3"
           >
             <input
               value={label}
@@ -147,10 +150,10 @@ function DomaineRow({ d, brevets, update }: { d: DomaineUnite; brevets: boolean;
               maxLength={MAX_LABEL}
               placeholder={brevets ? "Brevet propre à l'unité" : "Preuve propre à l'unité"}
               aria-label={`Nouvelle preuve pour ${d.name}`}
-              className="h-10 min-w-0 flex-1 rounded-ui border border-line-strong bg-surface px-3 text-[14px] text-ink outline-none focus:border-ink"
+              className="h-11 min-w-0 flex-1 border-0 border-b-[1.5px] border-encre bg-transparent px-0 text-[17px] text-encre placeholder:text-crayon"
             />
-            <button type="submit" disabled={!label.trim()} className="h-10 flex-none rounded-ui bg-acc px-3.5 text-[13px] font-bold text-acc-ink disabled:bg-track disabled:text-muted">
-              Ajouter
+            <button type="submit" disabled={!label.trim()} className="min-h-11 flex-none border-[1.5px] border-dashed border-encre bg-fond px-3.5 text-[15px] font-semibold text-encre disabled:border-ligne disabled:text-crayon">
+              + Ajouter
             </button>
           </form>
         )}

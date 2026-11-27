@@ -28,6 +28,7 @@ const ROUTES = [
   "/jeune/valider",
   "/jeune/carnet",
   "/jeune/cour",
+  "/jeune/corriger",
   OFFLINE,
 ];
 const ASSETS = ["/logo.svg", "/icon.svg", "/manifest.webmanifest"];

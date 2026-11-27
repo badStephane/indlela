@@ -1,15 +1,18 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
-import { Card, Chip, EmptyBox, List, rowClass, Section } from "@/components/ui";
+import { Chiffre, Chiffres, Surligne, TitreSection } from "@/components/carte";
 import { useGuard } from "@/lib/access";
 import { useStore, useTroupe } from "@/lib/store";
 import { ceremonies, fullName } from "@/lib/mock";
-import { lastValidationDays, progressOf } from "@/lib/progress";
-import { fmtDayMonth } from "@/lib/dates";
+import { lastValidationDays, plural, progressOf } from "@/lib/progress";
+import { fmtDayMonth, LONG_MONTHS, toISODate } from "@/lib/dates";
 import { jeuneHref } from "@/lib/routes";
+
+/** Au-delà, un jeune « sans validation » demande l'attention du cadre. */
+const JOURS_SANS_VALIDATION = 30;
 
 export default function TableauDeBord() {
   const ok = useGuard((r) => r === "cadre");
@@ -27,70 +30,100 @@ export default function TableauDeBord() {
 
   const rows = troupe.map((j) => ({ j, p: progressOf(j, steps, vals) }));
   const bySteps = steps.troupe.map((s, k) => ({ name: s.name, count: rows.filter((r) => r.p.index === k).length }));
-  const max = Math.max(1, ...bySteps.map((s) => s.count));
   const stale = rows
     .map((r) => ({ ...r, days: lastValidationDays(vals, r.j) }))
-    .filter((o) => o.days >= 30)
+    .filter((o) => o.days >= JOURS_SANS_VALIDATION)
     .sort((a, b) => b.days - a.days);
   const award = rows.filter((r) => r.p.complete);
+  const maintenant = new Date();
+  const mois = toISODate(maintenant).slice(0, 7);
+  const ids = new Set(troupe.map((j) => j.id));
+  const valideesCeMois = vals.filter((v) => !v.annuleeLe && ids.has(v.jeuneId) && v.date.startsWith(mois)).length;
   const open = (id: string) => () => router.push(jeuneHref(id));
 
   return (
-    <AppShell kicker={store.unitesNoms.troupe} title="Tableau de bord">
-      <div className="flex flex-col gap-6 p-4">
+    <AppShell kicker={`${store.unitesNoms.troupe} · ${LONG_MONTHS[maintenant.getMonth()]} ${maintenant.getFullYear()}`} title="Tableau de bord">
+      <div className="flex flex-col gap-6 px-4 pb-8 pt-4 lg:px-0">
         {troupe.length === 0 ? (
-          <EmptyBox>Le tableau de bord se remplit dès que l&apos;unité compte des jeunes.</EmptyBox>
+          <p className="m-0 text-[17px] text-crayon">Le tableau de bord se remplit dès que l&apos;unité compte des jeunes.</p>
         ) : (
           <>
-            <Section label="Jeunes par étape" gap="gap-2.5">
-              <Card className="flex flex-col gap-3.5 p-4">
+            <Chiffres>
+              <Chiffre valeur={troupe.length} libelle={`${plural(troupe.length, "jeune actif", "jeunes actifs")}`} />
+              <Chiffre valeur={valideesCeMois} libelle={`${plural(valideesCeMois, "preuve validée", "preuves validées")} en ${LONG_MONTHS[maintenant.getMonth()]}`} />
+              <Chiffre valeur={stale.length ? <Surligne>{stale.length}</Surligne> : 0} libelle={`sans validation depuis ${JOURS_SANS_VALIDATION} j`} />
+            </Chiffres>
+
+            <section>
+              <h2 className="m-0 text-section font-extrabold tracking-[-0.3px]">
+                Jeunes par étape <span className="text-[16px] font-normal text-crayon">un carré par jeune</span>
+              </h2>
+              <ul className="m-0 mt-2 list-none p-0">
                 {bySteps.map((s) => (
-                  <div key={s.name} className="grid grid-cols-[88px_minmax(0,1fr)_24px] items-center gap-2.5">
-                    <span className="text-[14px]">{s.name}</span>
-                    <span className="h-3 overflow-hidden rounded-[6px] bg-track">
-                      <span className="block h-full bg-acc" style={{ width: `${Math.round((s.count / max) * 100)}%` }} />
+                  <li key={s.name} className="grid grid-cols-[minmax(96px,auto)_1fr_auto] items-center gap-3 py-2">
+                    <span className="text-[17px] font-extrabold">{s.name}</span>
+                    <span aria-hidden="true" className="flex flex-wrap gap-1">
+                      {Array.from({ length: s.count }, (_, k) => (
+                        <span key={k} className="size-[18px] bg-sentier" />
+                      ))}
                     </span>
-                    <span className="text-right num text-[14px] font-semibold">{s.count}</span>
-                  </div>
+                    <span className="font-mono text-[16px]">
+                      <span className="sr-only">{s.name} : </span>
+                      {s.count}
+                    </span>
+                  </li>
                 ))}
-              </Card>
-            </Section>
+              </ul>
+            </section>
 
-            <Section label="Sans validation depuis 30 jours" gap="gap-2.5">
-              {stale.length ? (
-                <List>
-                  {stale.map(({ j, p, days }) => (
-                    <button key={j.id} type="button" onClick={open(j.id)} className={`${rowClass} min-h-[52px] justify-between gap-3 py-2`}>
-                      <span className="flex flex-col">
-                        <span className="text-[15px] font-semibold">{fullName(j)}</span>
-                        <span className="text-[12px] text-muted">{p.step?.name}</span>
-                      </span>
-                      <span className="num text-[13px] font-semibold text-stale">{days === 999 ? "Jamais" : `${days} jours`}</span>
-                    </button>
-                  ))}
-                </List>
-              ) : (
-                <span className="text-[14px] text-muted">Chaque jeune a eu une validation ce mois-ci.</span>
-              )}
-            </Section>
-
-            <Section label={`À remettre · cour d'honneur du ${fmtDayMonth(ceremonies().courHonneur)}`} gap="gap-2.5">
+            <section>
+              <TitreSection aDroite={fmtDayMonth(ceremonies().courHonneur)}>À remettre à la cour d&apos;honneur</TitreSection>
               {award.length ? (
-                <List>
+                <Liste>
                   {award.map(({ j, p }) => (
-                    <button key={j.id} type="button" onClick={open(j.id)} className={`${rowClass} min-h-[52px] justify-between gap-3 py-2`}>
-                      <span className="text-[15px] font-semibold">{fullName(j)}</span>
-                      <Chip className="bg-acc-soft text-acc-text">{p.step?.name}</Chip>
-                    </button>
+                    <Ligne key={j.id} onClick={open(j.id)} nom={fullName(j)}>
+                      <span className="font-mono text-[15px] text-sentier">→ {p.step?.name}</span>
+                    </Ligne>
                   ))}
-                </List>
+                </Liste>
               ) : (
-                <span className="text-[14px] text-muted">Aucune étape complète pour l&apos;instant.</span>
+                <p className="m-0 py-3 text-[16px] text-crayon">Aucune étape complète pour l&apos;instant.</p>
               )}
-            </Section>
+            </section>
+
+            <section>
+              <TitreSection>Sans validation depuis {JOURS_SANS_VALIDATION} jours</TitreSection>
+              {stale.length ? (
+                <Liste>
+                  {stale.map(({ j, days }) => (
+                    <Ligne key={j.id} onClick={open(j.id)} nom={fullName(j)}>
+                      <span className="font-mono text-[15px]">{days === 999 ? "jamais" : `${days} j`}</span>
+                    </Ligne>
+                  ))}
+                </Liste>
+              ) : (
+                <p className="m-0 py-3 text-[16px] text-crayon">Chaque jeune a eu une validation ce mois-ci.</p>
+              )}
+            </section>
           </>
         )}
       </div>
     </AppShell>
+  );
+}
+
+
+function Liste({ children }: { children: ReactNode }) {
+  return <ul className="m-0 list-none p-0">{children}</ul>;
+}
+
+function Ligne({ nom, onClick, children }: { nom: string; onClick: () => void; children: ReactNode }) {
+  return (
+    <li className="border-b border-ligne">
+      <button type="button" onClick={onClick} className="flex min-h-14 w-full items-center justify-between gap-3 bg-transparent py-2.5 text-left text-[17px] text-encre">
+        <span className="min-w-0">{nom}</span>
+        {children}
+      </button>
+    </li>
   );
 }

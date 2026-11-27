@@ -41,7 +41,7 @@ export function PhotosValidation({ jeuneId, validationId, preuve }: { jeuneId: s
   const serveur = usePhotosServeur(jeuneId)?.[validationId] ?? [];
   if (!locales.length && !serveur.length) return null;
   return (
-    <div className="flex flex-wrap gap-2 px-3.5 pb-3 pl-[50px]">
+    <div className="flex flex-wrap gap-2 pb-3">
       {serveur.map((p, k) => (
         <VignetteServeur key={p.id} lien={p.url} alt={`Photo ${k + 1} de « ${preuve} »`} />
       ))}

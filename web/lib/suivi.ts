@@ -83,13 +83,15 @@ export interface JeuneAjourne {
   j: Jeune;
   /** Date ISO de la cour d'honneur qui a ajourné l'étape. */
   le: string;
+  /** Observations de la cour : ce qui reste à faire. */
+  observations: string;
 }
 
 /** Jeunes dont l'étape en cours a été ajournée et pas encore reconnue depuis. */
 export function ajournes(jeunes: Jeune[], recons: Reconnaissance[]): JeuneAjourne[] {
   return jeunes.filter(estActif).flatMap((j) => {
     const r = derniereDecision(recons, j);
-    return r?.decision === "ajournee" ? [{ j, le: r.date }] : [];
+    return r?.decision === "ajournee" ? [{ j, le: r.date, observations: r.observations }] : [];
   });
 }
 

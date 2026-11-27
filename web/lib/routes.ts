@@ -2,7 +2,7 @@
 // chaque écran est une page fixe, mise en cache une fois pour toutes par le service
 // worker, et s'ouvre donc hors connexion pour n'importe quel jeune, même ajouté sur le téléphone.
 
-export type JeuneScreen = "valider" | "carnet" | "cour";
+export type JeuneScreen = "valider" | "carnet" | "cour" | "corriger";
 
 export function jeuneHref(id: string, screen?: JeuneScreen): string {
   return `/jeune${screen ? `/${screen}` : ""}?id=${encodeURIComponent(id)}`;

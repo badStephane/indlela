@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import { AppShell, type FootAction } from "@/components/AppShell";
-import { Card, cx, List, OutlineButton, rowClass, Section } from "@/components/ui";
+import { cx } from "@/components/ui";
+import { Bouton, Surligne, TitreSection } from "@/components/carte";
 import { useGuard } from "@/lib/access";
 import { useStore, useTroupe } from "@/lib/store";
 import { BRANCHES } from "@/lib/referentiels";
@@ -11,7 +12,7 @@ import { analyseImport, EXEMPLE_IMPORT, MODELE_IMPORT, type ImportRow } from "@/
 import { EXCEL_ACCEPT, lireTableau, slug, telechargerExcel, type Feuille } from "@/lib/excel";
 import { plural, progressOf } from "@/lib/progress";
 import { preuveLabel } from "@/lib/effective";
-import { daysSince, fmtShort, toISODate } from "@/lib/dates";
+import { fmtPoint, toISODate } from "@/lib/dates";
 
 const ONLINE_ONLY = "Import, export et sauvegardes passent par le serveur : retrouvez du réseau.";
 
@@ -81,7 +82,7 @@ export default function Donnees() {
     setFichier(null);
   };
 
-  const exporter = (kind: "jeunes" | "validations" | "journal") => {
+  const exporter = (kind: ExportKind) => {
     if (offline) return store.showToast(ONLINE_ONLY);
     const feuille = exportFeuille(kind);
     const name = `${slug(store.groupeNom)}-${kind}.xlsx`;
@@ -94,7 +95,7 @@ export default function Donnees() {
       .catch(() => store.showToast("L'export a échoué. Réessayez."));
   };
 
-  const exportFeuille = (kind: "jeunes" | "validations" | "journal"): Feuille => {
+  const exportFeuille = (kind: ExportKind): Feuille => {
     if (kind === "jeunes") {
       const lignes = troupe.map((j) => {
         const p = progressOf(j, store.steps, vals);
@@ -149,133 +150,154 @@ export default function Donnees() {
       onClick: doImport,
     };
 
-  const lastBackupDays = daysSince(store.lastBackup);
-  const backupWhen =
-    (lastBackupDays === 0 ? "aujourd'hui" : lastBackupDays === 1 ? "hier" : `le ${fmtShort(store.lastBackup)}`) +
-    " à " +
-    new Date(store.lastBackup).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  const derniere = new Date(store.lastBackup);
+  const backupWhen = `${fmtPoint(toISODate(derniere), true)} ${derniere.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
+  const effacer = () => {
+    setRows(null);
+    setFichier(null);
+  };
+  const modele = () =>
+    telechargerExcel("modele-import-jeunes.xlsx", [{ nom: "Jeunes", lignes: MODELE_IMPORT, largeurs: [18, 18, 18, 22] }]).catch(() =>
+      store.showToast("Le modèle n'a pas pu être créé. Réessayez."),
+    );
+  const exports: [ExportKind, string, string][] = [
+    ["jeunes", "Listes des jeunes", `${troupe.length} jeunes actifs, avec l'étape`],
+    ["validations", "Validations", "annulées comprises, avec le nom du cadre"],
+    ...(admin ? ([["journal", "Journal", `${journal.length} traces, avant et après`]] as [ExportKind, string, string][]) : []),
+  ];
 
   return (
-    <AppShell kicker={admin ? "Administration" : store.groupeNom} title="Import et export" foot={foot}>
-      <div className="flex flex-col gap-6 p-4">
-        <Section label="Importer des jeunes" gap="gap-2.5">
-          <Card className="flex flex-col gap-3 p-4">
-            <span className="text-[14px] text-pretty">
-              Un fichier Excel, une ligne par jeune, avec les colonnes <span className="font-semibold">Prénom, Nom, Date de naissance, Unité</span>. Les fiches restent
-              inactives jusqu&apos;au consentement des parents. En V1, seule la troupe est ouverte.
-            </span>
-            <input ref={fileRef} type="file" accept={EXCEL_ACCEPT} onChange={onFile} className="hidden" />
-            <button type="button" onClick={() => fileRef.current?.click()} className="h-12 rounded-ui bg-acc text-[15px] font-bold text-acc-ink">
-              Choisir un fichier Excel
-            </button>
-            <div className="grid grid-cols-2 gap-2">
-              <OutlineButton
-                onClick={() =>
-                  telechargerExcel("modele-import-jeunes.xlsx", [{ nom: "Jeunes", lignes: MODELE_IMPORT, largeurs: [18, 18, 18, 22] }]).catch(() =>
-                    store.showToast("Le modèle n'a pas pu être créé. Réessayez."),
-                  )
-                }
-                className="h-11 bg-transparent text-[14px]"
-              >
-                Modèle Excel
-              </OutlineButton>
-              <OutlineButton onClick={() => load("exemple.xlsx", EXEMPLE_IMPORT)} className="h-11 bg-transparent text-[14px]">
-                Essayer un exemple
-              </OutlineButton>
-            </div>
-          </Card>
+    <AppShell kicker="Excel pour tout ; le CSV est encore accepté à l'import" title="Import et export" foot={foot} wide>
+      <div className="flex flex-col gap-4 px-4 pb-10 lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:gap-10 lg:px-0">
+        <section className="min-w-0">
+          <TitreSection>Importer les jeunes du groupe</TitreSection>
+          <input ref={fileRef} type="file" accept={EXCEL_ACCEPT} onChange={onFile} className="hidden" />
+          <div className="mt-2 flex flex-col items-center gap-2 border-2 border-dashed border-encre px-4 py-5 text-center">
+            {rows ? (
+              <p className="m-0 text-[17px]">
+                <strong className="break-all">{fichier}</strong> · {rows.length} {plural(rows.length, "ligne", "lignes")}
+              </p>
+            ) : (
+              <p className="m-0 text-[16px] text-pretty">
+                Un fichier Excel, une ligne par jeune : <strong>Prénom, Nom, Date de naissance, Unité</strong>.
+              </p>
+            )}
+            <p className="m-0 flex flex-wrap justify-center gap-x-3 text-[16px]">
+              <Lien onClick={() => fileRef.current?.click()}>{rows ? "Changer de fichier" : "Choisir un fichier Excel"}</Lien>
+              <Lien onClick={modele}>Télécharger le modèle</Lien>
+              <Lien onClick={() => load("exemple.xlsx", EXEMPLE_IMPORT)}>Essayer sur un exemple</Lien>
+              {rows && <Lien onClick={effacer}>Effacer</Lien>}
+            </p>
+          </div>
+          <p className="m-0 pt-2 text-[15px] text-crayon text-pretty">Les fiches restent inactives jusqu&apos;au consentement des parents. En V1, seule la troupe est ouverte.</p>
 
           {rows && (
-            <>
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="truncate num text-[13px] text-muted">{fichier}</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRows(null);
-                    setFichier(null);
-                  }}
-                  className="flex-none bg-transparent text-[13px] font-bold text-acc-text"
-                >
-                  Effacer
-                </button>
-              </div>
-              <span className="text-[14px]">
-                {rows.length} {plural(rows.length, "ligne", "lignes")} · <span className="font-semibold text-ok-ink">{ready.length} prêtes</span>
-                {errors.length > 0 && (
-                  <>
-                    {" "}
-                    · <span className="font-semibold text-err-ink">{errors.length} à corriger</span>
-                  </>
-                )}
-              </span>
+            <div className="flex flex-col gap-2 pt-4">
               {rows.length === 0 ? (
-                <div className="rounded-card border border-dashed border-line-strong px-5 py-7 text-[15px] text-muted">Le fichier est vide.</div>
+                <p className="m-0 text-[16px] text-crayon">Le fichier est vide.</p>
               ) : (
-                <List>
-                  {rows.map((r) => (
-                    <div key={r.ligne} className={`${rowClass} min-h-14 gap-3 py-2`}>
-                      <span
-                        aria-hidden
-                        className={cx(
-                          "flex h-6 w-6 flex-none items-center justify-center rounded-full border-2 text-[13px] font-extrabold",
-                          r.erreur ? "border-err-dot text-err-ink" : "border-acc bg-acc text-acc-ink",
-                        )}
-                      >
-                        {r.erreur ? "!" : "✓"}
-                      </span>
-                      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                        <span className={cx("truncate text-[15px] font-medium", r.erreur && "text-muted")}>{[r.prenom, r.nom].filter(Boolean).join(" ") || "Sans nom"}</span>
-                        <span className={cx("num text-[12px]", r.erreur ? "text-err-ink" : "text-muted")}>
-                          ligne {r.ligne} · {r.erreur ?? `${r.age} ans · ${store.unitesNoms.troupe}`}
-                        </span>
-                      </span>
-                    </div>
-                  ))}
-                </List>
+                <p className="m-0 text-[17px]">
+                  {errors.length > 0 && (
+                    <>
+                      <Surligne>
+                        {errors.length} {plural(errors.length, "ligne à corriger", "lignes à corriger")}
+                      </Surligne>{" "}
+                      ·{" "}
+                    </>
+                  )}
+                  {ready.length} {plural(ready.length, "prête", "prêtes")} à importer
+                </p>
               )}
+              {errors.length > 0 && <LignesImport rows={errors} erreurs />}
+              {ready.length > 0 && (
+                <details className="group">
+                  <summary className="flex min-h-11 cursor-pointer list-none items-center text-[16px] font-semibold underline underline-offset-4">
+                    <span className="group-open:hidden">Voir les {ready.length} lignes prêtes</span>
+                    <span className="hidden group-open:inline">Masquer les lignes prêtes</span>
+                  </summary>
+                  <LignesImport rows={ready} />
+                </details>
+              )}
+            </div>
+          )}
+        </section>
+
+        <aside className="flex min-w-0 flex-col">
+          <TitreSection>Exporter</TitreSection>
+          <ul className="m-0 list-none p-0">
+            {exports.map(([kind, label, sub]) => (
+              <li key={kind} className="border-b border-ligne">
+                <button type="button" onClick={() => exporter(kind)} className="flex min-h-16 w-full items-center justify-between gap-3 bg-transparent py-3 text-left text-encre">
+                  <span className="flex min-w-0 flex-col">
+                    <strong className="text-[17px]">{label}</strong>
+                    <span className="text-[15px] text-crayon">{sub}</span>
+                  </span>
+                  <span className={cx("flex-none font-mono text-[14px]", offline && "text-crayon")}>.xlsx ↓</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          {offline && <p className="m-0 pt-2 text-[15px] text-crayon">{ONLINE_ONLY}</p>}
+
+          {admin && (
+            <>
+              <TitreSection>Sauvegardes</TitreSection>
+              <p className="m-0 text-[16px]">
+                Dernière sauvegarde : <span className="font-mono text-[15px]">{backupWhen}</span>
+              </p>
+              <p className="m-0 pt-2 text-[15px] text-crayon text-pretty">
+                Une sauvegarde chiffrée chaque nuit, gardée en 3 copies dont une hors du serveur. Restauration testée avant chaque nouvelle version.
+              </p>
+              <div className="pt-3">
+                <Bouton variante="secondaire" onClick={sauvegarder} disabled={backingUp || offline}>
+                  {backingUp ? "Sauvegarde en cours…" : "Lancer une sauvegarde"}
+                </Bouton>
+              </div>
             </>
           )}
-        </Section>
-
-        <Section label="Exporter" gap="gap-2.5">
-          <List>
-            {(
-              [
-                ["jeunes", "Listes des jeunes", `${troupe.length} jeunes actifs · étape et progression`],
-                ["validations", "Validations", "Toutes, annulées comprises, avec le nom du cadre"],
-                ...(admin ? [["journal", "Journal", `${journal.length} traces · avant et après`]] : []),
-              ] as ["jeunes" | "validations" | "journal", string, string][]
-            ).map(([kind, label, sub]) => (
-              <button key={kind} type="button" onClick={() => exporter(kind)} className={`${rowClass} min-h-[60px] justify-between gap-3 py-2`}>
-                <span className="flex min-w-0 flex-col gap-0.5">
-                  <span className="text-[15px] font-semibold">{label}</span>
-                  <span className="text-[12px] text-muted">{sub}</span>
-                </span>
-                <span className={cx("flex-none num text-[12px] font-semibold", offline ? "text-muted" : "text-acc-text")}>Excel ↓</span>
-              </button>
-            ))}
-          </List>
-          {offline && <span className="text-[13px] text-muted">{ONLINE_ONLY}</span>}
-        </Section>
-
-        {admin && (
-          <Section label="Sauvegardes" gap="gap-2.5">
-            <Card className="flex flex-col gap-2.5 p-4">
-              <div className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-ok-dot" />
-                <span className="text-[15px] font-semibold">Dernière sauvegarde chiffrée {backupWhen}</span>
-              </div>
-              <span className="text-[13px] text-muted text-pretty">
-                Une sauvegarde chaque nuit, gardée en 3 copies dont une hors du serveur. Restauration testée avant chaque nouvelle version.
-              </span>
-              <OutlineButton onClick={sauvegarder} className={cx("h-11 bg-transparent text-[14px] font-bold", (backingUp || offline) && "text-muted")}>
-                {backingUp ? "Sauvegarde en cours…" : "Lancer une sauvegarde maintenant"}
-              </OutlineButton>
-            </Card>
-          </Section>
-        )}
+        </aside>
       </div>
     </AppShell>
+  );
+}
+
+type ExportKind = "jeunes" | "validations" | "journal";
+
+function Lien({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+  return (
+    <button type="button" onClick={onClick} className="min-h-11 bg-transparent font-semibold text-encre underline underline-offset-4">
+      {children}
+    </button>
+  );
+}
+
+/** Lignes lues dans le fichier : celles à corriger avec leur erreur, ou celles prêtes à importer. */
+function LignesImport({ rows, erreurs = false }: { rows: ImportRow[]; erreurs?: boolean }) {
+  return (
+    <table className="tableau-empile w-full border-collapse text-[16px]">
+      <thead>
+        <tr className="text-left text-[14px]">
+          <th scope="col" className="py-2 pr-3 font-semibold">Ligne</th>
+          <th scope="col" className="py-2 pr-3 font-semibold">Prénom et nom</th>
+          <th scope="col" className="py-2 pr-3 font-semibold">Naissance</th>
+          <th scope="col" className="py-2 font-semibold">{erreurs ? "Erreur" : "Âge"}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => (
+          <tr key={r.ligne} className="border-t border-ligne">
+            <td className="py-2.5 pr-3 font-mono text-[14px] font-semibold">
+              <span className="lg:hidden">ligne </span>
+              {r.ligne}
+            </td>
+            <th scope="row" className="py-2.5 pr-3 text-left font-normal">
+              {[r.prenom, r.nom].filter(Boolean).join(" ") || "Sans nom"}
+            </th>
+            <td className="py-2.5 pr-3 font-mono text-[14px]">{r.dateNaissance ? fmtPoint(r.dateNaissance, true) : "—"}</td>
+            <td className={cx("py-2.5", erreurs ? "font-semibold text-erreur" : "")}>{erreurs ? r.erreur : r.age === null ? "—" : `${r.age} ans`}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }

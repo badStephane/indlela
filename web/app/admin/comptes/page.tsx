@@ -2,14 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { AppShell, type FootAction } from "@/components/AppShell";
-import { Card, Chip, cx, List, rowClass, Section } from "@/components/ui";
+import { cx } from "@/components/ui";
+import { BlocBranche, Bouton, FOND_BRANCHE, TitreSection } from "@/components/carte";
+import { contientSansAccents } from "@/lib/parseList";
 import { fieldClass, Segmented, Sheet, SheetActions, sheetBtn } from "@/components/Sheet";
 import { useGuard } from "@/lib/access";
 import { useStore, type Role } from "@/lib/store";
 import { ANNEE, identifiantLibre, type Compte, type Unite } from "@/lib/admin";
 import { basculerRole, exigeDeuxFARoles, libelleRoles } from "@/lib/roles";
-import { BRANCHES, BRANCH_COLORS, type BranchCode } from "@/lib/referentiels";
-import { fullName, GROUP_OTHER_UNITS, uuid, type Jeune } from "@/lib/mock";
+import { BRANCHES, type BranchCode } from "@/lib/referentiels";
+import { fullName, uuid, type Jeune } from "@/lib/mock";
+import { estActif } from "@/lib/suivi";
 import { fmtShort, fmtWhen, toISODate } from "@/lib/dates";
 import { plural } from "@/lib/progress";
 import { supabase } from "@/lib/supabase";
@@ -44,6 +47,7 @@ export default function Comptes() {
   const [tab, setTab] = useState<"comptes" | "unites">("comptes");
   const [filtre, setFiltre] = useState<Filtre>("tous");
   const [sheet, setSheet] = useState<SheetState>(null);
+  const [recherche, setRecherche] = useState("");
 
   const serveur = useServeur();
 
@@ -88,94 +92,153 @@ export default function Comptes() {
     return roles;
   };
 
+  const visibles = shown.filter((c) => contientSansAccents(`${c.nom} ${c.identifiant}`, recherche));
+
   const foot: FootAction =
     tab === "comptes"
       ? { label: "Créer un compte", onClick: () => setSheet({ kind: "nouveau-compte" }), disabled: offline, note: offline ? ONLINE_ONLY : undefined }
       : { label: "Créer une unité", onClick: () => setSheet({ kind: "nouvelle-unite" }), disabled: offline, note: offline ? ONLINE_ONLY : undefined };
 
   return (
-    <AppShell kicker="Administration" title="Comptes et unités" foot={foot}>
-      <div className="flex flex-col gap-4 p-4">
-        {sansConsentement.length > 0 && (
-          <Card className="flex flex-col gap-2.5 border-wait-dot/40 bg-wait-bg p-4 text-wait-ink">
-            <span className="text-[15px] font-bold">
-              {sansConsentement.length} {plural(sansConsentement.length, "jeune sans consentement", "jeunes sans consentement")}
-            </span>
-            <span className="text-[13px] text-pretty">
-              Leur fiche reste inactive : ni validation ni accès parent tant que le consentement des parents n&apos;est pas enregistré.
-            </span>
-            <div className="flex flex-col">
-              {sansConsentement.map((j) => (
-                <div key={j.id} className="flex min-h-12 items-center justify-between gap-3 border-t border-wait-dot/25 py-1.5">
-                  <span className="flex min-w-0 flex-col">
-                    <span className="truncate text-[15px] font-semibold text-ink">{fullName(j)}</span>
-                    <span className="text-[12px]">
-                      {store.unitesNoms[j.branche]}
-                      {j.importe ? " · importé" : ""}
-                    </span>
-                  </span>
-                  <button type="button" onClick={() => recordConsent(j)} className="h-9 flex-none rounded-full bg-ink px-3 text-[12px] font-bold text-white">
-                    Consentement reçu
-                  </button>
-                </div>
-              ))}
-            </div>
-          </Card>
-        )}
-
-        <Segmented
-          label="Afficher"
-          value={tab}
-          onChange={setTab}
-          options={[
-            { value: "comptes", label: `Comptes · ${comptes.length}` },
-            { value: "unites", label: `Unités · ${unites.length}` },
-          ]}
-        />
+    <AppShell kicker="Les comptes sont créés ici, il n'y a pas d'inscription" title="Comptes et unités" foot={foot} wide>
+      <div className="flex flex-col gap-4 px-4 pb-10 lg:px-0">
+        <div className="max-w-[420px]">
+          <Segmented
+            label="Afficher"
+            value={tab}
+            onChange={setTab}
+            options={[
+              { value: "comptes", label: `Comptes · ${comptes.length}` },
+              { value: "unites", label: `Unités · ${unites.length}` },
+            ]}
+          />
+        </div>
 
         {tab === "comptes" ? (
           <>
-            <div className="-mx-4 flex gap-2 overflow-x-auto px-4" role="group" aria-label="Filtrer les comptes">
-              {filtres.map((f) => {
-                const on = f.value === filtre;
-                return (
-                  <button
-                    key={f.value}
-                    type="button"
-                    aria-pressed={on}
-                    onClick={() => setFiltre(f.value)}
-                    className={cx("h-9 flex-none rounded-full border px-3.5 text-[13px] font-semibold", on ? "border-ink bg-ink text-white" : "border-line bg-surface text-muted")}
-                  >
-                    {f.label} · {comptes.filter(f.match).length}
-                  </button>
-                );
-              })}
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <div className="-mx-4 flex overflow-x-auto px-4 lg:mx-0 lg:px-0" role="group" aria-label="Filtrer les comptes">
+                {filtres.map((f) => {
+                  const on = f.value === filtre;
+                  return (
+                    <button
+                      key={f.value}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => setFiltre(f.value)}
+                      className={cx(
+                        "-ml-[1.5px] min-h-11 flex-none border-[1.5px] border-encre px-3.5 text-[15px] font-semibold first:ml-0",
+                        on ? "bg-encre text-fond" : "bg-transparent text-encre",
+                      )}
+                    >
+                      {f.label} · {comptes.filter(f.match).length}
+                    </button>
+                  );
+                })}
+              </div>
+              <input
+                type="search"
+                value={recherche}
+                onChange={(e) => setRecherche(e.target.value)}
+                aria-label="Chercher un compte"
+                placeholder="Chercher"
+                className="h-11 w-full border-0 border-b-[1.5px] border-encre bg-transparent px-0 text-[17px] text-encre placeholder:text-crayon lg:w-[220px]"
+              />
             </div>
-            <List>
-              {shown.map((c) => (
-                <button key={c.id} type="button" onClick={() => setSheet({ kind: "compte", id: c.id })} className={`${rowClass} min-h-[60px] gap-3 py-2`}>
-                  <span className={cx("flex h-10 w-10 flex-none items-center justify-center rounded-full text-[14px] font-bold", c.actif ? "bg-acc-soft text-acc-text" : "bg-track text-muted")}>
-                    {initials(c.nom)}
-                  </span>
-                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <span className={cx("truncate text-[15px] font-semibold", !c.actif && "text-muted")}>{c.nom}</span>
-                    <span className="truncate text-[12px] text-muted">{subtitle(c)}</span>
-                  </span>
-                  {!c.actif ? (
-                    <Chip className="border border-line-strong text-muted">Inactif</Chip>
-                  ) : c.deuxFA ? (
-                    <Chip className="bg-ok-bg text-ok-ink">2FA</Chip>
-                  ) : null}
-                </button>
-              ))}
-            </List>
+
+            <table className="tableau-empile w-full border-collapse text-[16px]">
+              <thead>
+                <tr className="text-left text-[14px]">
+                  <th scope="col" className="py-2 pr-3 font-semibold">Nom</th>
+                  <th scope="col" className="py-2 pr-3 font-semibold">Identifiant</th>
+                  <th scope="col" className="py-2 pr-3 font-semibold">Rôles</th>
+                  <th scope="col" className="py-2 pr-3 font-semibold">État</th>
+                  <th scope="col" className="py-2 pr-3 font-semibold">2nd facteur</th>
+                  <th scope="col" className="py-2">
+                    <span className="sr-only">Gérer</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibles.map((c) => (
+                  <tr key={c.id} className="border-t border-ligne">
+                    <th scope="row" className="py-3 pr-3 text-left font-semibold">
+                      {c.nom}
+                    </th>
+                    <td className="py-3 pr-3 font-mono text-[14px]">{c.identifiant}</td>
+                    <td className="py-3 pr-3 max-lg:basis-full">{subtitle(c)}</td>
+                    <td className={cx("py-3 pr-3 font-semibold", c.actif ? "text-sentier" : "font-normal text-crayon")}>{c.actif ? "Actif" : "Désactivé"}</td>
+                    <td className="py-3 pr-3">
+                      <span className="lg:hidden">2nd facteur : </span>
+                      {c.deuxFA ? "activé" : "—"}
+                    </td>
+                    <td className="py-1 lg:text-right">
+                      <button
+                        type="button"
+                        onClick={() => setSheet({ kind: "compte", id: c.id })}
+                        className="min-h-11 bg-transparent px-1 font-semibold text-encre underline underline-offset-4"
+                        aria-label={`Gérer le compte de ${c.nom}`}
+                      >
+                        Gérer
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {visibles.length === 0 && <p className="m-0 py-2 text-[16px] text-crayon">Aucun compte ne correspond.</p>}
+
+            <section>
+              <TitreSection aDroite={sansConsentement.length ? `${sansConsentement.length} ${plural(sansConsentement.length, "fiche inactive", "fiches inactives")}` : undefined}>
+                Consentements à enregistrer
+              </TitreSection>
+              {sansConsentement.length ? (
+                <>
+                  <p className="m-0 pb-2 text-[15px] text-crayon text-pretty">
+                    Leur fiche reste inactive : ni validation ni accès parent tant que le consentement des parents n&apos;est pas enregistré.
+                  </p>
+                  <table className="tableau-empile w-full border-collapse text-[16px]">
+                    <thead>
+                      <tr className="text-left text-[14px]">
+                        <th scope="col" className="py-2 pr-3 font-semibold">Jeune</th>
+                        <th scope="col" className="py-2 pr-3 font-semibold">Unité</th>
+                        <th scope="col" className="py-2">
+                          <span className="sr-only">Action</span>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sansConsentement.map((j) => (
+                        <tr key={j.id} className="border-t border-ligne">
+                          <th scope="row" className="py-3 pr-3 text-left font-semibold">
+                            {fullName(j)}
+                          </th>
+                          <td className="py-3 pr-3">
+                            {store.unitesNoms[j.branche]}
+                            {j.importe ? " · importé" : ""}
+                          </td>
+                          <td className="py-2 max-lg:basis-full lg:text-right">
+                            <Bouton onClick={() => recordConsent(j)} disabled={offline} className="px-4 text-[15px]">
+                              Enregistrer le consentement
+                            </Bouton>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
+              ) : (
+                <p className="m-0 py-3 text-[16px] text-crayon">Toutes les fiches ont le consentement des parents.</p>
+              )}
+            </section>
           </>
         ) : (
-          <Section label={`Année ${ANNEE}`} gap="gap-2.5">
+          <section className="flex flex-col gap-6">
+            <TitreSection>Année {ANNEE}</TitreSection>
             {unites.map((u) => (
-              <UniteCard key={u.id} u={u} comptes={comptes} effectif={effectifDe(u, jeunes)} />
+              <UniteBloc key={u.id} u={u} comptes={comptes} effectif={effectifDe(u, jeunes)} />
             ))}
-          </Section>
+          </section>
         )}
       </div>
 
@@ -186,42 +249,27 @@ export default function Comptes() {
   );
 }
 
-const initials = (nom: string) =>
-  nom
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-
-/** Effectif d'une unité : les jeunes actifs pour la troupe, les chiffres de démo ailleurs. */
+/** Effectif d'une unité : ses jeunes actifs (consentement enregistré). */
 function effectifDe(u: Unite, jeunes: Jeune[]): number {
-  if (u.id === "meute") return GROUP_OTHER_UNITS.meute.effectif;
-  if (u.id === "route") return GROUP_OTHER_UNITS.route.effectif;
-  if (u.id === "troupe") return jeunes.filter((j) => j.branche === "troupe" && j.statut === "actif" && j.consentementLe).length;
-  return 0;
+  return jeunes.filter((j) => j.branche === u.branche && estActif(j)).length;
 }
 
-function UniteCard({ u, comptes, effectif }: { u: Unite; comptes: Compte[]; effectif: number }) {
+function UniteBloc({ u, comptes, effectif }: { u: Unite; comptes: Compte[]; effectif: number }) {
   const cadres = comptes.filter((c) => c.roles.includes("cadre") && c.actif && c.unites.includes(u.id));
   return (
-    <Card className="flex flex-col overflow-hidden">
-      <div className="h-1" style={{ background: BRANCH_COLORS[u.branche].acc }} />
-      <div className="flex flex-col gap-2 px-4 pb-4 pt-3.5">
-        <div className="flex items-baseline justify-between gap-2">
-          <span className="text-[18px] font-extrabold">{u.nom}</span>
-          <span className="num text-[12px] text-muted">
-            {effectif} {plural(effectif, "jeune", "jeunes")} · {cadres.length} {plural(cadres.length, "cadre", "cadres")}
-          </span>
-        </div>
-        <span className="text-[13px] text-muted">
-          {BRANCHES[u.branche].name} · {u.annee}
+    <BlocBranche branche={u.branche}>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <h3 className="m-0 text-section font-extrabold">{u.nom}</h3>
+        <span className="font-mono text-[14px] text-crayon">
+          {effectif} {plural(effectif, "jeune", "jeunes")} · {cadres.length} {plural(cadres.length, "cadre", "cadres")}
         </span>
-        <span className="text-[14px] text-pretty">{cadres.length ? cadres.map((c) => c.nom).join(", ") : "Aucun cadre affecté"}</span>
-        {u.branche !== "troupe" && <span className="text-[13px] text-muted text-pretty">Module {BRANCHES[u.branche].name.toLowerCase()} prévu en V2 (mars 2027).</span>}
       </div>
-    </Card>
+      <p className="m-0 text-[15px] text-crayon">
+        {BRANCHES[u.branche].name} · {u.annee}
+      </p>
+      <p className="m-0 pt-1 text-[16px] text-pretty">{cadres.length ? cadres.map((c) => c.nom).join(", ") : "Aucun cadre affecté"}</p>
+      {u.branche !== "troupe" && <p className="m-0 pt-1 text-[15px] text-crayon text-pretty">Module {BRANCHES[u.branche].name.toLowerCase()} prévu en V2 (mars 2027).</p>}
+    </BlocBranche>
   );
 }
 
@@ -280,20 +328,20 @@ function CompteSheet({ id, onClose }: { id: string; onClose: () => void }) {
 
   return (
     <Sheet title={c.nom} onClose={onClose}>
-      <div className="flex flex-col gap-0.5 rounded-ui bg-paper px-3 py-2.5">
-        <span className="num text-[13px]">{c.identifiant}</span>
-        <span className="text-[13px] text-muted">
+      <div className="-mt-2 flex flex-col gap-0.5">
+        <span className="font-mono text-[15px]">{c.identifiant}</span>
+        <span className="text-[14px] text-crayon">
           {libelleRoles(c.roles)} · {c.actif ? "actif" : "inactif"} · dernière connexion : {c.derniereConnexion ? fmtWhen(c.derniereConnexion).toLowerCase() : "jamais"}
         </span>
-        {c.deuxFA && <span className="text-[13px] text-ok-ink">Double authentification activée</span>}
+        {c.deuxFA && <span className="text-[14px] font-semibold text-sentier">Double authentification activée</span>}
       </div>
 
       <ChoixRoles roles={c.roles} onToggle={toggleRole} disabled={self || store.offline} />
-      {self && <span className="-mt-2 text-[12px] text-muted text-pretty">Vos propres rôles se changent depuis un autre compte administrateur.</span>}
+      {self && <span className="-mt-2 text-[14px] text-crayon text-pretty">Vos propres rôles se changent depuis un autre compte administrateur.</span>}
 
       {c.roles.includes("cadre") && (
         <div className="flex flex-col gap-2">
-          <span className="text-[13px] font-semibold">Unités gérées</span>
+          <span className="text-sm font-semibold">Unités gérées</span>
           <div className="flex flex-wrap gap-2">
             {store.unites.map((u) => {
               const on = c.unites.includes(u.id);
@@ -303,9 +351,9 @@ function CompteSheet({ id, onClose }: { id: string; onClose: () => void }) {
                   type="button"
                   aria-pressed={on}
                   onClick={() => toggleUnite(u)}
-                  className={cx("flex h-9 items-center gap-2 rounded-full border px-3 text-[13px] font-semibold", on ? "border-ink bg-ink text-white" : "border-line bg-surface text-muted")}
+                  className={cx("flex min-h-11 items-center gap-2 border-[1.5px] border-encre px-3 text-[15px] font-semibold", on ? "bg-encre text-fond" : "bg-transparent text-encre")}
                 >
-                  <span className="h-2 w-2 rounded-full" style={{ background: BRANCH_COLORS[u.branche].acc }} />
+                  <span aria-hidden="true" className={cx("h-3 w-1.5", FOND_BRANCHE[u.branche])} />
                   {u.nom}
                 </button>
               );
@@ -314,31 +362,31 @@ function CompteSheet({ id, onClose }: { id: string; onClose: () => void }) {
         </div>
       )}
 
-      {c.roles.includes("parent") && serveur && <span className="text-[13px] text-muted text-pretty">{ENFANTS_PLUS_TARD}</span>}
+      {c.roles.includes("parent") && serveur && <span className="text-[14px] text-crayon text-pretty">{ENFANTS_PLUS_TARD}</span>}
       {c.roles.includes("parent") && !serveur && (
         <div className="flex flex-col gap-2">
-          <span className="text-[13px] font-semibold">Enfants liés</span>
-          {c.enfants.length === 0 && <span className="text-[14px] text-muted">Aucun enfant lié : ce compte ne voit rien.</span>}
+          <span className="text-sm font-semibold">Enfants liés</span>
+          {c.enfants.length === 0 && <span className="text-[15px] text-crayon">Aucun enfant lié : ce compte ne voit rien.</span>}
           {c.enfants.map((jid) => {
             const j = store.findJeune(jid);
             return (
-              <div key={jid} className="flex min-h-11 items-center justify-between gap-2 border-b border-line">
-                <span className="text-[14px]">
-                  {j ? fullName(j) : jid} <span className="text-muted">· {j ? store.unitesNoms[j.branche] : ""}</span>
+              <div key={jid} className="flex min-h-11 items-center justify-between gap-2 border-b border-ligne">
+                <span className="text-[16px]">
+                  {j ? fullName(j) : jid} <span className="text-crayon">· {j ? store.unitesNoms[j.branche] : ""}</span>
                 </span>
                 <button
                   type="button"
                   onClick={() =>
                     change({ enfants: c.enfants.filter((x) => x !== jid) }, `Lien retiré entre ${c.nom} et ${j ? fullName(j) : jid}`, "liens_parent", { jeune: jid }, { jeune: "—" })
                   }
-                  className="h-8 rounded-full border border-line-strong px-2.5 text-[12px] font-bold text-muted"
+                  className="min-h-11 border-[1.5px] border-encre bg-transparent px-3 text-[14px] font-semibold text-encre"
                 >
                   Retirer
                 </button>
               </div>
             );
           })}
-          <div className="flex gap-2">
+          <div className="flex items-end gap-2">
             <select value={lien} onChange={(e) => setLien(e.target.value)} aria-label="Enfant à lier" className={cx(fieldClass, "min-w-0 flex-1 text-[15px]")}>
               <option value="">Choisir un jeune…</option>
               {linkable.map((j) => (
@@ -355,17 +403,17 @@ function CompteSheet({ id, onClose }: { id: string; onClose: () => void }) {
                 change({ enfants: [...c.enfants, lien] }, `${c.nom} lié à ${fullName(j)}`, "liens_parent", { jeune: "—" }, { jeune: lien });
                 setLien("");
               }}
-              className="h-12 rounded-ui bg-acc px-4 text-[14px] font-bold text-acc-ink disabled:bg-track disabled:text-muted"
+              className="h-12 flex-none bg-sentier px-4 text-[15px] font-semibold text-white disabled:bg-ligne disabled:text-crayon"
             >
               Lier
             </button>
           </div>
-          <span className="text-[12px] text-muted">Seuls les jeunes dont le consentement est enregistré peuvent être liés.</span>
+          <span className="text-[14px] text-crayon">Seuls les jeunes dont le consentement est enregistré peuvent être liés.</span>
         </div>
       )}
 
       {serveur && !self && <AccesCompte c={c} />}
-      {self && <span className="text-[13px] text-muted">Vous ne pouvez pas désactiver votre propre compte.</span>}
+      {self && <span className="text-[14px] text-crayon">Vous ne pouvez pas désactiver votre propre compte.</span>}
       <SheetActions>
         <button type="button" onClick={onClose} className={sheetBtn.ghost}>
           Fermer
@@ -445,14 +493,14 @@ function NouveauCompteSheet({ onClose }: { onClose: () => void }) {
 
   return (
     <Sheet title="Nouveau compte" onClose={onClose}>
-      <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
+      <label className="flex flex-col text-sm font-semibold">
         Prénom et nom
         <input value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Ex. Mame Diarra Sy" className={fieldClass} autoFocus />
       </label>
-      {identifiant && <span className="-mt-1 num text-[12px] text-muted">identifiant : {identifiant}</span>}
+      {identifiant && <span className="-mt-1 font-mono text-[14px] text-crayon">identifiant proposé : {identifiant}</span>}
       <ChoixRoles roles={roles} onToggle={(r) => setRoles((list) => basculerRole(list, r))} />
       {roles.includes("cadre") && (
-        <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
+        <label className="flex flex-col text-sm font-semibold">
           Unité gérée
           <select value={unite} onChange={(e) => setUnite(e.target.value)} className={fieldClass}>
             {store.unites.map((u) => (
@@ -464,14 +512,14 @@ function NouveauCompteSheet({ onClose }: { onClose: () => void }) {
         </label>
       )}
       {serveur && (
-        <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
+        <label className="flex flex-col text-sm font-semibold">
           Mot de passe provisoire
           <input value={mdp} onChange={(e) => setMdp(e.target.value)} autoComplete="new-password" placeholder="10 caractères, lettres et chiffres" className={fieldClass} />
         </label>
       )}
-      {estParent && serveur && <span className="text-[13px] text-muted text-pretty">{ENFANTS_PLUS_TARD}</span>}
+      {estParent && serveur && <span className="text-[14px] text-crayon text-pretty">{ENFANTS_PLUS_TARD}</span>}
       {estParent && !serveur && (
-        <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
+        <label className="flex flex-col text-sm font-semibold">
           Enfant
           <select value={enfant} onChange={(e) => setEnfant(e.target.value)} className={fieldClass}>
             <option value="">Choisir un jeune…</option>
@@ -484,7 +532,7 @@ function NouveauCompteSheet({ onClose }: { onClose: () => void }) {
         </label>
       )}
       {exigeDeuxFARoles(roles) && (
-        <span className="text-[13px] text-muted text-pretty">La double authentification sera demandée à la première connexion.</span>
+        <span className="text-[14px] text-crayon text-pretty">La double authentification sera demandée à la première connexion.</span>
       )}
       <SheetActions>
         <button type="button" onClick={onClose} className={sheetBtn.ghost}>
@@ -525,24 +573,24 @@ function NouvelleUniteSheet({ onClose }: { onClose: () => void }) {
 
   return (
     <Sheet title="Nouvelle unité" onClose={onClose}>
-      <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
+      <label className="flex flex-col text-sm font-semibold">
         Nom
         <input value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Ex. Troupe Saint-Joseph" className={fieldClass} autoFocus />
       </label>
       <div className="flex flex-col gap-1.5">
-        <span className="text-[13px] font-semibold">Branche</span>
+        <span className="text-sm font-semibold">Branche</span>
         <Segmented
           label="Branche"
           value={branche}
           onChange={setBranche}
-          options={(["meute", "troupe", "route"] as BranchCode[]).map((b) => ({ value: b, label: BRANCHES[b].name, dot: BRANCH_COLORS[b].acc }))}
+          options={(["meute", "troupe", "route"] as BranchCode[]).map((b) => ({ value: b, label: BRANCHES[b].name }))}
         />
       </div>
-      <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
+      <label className="flex flex-col text-sm font-semibold">
         Année
         <input value={annee} onChange={(e) => setAnnee(e.target.value)} inputMode="numeric" className={fieldClass} />
       </label>
-      <span className="text-[13px] text-muted text-pretty">Créée le {fmtShort(toISODate(new Date()), true)}. La branche fixe le référentiel utilisé par l&apos;unité.</span>
+      <span className="text-[14px] text-crayon text-pretty">Créée le {fmtShort(toISODate(new Date()), true)}. La branche fixe le référentiel utilisé par l&apos;unité.</span>
       <SheetActions>
         <button type="button" onClick={onClose} className={sheetBtn.ghost}>
           Annuler

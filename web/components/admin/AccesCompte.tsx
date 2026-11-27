@@ -34,8 +34,8 @@ export function AccesCompte({ c }: { c: Compte }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-[13px] font-semibold">Accès</span>
-      <div className="flex gap-2">
+      <span className="text-sm font-semibold">Accès</span>
+      <div className="flex items-end gap-2">
         <input
           type="text"
           value={mdp}
@@ -49,14 +49,14 @@ export function AccesCompte({ c }: { c: Compte }) {
           type="button"
           disabled={!valide || busy}
           onClick={nouveauMotDePasse}
-          className="h-12 rounded-ui bg-acc px-4 text-[14px] font-bold text-acc-ink disabled:bg-track disabled:text-muted"
+          className="h-12 flex-none bg-sentier px-4 text-[15px] font-semibold text-white disabled:bg-ligne disabled:text-crayon"
         >
           Changer
         </button>
       </div>
-      <span className="text-[12px] text-muted">10 caractères au moins, avec des lettres et des chiffres. Remettez-le en main propre.</span>
+      <span className="text-[14px] text-crayon">10 caractères au moins, avec des lettres et des chiffres. Remettez-le en main propre.</span>
       {c.deuxFA && (
-        <button type="button" disabled={busy} onClick={retirerFacteur} className="self-start text-[13px] font-semibold text-acc-text underline underline-offset-2">
+        <button type="button" disabled={busy} onClick={retirerFacteur} className="min-h-11 self-start bg-transparent text-[15px] font-semibold text-encre underline underline-offset-4">
           Téléphone perdu : retirer le second facteur
         </button>
       )}

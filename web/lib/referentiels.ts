@@ -109,12 +109,6 @@ export const BRANCHES: Record<BranchCode, Branche> = {
 };
 
 /** Couleurs de branche (accent, texte sur fond clair, encre sur accent, fond doux). */
-export const BRANCH_COLORS: Record<BranchCode, { acc: string; accText: string; accInk: string; soft: string }> = {
-  troupe: { acc: "#0B6E3C", accText: "#0B6E3C", accInk: "#FFFFFF", soft: "#E1EFE6" },
-  meute: { acc: "#E0A800", accText: "#6E5200", accInk: "#1F1D19", soft: "#FBF0D2" },
-  route: { acc: "#B3261E", accText: "#B3261E", accInk: "#FFFFFF", soft: "#F7E3E1" },
-};
-
 export const REF_TITLES: Record<BranchCode, string> = {
   troupe: "Carnet de preuves",
   meute: "Guide du louvetier",

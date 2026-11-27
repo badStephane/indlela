@@ -14,8 +14,8 @@ import type { Domaine, Etape, Preuve } from "@/lib/referentiels";
 export type Edit = (fn: (steps: Etape[]) => Etape[]) => void;
 
 const shortId = () => uuid().slice(0, 8);
-const fieldClass = "h-10 min-w-0 rounded-ui border border-line-strong bg-surface px-3 text-[14px] text-ink outline-none focus:border-ink";
-const chipClass = "h-8 flex-none rounded-full border px-2.5 text-[12px] font-bold";
+const fieldClass = "h-11 min-w-0 border-0 border-b-[1.5px] border-encre bg-transparent px-0 text-[16px] font-normal text-encre";
+const chipClass = "min-h-11 flex-none border-[1.5px] px-3 text-[14px] font-semibold";
 
 /** Champ texte enregistré à la sortie du champ ou sur Entrée ; Échap annule. */
 function EditableText({ value, onCommit, label, allowEmpty = false, className }: { value: string; onCommit: (v: string) => void; label: string; allowEmpty?: boolean; className?: string }) {
@@ -50,7 +50,7 @@ export function AddInput({ placeholder, onAdd }: { placeholder: string; onAdd: (
       className="flex gap-2"
     >
       <input value={text} onChange={(e) => setText(e.target.value)} maxLength={MAX_LABEL} placeholder={placeholder} aria-label={placeholder} className={cx(fieldClass, "flex-1")} />
-      <button type="submit" disabled={!text.trim()} className="h-10 flex-none rounded-ui bg-acc px-3.5 text-[13px] font-bold text-acc-ink disabled:bg-track disabled:text-muted">
+      <button type="submit" disabled={!text.trim()} className="h-11 flex-none bg-sentier px-4 text-[15px] font-semibold text-white disabled:bg-ligne disabled:text-crayon">
         Ajouter
       </button>
     </form>
@@ -58,7 +58,7 @@ export function AddInput({ placeholder, onAdd }: { placeholder: string; onAdd: (
 }
 
 function MoveButtons({ name, first, last, onMove }: { name: string; first: boolean; last: boolean; onMove: (delta: number) => void }) {
-  const cls = "h-8 w-8 flex-none rounded-ui border border-line bg-surface text-[13px] text-muted disabled:opacity-30";
+  const cls = "size-11 flex-none border-[1.5px] border-encre bg-transparent text-[15px] text-encre disabled:border-ligne disabled:text-crayon";
   return (
     <span className="flex flex-none gap-1">
       <button type="button" disabled={first} onClick={() => onMove(-1)} aria-label={`Monter ${name}`} className={cls}>
@@ -73,7 +73,7 @@ function MoveButtons({ name, first, last, onMove }: { name: string; first: boole
 
 function ArchiveButton({ archived, onToggle }: { archived?: boolean; onToggle: () => void }) {
   return (
-    <button type="button" onClick={onToggle} className={cx(chipClass, archived ? "border-acc text-acc-text" : "border-line-strong text-muted")}>
+    <button type="button" onClick={onToggle} className={cx(chipClass, archived ? "border-sentier bg-transparent text-sentier" : "border-encre bg-transparent text-encre")}>
       {archived ? "Restaurer" : "Archiver"}
     </button>
   );
@@ -83,20 +83,20 @@ export function EtapeEditor({ step, index, edit, isOpen, onOpen }: { step: Etape
   const brevets = step.regle?.kind === "brevets";
   const actifs = step.domaines.filter((d) => !d.archive).length;
   return (
-    <div className="flex flex-col border-b border-rule bg-surface">
-      <button type="button" aria-expanded={isOpen} onClick={onOpen} className="flex min-h-14 w-full items-center gap-3 bg-transparent px-3.5 py-2 text-left text-inherit">
-        <span className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full bg-acc-soft num text-[13px] font-bold text-acc-text">{index + 1}</span>
+    <div className="flex flex-col border-b border-ligne">
+      <button type="button" aria-expanded={isOpen} onClick={onOpen} className="flex min-h-14 w-full items-center gap-3 bg-transparent py-2 text-left text-encre">
+        <span className="w-6 flex-none font-mono text-[15px]">{index + 1}.</span>
         <span className="flex flex-1 flex-col">
-          <span className="text-[16px] font-semibold">{step.name}</span>
-          <span className="text-[12px] text-muted">
+          <span className="text-[17px] font-semibold">{step.name}</span>
+          <span className="text-[14px] text-crayon">
             {actifs} {brevets ? "séries de brevets" : "domaines"}
             {step.rule ? ` · ${step.rule}` : ""}
           </span>
         </span>
-        <span className="text-[16px] text-muted">{isOpen ? "▴" : "▾"}</span>
+        <span aria-hidden="true" className="text-[16px] text-crayon">{isOpen ? "▴" : "▾"}</span>
       </button>
       {isOpen && (
-        <div className="flex flex-col gap-3 px-3.5 pb-4">
+        <div className="flex flex-col gap-4 pb-5">
           <div className="grid gap-2 sm:grid-cols-3">
             <Field label="Nom de l'étape">
               <EditableText label="Nom de l'étape" value={step.name} onCommit={(name) => edit((s) => updateEtape(s, step.id, { name }))} />
@@ -121,7 +121,7 @@ export function EtapeEditor({ step, index, edit, isOpen, onOpen }: { step: Etape
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="flex flex-col gap-1 text-[12px] font-semibold text-muted">
+    <label className="flex flex-col text-sm font-semibold">
       {label}
       {children}
     </label>
@@ -133,11 +133,11 @@ function DomaineEditor({ d, brevets, edit, first, last }: { d: Domaine; brevets:
   const unit = brevets ? ["brevet", "brevets"] : ["preuve", "preuves"];
   const patch = (pt: Parameters<typeof updateDomaine>[2]) => edit((s) => updateDomaine(s, d.id, pt));
   return (
-    <details className={cx("rounded-ui border border-line", d.archive && "opacity-70")}>
-      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 px-3 py-1.5">
+    <details className={cx("border-l-4 border-ligne pl-3", d.archive && "text-crayon")}>
+      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 py-1.5">
         <span className="flex min-w-0 flex-col">
-          <span className={cx("text-[14px] font-semibold", d.archive && "line-through")}>{d.name}</span>
-          <span className="num text-[11px] text-muted">
+          <span className={cx("text-[16px] font-semibold", d.archive && "line-through")}>{d.name}</span>
+          <span className="font-mono text-[13px] text-crayon">
             {actives} {actives > 1 ? unit[1] : unit[0]}
             {d.min ? ` · ${d.min} au choix` : ""}
             {d.archive ? " · archivé" : d.obligatoire ? " · obligatoire" : " · au choix"}
@@ -145,21 +145,21 @@ function DomaineEditor({ d, brevets, edit, first, last }: { d: Domaine; brevets:
         </span>
         <MoveButtons name={d.name} first={first} last={last} onMove={(delta) => edit((s) => moveDomaine(s, d.id, delta))} />
       </summary>
-      <div className="flex flex-col gap-2 border-t border-line px-3 pb-3 pt-2.5">
+      <div className="flex flex-col gap-2 border-t border-ligne pb-3 pt-2.5">
         <EditableText label={`Nom du domaine ${d.name}`} value={d.name} onCommit={(name) => patch({ name })} />
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             aria-pressed={d.obligatoire}
             onClick={() => patch({ obligatoire: !d.obligatoire })}
-            className={cx(chipClass, d.obligatoire ? "border-transparent bg-acc-soft text-acc-text" : "border-line-strong text-muted")}
+            className={cx(chipClass, d.obligatoire ? "border-encre bg-encre text-fond" : "border-encre bg-transparent text-encre")}
           >
             {d.obligatoire ? "Obligatoire" : "Au choix"}
           </button>
           {!brevets && actives > 1 && (
-            <label className="flex items-center gap-1.5 text-[12px] font-semibold text-muted">
+            <label className="flex items-center gap-1.5 text-[14px] font-semibold">
               À réussir
-              <select value={d.min ?? 0} onChange={(e) => patch({ min: Number(e.target.value) })} className="h-8 rounded-ui border border-line-strong bg-surface px-1.5 text-[12px] text-ink">
+              <select value={d.min ?? 0} onChange={(e) => patch({ min: Number(e.target.value) })} className="h-11 border-0 border-b-[1.5px] border-encre bg-transparent px-1 text-[15px] text-encre">
                 <option value={0}>toutes</option>
                 {Array.from({ length: actives - 1 }, (_, i) => i + 1).map((n) => (
                   <option key={n} value={n}>
@@ -184,7 +184,7 @@ function DomaineEditor({ d, brevets, edit, first, last }: { d: Domaine; brevets:
 
 function PreuveEditor({ x, edit, first, last }: { x: Preuve; edit: Edit; first: boolean; last: boolean }) {
   return (
-    <div className={cx("flex items-center gap-1.5", x.archive && "opacity-60")}>
+    <div className={cx("flex items-center gap-1.5", x.archive && "text-crayon")}>
       <EditableText label={`Libellé : ${x.label}`} value={x.label} onCommit={(label) => edit((s) => updatePreuve(s, x.id, { label }))} className={cx("flex-1", x.archive && "line-through")} />
       <MoveButtons name={x.label} first={first} last={last} onMove={(delta) => edit((s) => movePreuve(s, x.id, delta))} />
       <ArchiveButton archived={x.archive} onToggle={() => edit((s) => updatePreuve(s, x.id, { archive: !x.archive }))} />
@@ -197,14 +197,14 @@ function ReglesEditor({ step, edit }: { step: Etape; edit: Edit }) {
   const regle = step.regle;
   const setBrevets = (min: number, series: number) => edit((s) => updateEtapeRegles(s, step.id, { brevets: { min, series } }));
   return (
-    <div className="flex flex-col gap-2.5 rounded-ui bg-paper px-3 py-2.5">
-      <span className="text-[12px] font-semibold text-muted">Règles de passage</span>
-      <label className="flex flex-wrap items-center justify-between gap-2 text-[13px]">
+    <div className="flex flex-col gap-2.5 border-[1.5px] border-encre px-3 py-3">
+      <span className="text-[15px] font-bold">Règles de passage</span>
+      <label className="flex flex-wrap items-center justify-between gap-2 text-[15px]">
         Vote secret de la cour d&apos;honneur
         <select
           value={step.vote ? String(MAJORITES.find((m) => Math.abs(m.value - step.vote!.majorite) < 0.01)?.value ?? step.vote.majorite) : "0"}
           onChange={(e) => edit((s) => updateEtapeRegles(s, step.id, { vote: Number(e.target.value) || null }))}
-          className="h-9 rounded-ui border border-line-strong bg-surface px-2 text-[13px] text-ink"
+          className="h-11 border-0 border-b-[1.5px] border-encre bg-transparent px-1 text-[15px] text-encre"
         >
           <option value="0">Pas de vote</option>
           {MAJORITES.map((m) => (
@@ -214,21 +214,21 @@ function ReglesEditor({ step, edit }: { step: Etape; edit: Edit }) {
           ))}
         </select>
       </label>
-      <label className="flex min-h-9 items-center gap-2.5 text-[13px]">
+      <label className="flex min-h-11 items-center gap-2.5 text-[15px]">
         <input
           type="checkbox"
           checked={!!regle}
           onChange={(e) => edit((s) => updateEtapeRegles(s, step.id, { brevets: e.target.checked ? { min: 3, series: 2 } : null }))}
-          className="h-4 w-4 accent-[var(--acc)]"
+          className="size-5 accent-sentier"
         />
         Étape validée par brevets (chaque domaine est une série)
       </label>
       {regle && (
-        <div className="flex flex-wrap items-center gap-2 text-[13px]">
+        <div className="flex flex-wrap items-center gap-2 text-[15px]">
           Au moins
-          <input type="number" min={1} max={20} value={regle.min} onChange={(e) => setBrevets(Number(e.target.value), regle.series)} aria-label="Nombre de brevets" className="h-9 w-16 rounded-ui border border-line-strong bg-surface px-2 text-ink" />
+          <input type="number" min={1} max={20} value={regle.min} onChange={(e) => setBrevets(Number(e.target.value), regle.series)} aria-label="Nombre de brevets" className="h-11 w-16 border-0 border-b-[1.5px] border-encre bg-transparent px-1 font-mono text-encre" />
           brevets, dans
-          <input type="number" min={1} max={regle.min} value={regle.series} onChange={(e) => setBrevets(regle.min, Number(e.target.value))} aria-label="Nombre de séries" className="h-9 w-16 rounded-ui border border-line-strong bg-surface px-2 text-ink" />
+          <input type="number" min={1} max={regle.min} value={regle.series} onChange={(e) => setBrevets(regle.min, Number(e.target.value))} aria-label="Nombre de séries" className="h-11 w-16 border-0 border-b-[1.5px] border-encre bg-transparent px-1 font-mono text-encre" />
           séries différentes
         </div>
       )}

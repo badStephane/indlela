@@ -9,6 +9,7 @@ import {
   GRANULARITES,
   periodes,
   synthese,
+  validationsParMois,
   type AnneeScoute,
   type DonneesProgression,
   type Granularite,
@@ -29,6 +30,8 @@ export interface Rapport {
   periodes: Periode[];
   lignes: LigneEvolution[];
   synthese: LigneSynthese[];
+  /** Preuves validées de chaque mois, de septembre à l'arrêté. */
+  parMois: { label: string; validations: number }[];
   jeunes: LigneJeune[];
 }
 
@@ -45,6 +48,7 @@ export function construireRapport(data: DonneesProgression, annee: AnneeScoute, 
     periodes: ps,
     lignes: evolution(data, ps, branches),
     synthese: synthese(data, annee, branches, today),
+    parMois: validationsParMois(data, annee, branches, today),
     jeunes: bilanJeunes(data, annee, today)
       .filter((x) => branches.includes(x.j.branche))
       .sort((a, b) => ORDER.indexOf(a.j.branche) - ORDER.indexOf(b.j.branche) || a.j.nom.localeCompare(b.j.nom, "fr") || a.j.prenom.localeCompare(b.j.prenom, "fr")),

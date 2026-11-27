@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Sheet } from "@/components/Sheet";
 import { usePhotos } from "@/lib/photosStore";
 
-const vignetteClass = "h-16 w-16 flex-none overflow-hidden rounded-ui border border-line bg-paper object-cover";
+const vignetteClass = "h-16 w-16 flex-none overflow-hidden border border-ligne bg-fond-2 object-cover";
 
 /** Adresse d'affichage d'une photo encore sur le téléphone ; libérée en quittant l'écran. */
 export function useUrlLocale(id: string): string | null {
@@ -58,16 +58,16 @@ export function Vignette({ url, alt, enAttente = false }: { url: string | null; 
   if (!url) return <span aria-hidden className={`${vignetteClass} animate-pulse`} />;
   return (
     <>
-      <button type="button" onClick={() => setOuverte(true)} aria-label={`Agrandir : ${alt}`} className="relative flex-none rounded-ui">
+      <button type="button" onClick={() => setOuverte(true)} aria-label={`Agrandir : ${alt}`} className="relative flex-none">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={url} alt="" className={vignetteClass} />
-        {enAttente && <span title="En attente d'envoi" className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full border border-white bg-wait-dot" />}
+        {enAttente && <span title="En attente d'envoi" className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full border border-white bg-attente" />}
       </button>
       {ouverte && (
         <Sheet title="Photo de preuve" onClose={() => setOuverte(false)}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={url} alt={alt} className="max-h-[70vh] w-full rounded-ui object-contain" />
-          {enAttente && <span className="text-[13px] text-wait-text">Sur le téléphone : elle partira avec la validation.</span>}
+          <img src={url} alt={alt} className="max-h-[70vh] w-full object-contain" />
+          {enAttente && <span className="text-[15px] text-crayon">Sur le téléphone : elle partira avec la validation.</span>}
         </Sheet>
       )}
     </>

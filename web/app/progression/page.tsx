@@ -1,38 +1,28 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, type ReactNode } from "react";
+import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
-import { RapportCard } from "@/components/progression/RapportCard";
-import { Card, cx, List, rowClass, Section } from "@/components/ui";
-import { SentierEffectif, SentierJeune } from "@/components/Sentier";
+import { BarreSentier, BlocBranche, Chiffre, Chiffres, Echelle, Surligne, TitreSection } from "@/components/carte";
 import { useGuard } from "@/lib/access";
 import { useStore } from "@/lib/store";
-import { BRANCHES, BRANCH_COLORS, type BranchCode } from "@/lib/referentiels";
+import { BRANCHES, type BranchCode } from "@/lib/referentiels";
 import { fullName, type Jeune } from "@/lib/mock";
 import { plural, progressOf } from "@/lib/progress";
 import { jeuneHref } from "@/lib/routes";
-import {
-  cadresInactifs,
-  estActif,
-  jeunesARelancer,
-  parEtape,
-  pretsAPresenter,
-  sansConsentement,
-  SEUIL_CADRE_JOURS,
-  SEUIL_JEUNE_JOURS,
-  type JeuneARelancer,
-} from "@/lib/suivi";
+import { cadresInactifs, estActif, jeunesARelancer, parEtape, sansConsentement, SEUIL_CADRE_JOURS, SEUIL_JEUNE_JOURS } from "@/lib/suivi";
 
 // Tableau de bord du responsable progression : chaque unité du groupe, avec de vraies
 // données, puis qui relancer (jeunes, cadres, consentements manquants).
 
-const ORDER: BranchCode[] = ["meute", "troupe", "route"];
+const ORDER: BranchCode[] = ["troupe", "meute", "route"];
+/** Jeunes montrés d'emblée sous chaque unité ; les autres se déplient. */
+const APERCU = 3;
 
 export default function Progression() {
   const ok = useGuard((r) => r === "progression");
   const store = useStore();
-  const { jeunes, vals, recons, steps, comptes } = store;
+  const { jeunes, vals, comptes } = store;
 
   useEffect(() => {
     if (ok) store.setLastTab("/progression");
@@ -43,178 +33,180 @@ export default function Progression() {
 
   const actifs = jeunes.filter(estActif);
   const relances = jeunesARelancer(jeunes, vals);
-  const prets = pretsAPresenter(jeunes, steps, vals, recons);
   const cadres = cadresInactifs(comptes);
   const attente = sansConsentement(jeunes);
-  const nbUnites = ORDER.filter((b) => actifs.some((j) => j.branche === b)).length;
-
-  const kpis = [
-    { v: actifs.length, l: `jeunes dans ${nbUnites} ${plural(nbUnites, "unité", "unités")}` },
-    { v: prets.length, l: plural(prets.length, "étape à présenter", "étapes à présenter") },
-    { v: relances.length, l: `sans validation depuis ${SEUIL_JEUNE_JOURS} jours` },
-  ];
 
   return (
-    <AppShell kicker={store.groupeNom} title="Progression du groupe" wide>
-      <div className="flex flex-col gap-[22px] p-4">
-        <div className="grid grid-cols-3 gap-2.5 rounded-card border border-line bg-forest px-4 py-[18px] text-white">
-          {kpis.map((k) => (
-            <div key={k.l} className="flex min-w-0 flex-col gap-1.5">
-              <span className="text-[34px] font-extrabold leading-[0.9] tracking-[-0.03em]">{k.v}</span>
-              <span className="text-[12px] leading-[1.25] text-forest-muted text-pretty">{k.l}</span>
-            </div>
-          ))}
-        </div>
+    <AppShell kicker="Toutes les unités, avec leurs vraies données" title="Progression du groupe" wide>
+      <div className="flex flex-col gap-4 px-4 pb-10 lg:px-0">
+        <Chiffres className="grid-cols-2 lg:grid-cols-4">
+          <Chiffre valeur={actifs.length} libelle={plural(actifs.length, "jeune actif", "jeunes actifs")} />
+          <Chiffre valeur={relances.length ? <Surligne>{relances.length}</Surligne> : 0} libelle={`${plural(relances.length, "jeune", "jeunes")} à relancer`} />
+          <Chiffre valeur={cadres.length} libelle={plural(cadres.length, "cadre inactif", "cadres inactifs")} />
+          <Chiffre valeur={attente.length} libelle={plural(attente.length, "consentement manquant", "consentements manquants")} />
+        </Chiffres>
 
-        <Section label="Unités du groupe" gap="gap-2.5">
-          <div className="grid gap-2.5 lg:grid-cols-[repeat(auto-fit,minmax(300px,1fr))]">
+        <div className="flex flex-col gap-8 lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:gap-10">
+          <div className="flex min-w-0 flex-col gap-8 pt-4">
             {ORDER.map((b) => (
-              <UniteCard key={b} branche={b} relances={relances} />
+              <UniteBloc key={b} branche={b} />
             ))}
           </div>
-        </Section>
 
-        <Section label="Rapport d'évolution" gap="gap-2.5">
-          <RapportCard />
-        </Section>
+          <aside className="flex min-w-0 flex-col">
+            <TitreSection aDroite={`sans validation · ${SEUIL_JEUNE_JOURS} j`}>À relancer</TitreSection>
+            {relances.length ? (
+              <Liste>
+                {relances.map(({ j, jours }) => (
+                  <Ligne key={j.id} href={jeuneHref(j.id)} nom={fullName(j)} unite={BRANCHES[j.branche].name} jours={jours} />
+                ))}
+              </Liste>
+            ) : (
+              <Vide>Chaque jeune a eu une validation ce mois-ci.</Vide>
+            )}
 
-        <Section label={`Jeunes sans validation depuis ${SEUIL_JEUNE_JOURS} jours`} gap="gap-2.5">
-          {relances.length ? (
-            <JeunesARelancer list={relances} />
-          ) : (
-            <span className="text-[14px] text-muted">Chaque jeune a eu une validation ce mois-ci.</span>
-          )}
-        </Section>
+            <TitreSection aDroite={`sans connexion · ${SEUIL_CADRE_JOURS} j`}>Cadres inactifs</TitreSection>
+            {cadres.length ? (
+              <Liste>
+                {cadres.map(({ compte, jours }) => (
+                  <Ligne
+                    key={compte.id}
+                    nom={compte.nom}
+                    unite={compte.unites.map((u) => BRANCHES[u as BranchCode]?.name ?? u).join(", ") || "Aucune unité"}
+                    jours={jours}
+                  />
+                ))}
+              </Liste>
+            ) : (
+              <Vide>Tous les cadres se sont connectés récemment.</Vide>
+            )}
 
-        <Section label={`Cadres sans connexion depuis ${SEUIL_CADRE_JOURS / 7} semaines`} gap="gap-2.5">
-          {cadres.length ? (
-            <List>
-              {cadres.map(({ compte, jours }) => (
-                <div key={compte.id} className={`${rowClass} min-h-[52px] justify-between gap-3 py-2`}>
-                  <span className="flex min-w-0 flex-col">
-                    <span className="text-[15px] font-semibold">{compte.nom}</span>
-                    <span className="text-[12px] text-muted">{compte.unites.map((u) => store.unitesNoms[u as BranchCode] ?? u).join(", ") || "Aucune unité"}</span>
-                  </span>
-                  <span className="flex-none num text-[13px] font-semibold text-stale">{jours === null ? "Jamais connecté" : `${jours} jours`}</span>
-                </div>
-              ))}
-            </List>
-          ) : (
-            <span className="text-[14px] text-muted">Tous les cadres se sont connectés récemment.</span>
-          )}
-        </Section>
+            <TitreSection>Consentements manquants</TitreSection>
+            {attente.length ? (
+              <>
+                <p className="m-0 py-2 text-[16px] text-pretty">
+                  {attente.length > 1 ? `${attente.length} fiches restent inactives` : "1 fiche reste inactive"} tant que l&apos;admin n&apos;a pas enregistré le consentement des
+                  parents.
+                </p>
+                <Liste>
+                  {attente.map((j) => (
+                    <Ligne key={j.id} nom={fullName(j)} unite={BRANCHES[j.branche].name} />
+                  ))}
+                </Liste>
+              </>
+            ) : (
+              <Vide>Toutes les fiches ont le consentement des parents.</Vide>
+            )}
 
-        {attente.length > 0 && (
-          <Section label="Fiches en attente du consentement des parents" gap="gap-2.5">
-            <List>
-              {attente.map((j) => (
-                <div key={j.id} className={`${rowClass} min-h-[52px] justify-between gap-3 py-2`}>
-                  <span className="text-[15px] font-semibold">{fullName(j)}</span>
-                  <span className="flex-none text-[12px] text-muted">{store.unitesNoms[j.branche]}</span>
-                </div>
-              ))}
-            </List>
-            <span className="text-[13px] text-muted text-pretty">Ces fiches restent inactives tant que l&apos;admin n&apos;a pas enregistré le formulaire signé.</span>
-          </Section>
-        )}
+            <Link
+              href="/progression/rapport"
+              className="mt-8 flex flex-col gap-1 border-[1.5px] border-encre p-4 text-encre no-underline outline outline-1 outline-offset-[3px] outline-encre hover:bg-fond-2"
+            >
+              <strong className="text-section font-extrabold">Rapport d&apos;évolution</strong>
+              <span className="text-[15px] text-crayon">Septembre à aujourd&apos;hui, en PDF ou en Excel</span>
+            </Link>
+          </aside>
+        </div>
       </div>
     </AppShell>
   );
 }
 
-function UniteCard({ branche, relances }: { branche: BranchCode; relances: JeuneARelancer[] }) {
+function UniteBloc({ branche }: { branche: BranchCode }) {
   const store = useStore();
-  const router = useRouter();
-  const { jeunes, vals, steps, comptes } = store;
-  const B = BRANCHES[branche];
-  const color = BRANCH_COLORS[branche].acc;
+  const { jeunes, steps, comptes } = store;
   const membres = jeunes.filter((j) => j.branche === branche && estActif(j));
-  const nbCadres = comptes.filter((c) => c.roles.includes("cadre") && c.actif && c.unites.includes(branche)).length;
   const responsableId = store.unites.find((u) => u.branche === branche)?.responsable;
   const responsable = comptes.find((c) => c.id === responsableId)?.nom;
-  const enRetard = relances.filter((x) => x.j.branche === branche).length;
+  const etapes = steps[branche];
   const counts = parEtape(jeunes, steps, branche);
-  const etapes = steps[branche].map((s, k) => ({ label: s.name, count: counts[k] }));
+  const autres = membres.slice(APERCU);
 
   return (
-    <Card className="flex flex-col overflow-hidden">
-      <div className="h-1" style={{ background: color }} />
-      <div className="flex flex-col gap-3 px-4 pb-4 pt-3.5">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
-          <span className="text-[18px] font-extrabold">{store.unitesNoms[branche]}</span>
-          <span className="flex-none num text-[12px] text-muted">
-            {membres.length} {plural(membres.length, "jeune", "jeunes")} · {nbCadres} {plural(nbCadres, "cadre", "cadres")}
-          </span>
-        </div>
-        <span className="-mt-2 text-[13px] text-muted">{responsable ? `Responsable : ${responsable}` : "Pas de responsable désigné"}</span>
-        {!steps[branche].length ? (
-          <span className="text-[14px] text-muted text-pretty">Pas encore de référentiel publié pour la branche.</span>
-        ) : !membres.length ? (
-          <span className="text-[14px] text-muted text-pretty">Aucun jeune actif dans l&apos;unité.</span>
-        ) : (
-          <>
-            <SentierEffectif etapes={etapes} accent={color} />
-            <div className="flex justify-between gap-2 text-[13px]">
-              <span className="text-muted">
-                {membres.length - enRetard} sur {membres.length} à jour
-              </span>
-              <span className={cx("font-bold", enRetard ? "text-stale-strong" : "text-muted")}>{enRetard ? `${enRetard} à relancer` : "À jour"}</span>
-            </div>
-            <details className="rounded-ui border border-line">
-              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between px-3 text-[14px] font-bold">
-                Voir les jeunes <span className="text-muted">▾</span>
-              </summary>
-              <div className="flex flex-col border-t border-line">
-                {membres.map((j) => (
-                  <JeuneLigne key={j.id} j={j} onOpen={() => router.push(jeuneHref(j.id))} progress={progressOf(j, steps, vals)} color={color} />
-                ))}
-              </div>
-            </details>
-          </>
-        )}
+    <BlocBranche branche={branche}>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <h2 className="m-0 text-section font-extrabold">{store.unitesNoms[branche]}</h2>
+        <span className="text-[15px] text-crayon">{responsable ? `Responsable : ${responsable}` : "Pas de responsable désigné"}</span>
       </div>
-    </Card>
+      {!etapes.length ? (
+        <p className="m-0 pt-2 text-[16px] text-crayon">Pas encore de référentiel publié pour la branche.</p>
+      ) : !membres.length ? (
+        <p className="m-0 pt-2 text-[16px] text-crayon">Aucun jeune actif dans l&apos;unité.</p>
+      ) : (
+        <div className="flex flex-col pt-3">
+          <BarreSentier repartition={etapes.map((s, k) => ({ etape: s.name, nombre: counts[k] }))} />
+          <div className="flex justify-between pt-1 text-[14px] text-crayon">
+            <span>{etapes[0].name}</span>
+            <span>{etapes[etapes.length - 1].name}</span>
+          </div>
+          <ul className="m-0 mt-2 list-none p-0">
+            {membres.slice(0, APERCU).map((j) => (
+              <JeuneLigne key={j.id} j={j} />
+            ))}
+          </ul>
+          {autres.length > 0 && (
+            <details className="group">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center text-[16px] font-semibold underline underline-offset-4">
+                <span className="group-open:hidden">Voir les {membres.length} jeunes</span>
+                <span className="hidden group-open:inline">Masquer</span>
+              </summary>
+              <ul className="m-0 list-none p-0">
+                {autres.map((j) => (
+                  <JeuneLigne key={j.id} j={j} />
+                ))}
+              </ul>
+            </details>
+          )}
+        </div>
+      )}
+    </BlocBranche>
   );
 }
 
-function JeuneLigne({ j, progress, color, onOpen }: { j: Jeune; progress: ReturnType<typeof progressOf>; color: string; onOpen: () => void }) {
+function JeuneLigne({ j }: { j: Jeune }) {
+  const { steps, vals } = useStore();
+  const p = progressOf(j, steps, vals);
   return (
-    <button type="button" onClick={onOpen} className="flex min-h-12 w-full items-center gap-3 border-b border-rule bg-transparent px-3 py-1.5 text-left text-inherit last:border-b-0">
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-[14px] font-semibold">{fullName(j)}</span>
-        <span className="text-[12px] text-muted">
-          {progress.step?.name} · {progress.done}/{progress.total}
+    <li className="border-b border-ligne">
+      <Link href={jeuneHref(j.id)} className="flex min-h-12 flex-wrap items-center gap-x-3 gap-y-1 py-2 text-[17px] text-encre no-underline">
+        <span className="min-w-[8rem] flex-1 truncate font-semibold">{fullName(j)}</span>
+        <span className="ml-auto flex max-w-full items-center gap-3">
+          <span className="flex-none text-[15px] font-semibold text-sentier">{p.step?.name}</span>
+          <Echelle faites={p.done} total={p.total} />
         </span>
-      </span>
-      <SentierJeune
-        total={progress.steps.length}
-        index={progress.index}
-        part={progress.total ? progress.done / progress.total : 0}
-        accent={color}
-        label={`${progress.step?.name ?? ""}, ${progress.done} sur ${progress.total}`}
-        className="w-28 flex-none"
-      />
-    </button>
+      </Link>
+    </li>
   );
 }
 
-function JeunesARelancer({ list }: { list: JeuneARelancer[] }) {
-  const router = useRouter();
-  const store = useStore();
-  const { steps } = store;
+function Liste({ children }: { children: ReactNode }) {
+  return <ul className="m-0 list-none p-0">{children}</ul>;
+}
+
+function Vide({ children }: { children: ReactNode }) {
+  return <p className="m-0 py-3 text-[16px] text-crayon">{children}</p>;
+}
+
+/** Une personne : nom en gras, unité, et depuis combien de jours (« jamais » si aucune trace). */
+function Ligne({ nom, unite, jours, href }: { nom: string; unite: string; jours?: number | null; href?: string }) {
+  const contenu = (
+    <>
+      <span className="min-w-0">
+        <strong className="font-bold">{nom}</strong> · {unite}
+      </span>
+      {jours !== undefined && <span className="flex-none font-mono text-[14px]">{jours === null ? "jamais" : `${jours} j`}</span>}
+    </>
+  );
+  const classe = "flex min-h-12 items-baseline justify-between gap-3 py-3 text-[16px] text-encre no-underline";
   return (
-    <List>
-      {list.map(({ j, jours }) => (
-        <button key={j.id} type="button" onClick={() => router.push(jeuneHref(j.id))} className={`${rowClass} min-h-[52px] justify-between gap-3 py-2`}>
-          <span className="flex min-w-0 flex-col">
-            <span className="text-[15px] font-semibold">{fullName(j)}</span>
-            <span className="text-[12px] text-muted">
-              {store.unitesNoms[j.branche]} · {steps[j.branche].find((s) => s.id === j.etapeId)?.name}
-            </span>
-          </span>
-          <span className="flex-none num text-[13px] font-semibold text-stale">{jours === null ? "Jamais" : `${jours} jours`}</span>
-        </button>
-      ))}
-    </List>
+    <li className="border-b border-ligne">
+      {href ? (
+        <Link href={href} className={classe}>
+          {contenu}
+        </Link>
+      ) : (
+        <div className={classe}>{contenu}</div>
+      )}
+    </li>
   );
 }

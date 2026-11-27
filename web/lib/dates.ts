@@ -1,4 +1,4 @@
-const MONTHS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
+export const MONTHS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
 export const LONG_MONTHS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
 const DAYS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
 
@@ -52,6 +52,21 @@ export function fmtDayMonth(iso: string, long = false): string {
 /** Date relative pour une validation : « Aujourd'hui » ou « 12 oct. ». */
 export function fmtWhen(iso: string): string {
   return daysSince(iso) === 0 ? "Aujourd'hui" : fmtShort(iso);
+}
+
+const deuxChiffres = (n: number) => String(n).padStart(2, "0");
+
+/** Date de carte, en chiffres : « 03.09 », ou « 03.09.2026 » avec l'année. */
+export function fmtPoint(iso: string, avecAnnee = false): string {
+  const x = fromISODate(iso);
+  const jourMois = `${deuxChiffres(x.getDate())}.${deuxChiffres(x.getMonth() + 1)}`;
+  return avecAnnee ? `${jourMois}.${x.getFullYear()}` : jourMois;
+}
+
+/** Mois et année : « 03.2026 » (étape franchie, entrée dans l'unité). */
+export function fmtMoisAn(iso: string): string {
+  const x = fromISODate(iso);
+  return `${deuxChiffres(x.getMonth() + 1)}.${x.getFullYear()}`;
 }
 
 export function toISODate(d: Date): string {
