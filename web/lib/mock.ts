@@ -159,16 +159,6 @@ export function ceremonies(now: Date = new Date()) {
   return { courHonneur: plus(12), remiseMeute: plus(19) };
 }
 
-/** Données des unités que la démo ne détaille pas (meute et route du groupe). */
-export const GROUP_OTHER_UNITS = {
-  meute: { effectif: 18, cadres: 4, parEtape: [5, 7, 4, 2], valideesCeMois: 14, sansValidation: 4 },
-  route: { effectif: 7, cadres: 2 },
-  aRemettre: [
-    { name: "Seynabou Diouf", step: "2e étoile" },
-    { name: "Alioune Kane", step: "1re étoile" },
-  ],
-};
-
 export function historiqueUnites(j: Jeune, noms: NomsUnites): { unit: string; period: string }[] {
   const unit = noms[j.branche];
   const debut = fromISODate(j.dateEntree).getFullYear();

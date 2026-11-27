@@ -8,13 +8,16 @@ import { cx } from "@/components/ui";
 import { useGuard } from "@/lib/access";
 import { useStore, useTroupe } from "@/lib/store";
 import { BRANCHES, type BranchCode } from "@/lib/referentiels";
-import { ageOf, ceremonies, fullName, GROUP_OTHER_UNITS } from "@/lib/mock";
+import { ageOf, ceremonies, fullName } from "@/lib/mock";
+import { estActif, parEtape, pretsAPresenter } from "@/lib/suivi";
 import { plural, progressOf } from "@/lib/progress";
 import { fmtDayMonth } from "@/lib/dates";
 import { anneeScoute } from "@/lib/rapport";
 import { jeuneHref } from "@/lib/routes";
 import { slug, telechargerExcel } from "@/lib/excel";
 
+
+const ORDRE: BranchCode[] = ["meute", "troupe", "route"];
 
 interface LigneUnite {
   code: BranchCode;
@@ -30,7 +33,7 @@ export default function Groupe() {
   const store = useStore();
   const router = useRouter();
   const troupe = useTroupe();
-  const { vals, offline, steps } = store;
+  const { vals, recons, offline, steps, jeunes, comptes } = store;
 
   useEffect(() => {
     if (ok) store.setLastTab("/groupe");
@@ -39,34 +42,28 @@ export default function Groupe() {
 
   if (!ok) return null;
 
-  const M = GROUP_OTHER_UNITS.meute;
-  const R = GROUP_OTHER_UNITS.route;
   const { courHonneur, remiseMeute } = ceremonies();
   const annee = anneeScoute(new Date());
+  const actifs = jeunes.filter(estActif);
   const rows = troupe.map((j) => ({ j, p: progressOf(j, steps, vals) }));
-  const award = rows.filter((r) => r.p.complete);
-  const aRemettre = award.length + GROUP_OTHER_UNITS.aRemettre.length;
-  const idsTroupe = new Set(troupe.map((j) => j.id));
-  const valideesAnnee = vals.filter((v) => idsTroupe.has(v.jeuneId) && !v.annuleeLe && v.date >= annee.debut).length;
-  const cadresTroupe = store.comptes.filter((c) => c.roles.includes("cadre") && c.actif && c.unites.includes("troupe")).length;
+  const prets = pretsAPresenter(jeunes, steps, vals, recons);
+  const idsActifs = new Set(actifs.map((j) => j.id));
+  const valideesAnnee = vals.filter((v) => idsActifs.has(v.jeuneId) && !v.annuleeLe && v.date >= annee.debut).length;
+  const OUVRIR: Partial<Record<BranchCode, () => void>> = {
+    meute: () => store.showToast("Module meute : ouverture prévue en V2 (mars 2027)"),
+    troupe: () => router.push("/unite"),
+  };
 
-  const unites: LigneUnite[] = [
-    {
-      code: "meute",
-      effectif: M.effectif,
-      cadres: M.cadres,
-      repartition: BRANCHES.meute.steps.map((s, k) => ({ etape: s.name, nombre: M.parEtape[k] ?? 0 })),
-      ouvrir: () => store.showToast("Module meute : ouverture prévue en V2 (mars 2027)"),
-    },
-    {
-      code: "troupe",
-      effectif: troupe.length,
-      cadres: cadresTroupe,
-      repartition: steps.troupe.map((s, k) => ({ etape: s.name, nombre: rows.filter((r) => r.p.index === k).length })),
-      ouvrir: () => router.push("/unite"),
-    },
-    { code: "route", effectif: R.effectif, cadres: R.cadres },
-  ];
+  const unites: LigneUnite[] = ORDRE.map((code) => {
+    const counts = parEtape(jeunes, steps, code);
+    return {
+      code,
+      effectif: actifs.filter((j) => j.branche === code).length,
+      cadres: comptes.filter((c) => c.roles.includes("cadre") && c.actif && c.unites.includes(code)).length,
+      repartition: steps[code].length ? steps[code].map((s, k) => ({ etape: s.name, nombre: counts[k] })) : undefined,
+      ouvrir: OUVRIR[code],
+    };
+  });
 
   const exportListes = () => {
     if (offline) return store.showToast("Export impossible hors connexion : il se fait depuis le serveur.");
@@ -84,9 +81,9 @@ export default function Groupe() {
     <AppShell kicker={`${store.groupeNom} · année scoute ${annee.label}`} title="Vue groupe" wide>
       <div className="flex flex-col gap-4 px-4 pb-10 pt-1 lg:px-0">
         <Chiffres className="grid-cols-2 lg:grid-cols-4">
-          <Chiffre valeur={troupe.length + M.effectif + R.effectif} libelle="jeunes actifs" />
+          <Chiffre valeur={actifs.length} libelle={plural(actifs.length, "jeune actif", "jeunes actifs")} />
           <Chiffre valeur={unites.length} libelle="unités" />
-          <Chiffre valeur={aRemettre ? <Surligne>{aRemettre}</Surligne> : 0} libelle={`${plural(aRemettre, "étape", "étapes")} à remettre`} />
+          <Chiffre valeur={prets.length ? <Surligne>{prets.length}</Surligne> : 0} libelle={`${plural(prets.length, "étape", "étapes")} à remettre`} />
           <Chiffre valeur={valideesAnnee} libelle={`${plural(valideesAnnee, "preuve validée", "preuves validées")} depuis septembre`} />
         </Chiffres>
 
@@ -147,15 +144,12 @@ export default function Groupe() {
 
           <section className="min-w-0">
             <TitreSection>Aux prochaines cérémonies</TitreSection>
-            {aRemettre === 0 ? (
+            {prets.length === 0 ? (
               <p className="m-0 py-3 text-[16px] text-crayon">Aucune étape à remettre pour l&apos;instant.</p>
             ) : (
               <ul className="m-0 list-none p-0">
-                {award.map(({ j, p }) => (
-                  <Remise key={j.id} nom={fullName(j)} unite={BRANCHES.troupe.name} etape={p.step?.name} onClick={() => router.push(jeuneHref(j.id))} />
-                ))}
-                {GROUP_OTHER_UNITS.aRemettre.map((m) => (
-                  <Remise key={m.name} nom={m.name} unite={BRANCHES.meute.name} etape={m.step} />
+                {prets.map(({ j, p }) => (
+                  <Remise key={j.id} nom={fullName(j)} unite={BRANCHES[j.branche].name} etape={p.step?.name} onClick={() => router.push(jeuneHref(j.id))} />
                 ))}
               </ul>
             )}

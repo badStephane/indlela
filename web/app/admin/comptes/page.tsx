@@ -11,7 +11,8 @@ import { useStore, type Role } from "@/lib/store";
 import { ANNEE, identifiantLibre, type Compte, type Unite } from "@/lib/admin";
 import { basculerRole, exigeDeuxFARoles, libelleRoles } from "@/lib/roles";
 import { BRANCHES, type BranchCode } from "@/lib/referentiels";
-import { fullName, GROUP_OTHER_UNITS, uuid, type Jeune } from "@/lib/mock";
+import { fullName, uuid, type Jeune } from "@/lib/mock";
+import { estActif } from "@/lib/suivi";
 import { fmtShort, fmtWhen, toISODate } from "@/lib/dates";
 import { plural } from "@/lib/progress";
 import { supabase } from "@/lib/supabase";
@@ -248,12 +249,9 @@ export default function Comptes() {
   );
 }
 
-/** Effectif d'une unité : les jeunes actifs pour la troupe, les chiffres de démo ailleurs. */
+/** Effectif d'une unité : ses jeunes actifs (consentement enregistré). */
 function effectifDe(u: Unite, jeunes: Jeune[]): number {
-  if (u.id === "meute") return GROUP_OTHER_UNITS.meute.effectif;
-  if (u.id === "route") return GROUP_OTHER_UNITS.route.effectif;
-  if (u.id === "troupe") return jeunes.filter((j) => j.branche === "troupe" && j.statut === "actif" && j.consentementLe).length;
-  return 0;
+  return jeunes.filter((j) => j.branche === u.branche && estActif(j)).length;
 }
 
 function UniteBloc({ u, comptes, effectif }: { u: Unite; comptes: Compte[]; effectif: number }) {
